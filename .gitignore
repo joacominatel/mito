@@ -1,0 +1,28 @@
+.DS_Store
+
+# Xcode / SwiftPM
+xcuserdata/
+DerivedData/
+*.xcuserstate
+.build/
+.swiftpm/
+Package.resolved.bak
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Data and secrets
+.env
+*.parquet
+data/out/
+
+# Agents
+.worktrees/
+.claude/lane
+.claude/settings.local.json
