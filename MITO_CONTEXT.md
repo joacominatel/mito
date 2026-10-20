@@ -1,0 +1,2245 @@
+# Mito — Documento de contexto del proyecto
+
+> Companion app nativa de macOS para League of Legends.
+> Este documento es la fuente de verdad del proyecto: visión, alcance, arquitectura, datos,
+> algoritmos, APIs, reglas de Riot, convenciones y roadmap. Está pensado para que cualquier
+> persona (o asistente de IA) que arranque una sesión de trabajo sobre Mito tenga todo el
+> contexto necesario sin tener que preguntar.
+
+- **Nombre:** Mito
+- **Autor / maintainer:** Joaco (@jminatel)
+- **Estado:** idea → arranque (octubre 2026)
+- **Plataforma objetivo:** macOS (Apple Silicon primero)
+- **Idioma de la UI:** español (es-AR) primero, inglés después
+- **Idioma del código:** inglés (identificadores, commits, comentarios técnicos)
+- **Idioma de la documentación:** este documento en español; todo lo demás (docs nuevas,
+  ADRs, instrucciones de agentes) en inglés
+
+---
+
+## Índice
+
+1. [Visión](#1-visión)
+2. [Origen y problema](#2-origen-y-problema)
+3. [Qué es y qué NO es Mito](#3-qué-es-y-qué-no-es-mito)
+4. [Alcance por versión](#4-alcance-por-versión)
+5. [Reglas de Riot y límites no negociables](#5-reglas-de-riot-y-límites-no-negociables)
+6. [Arquitectura general](#6-arquitectura-general)
+7. [Stack tecnológico](#7-stack-tecnológico)
+8. [Estructura del repositorio](#8-estructura-del-repositorio)
+9. [La app macOS (mito-app)](#9-la-app-macos-mito-app)
+10. [Conexión con el cliente: LCU API](#10-conexión-con-el-cliente-lcu-api)
+11. [Flujo de juego (gameflow) y máquina de estados](#11-flujo-de-juego-gameflow-y-máquina-de-estados)
+12. [Champ select en detalle](#12-champ-select-en-detalle)
+13. [Importación de runas, spells e ítems](#13-importación-de-runas-spells-e-ítems)
+14. [Pipeline de datos (mito-data)](#14-pipeline-de-datos-mito-data)
+15. [Riot API pública](#15-riot-api-pública)
+16. [Datos estáticos: Data Dragon, CommunityDragon y el cliente local](#16-datos-estáticos)
+17. [Modelo de datos del snapshot](#17-modelo-de-datos-del-snapshot)
+18. [Motor de recomendaciones](#18-motor-de-recomendaciones)
+19. [Capa personal](#19-capa-personal)
+20. [Pantalla de análisis pre-partida](#20-pantalla-de-análisis-pre-partida)
+21. [Configuración y toggles](#21-configuración-y-toggles)
+22. [Diseño de UI nativa](#22-diseño-de-ui-nativa)
+23. [Testing y entorno de desarrollo](#23-testing-y-entorno-de-desarrollo)
+24. [Distribución](#24-distribución)
+25. [Seguridad y privacidad](#25-seguridad-y-privacidad)
+26. [Roadmap por fases](#26-roadmap-por-fases)
+27. [Overlay (v2) — notas para después](#27-overlay-v2--notas-para-después)
+28. [Riesgos y preguntas abiertas](#28-riesgos-y-preguntas-abiertas)
+29. [Glosario](#29-glosario)
+30. [Referencias](#30-referencias)
+
+---
+
+## 1. Visión
+
+Mito es el "Blitz para Mac": una app nativa de macOS que acompaña al cliente oficial de
+League of Legends y hace que todo lo que pasa **antes** de la partida sea más inteligente:
+
+- Acepta la partida por vos.
+- En champ select te dice **qué elegir** en base a tu pool, a tu historial, al meta, a los
+  picks de tu equipo y a los picks del rival.
+- Cuando elegís, **importa automáticamente** runas, summoner spells, item sets y orden de
+  habilidades, **adaptados a esa partida en particular** (matchup, composición rival, rol).
+- Te muestra un **análisis pre-partida** serio: matchup, sinergias, perfil de daño de ambos
+  equipos, power spikes, qué ítems situacionales vas a necesitar y por qué.
+- Todo es habilitable, deshabilitable y configurable.
+- La interfaz es **lo más macOS nativa posible**: SwiftUI, menú en la barra, notificaciones
+  del sistema, Settings estándar, SF Symbols, Swift Charts.
+
+Principio rector: **cada recomendación tiene que poder explicarse**. Mito no es una caja
+negra que dice "jugá Ahri". Dice "Ahri: 54,1 % de winrate vs Zed en Esmeralda+ (8.200
+partidas), es tu tercer campeón más jugado y tu equipo ya tiene mucho daño físico".
+
+---
+
+## 2. Origen y problema
+
+- LoL corre nativo en macOS (Apple Silicon). Mucha gente no lo sabe.
+- En Windows el ecosistema de companions es enorme: Blitz, Porofessor, U.GG, Mobalytics.
+- En Mac la experiencia es pobre. Blitz funciona en parte (runas sí, overlays no), los
+  overlays fallan y nada se siente nativo: son apps Electron/web adaptadas.
+- Hueco concreto: **no existe un companion de LoL diseñado para macOS desde cero**.
+
+Joaco usaba mucho Blitz en Windows y lo que más valoraba era:
+
+1. Runas, spells e ítems importados solos.
+2. Recomendaciones de campeones.
+3. Picks "personales" basados en lo que le gusta jugar.
+4. Información útil sobre la partida.
+
+Mito arranca por eso, con el foco puesto en la calidad del análisis pre-partida.
+
+---
+
+## 3. Qué es y qué NO es Mito
+
+### Es
+
+- Un **companion**: proceso separado que se conecta a las APIs locales que expone el cliente
+  oficial (LCU) y a datos propios precomputados.
+- Una app de **menú en la barra + ventana principal**, nativa de macOS.
+- Un **sistema de datos** propio: un pipeline que junta partidas con la Riot API, calcula
+  estadísticas por parche y publica un "snapshot" que la app descarga.
+
+### NO es
+
+- **No es un reemplazo del cliente.** El cliente oficial de LoL siempre tiene que estar
+  corriendo. Mito lo maneja desde afuera, igual que Blitz o Porofessor.
+- **No es una app de iOS.** Es macOS. (Se mencionó "iOS native" al principio, pero el
+  objetivo real es Swift/SwiftUI nativo en Mac.)
+- **No lee memoria del juego, no inyecta código, no modifica archivos del juego** (salvo los
+  que la LCU administra, como item sets, y siempre vía API).
+- **No automatiza el gameplay.** Nada dentro de la partida.
+- **No es un scraper de u.gg u op.gg.** Los datos son propios.
+- **No muestra publicidad** dentro del cliente ni en overlays (Riot lo prohibió en 2025).
+
+---
+
+## 4. Alcance por versión
+
+### v1 — "Pre-game" (foco actual)
+
+| Feature | Descripción | Prioridad |
+|---|---|---|
+| Conexión LCU | Detectar cliente, autenticar y reconectar | P0 |
+| Estado de gameflow | Saber en qué fase está el cliente | P0 |
+| Auto-accept | Aceptar ready check, con delay configurable | P0 |
+| Lectura de champ select | Picks, bans, roles y timer en tiempo real | P0 |
+| Import de runas | Página adaptada a campeón, rol y matchup | P0 |
+| Import de spells | Spells recomendados (respetando preferencias D/F) | P0 |
+| Import de item sets | Starter, core y situacionales | P0 |
+| Orden de habilidades | Mostrado en la UI (y en el item set como bloque informativo) | P1 |
+| Recomendación de picks | Ranking de campeones para tu rol en ese draft | P0 |
+| Recomendación de bans | Ranking de bans para tu rol y tu pool | P1 |
+| Análisis pre-partida | Matchup, sinergias, comps, perfil de daño, spikes | P0 |
+| Capa personal | Pool, comfort, rendimiento propio | P0 |
+| Historial propio | Últimas partidas con métricas | P1 |
+| Control de lobby | Crear lobby, elegir cola y roles, buscar partida desde Mito | P2 |
+| Settings completas | Todo con toggle y overrides por campeón | P0 |
+| Notificaciones | "Partida aceptada", "Te toca elegir", "Runas importadas" | P1 |
+
+### v2 — "In-game"
+
+- Overlay (ver sección 27).
+- Live Client Data API (`127.0.0.1:2999`).
+- Post-game: resumen y comparación contra el promedio del campeón.
+
+### Fuera de alcance (por ahora)
+
+- TFT, ARAM-específico (puede llegar fácil después), Arena.
+- Windows / Linux.
+- Cuentas, login en la nube o sincronización entre dispositivos.
+- Monetización.
+
+---
+
+## 5. Reglas de Riot y límites no negociables
+
+Riot viene cerrando el acceso de terceros y lo va a seguir haciendo. Mito tiene que estar
+siempre del lado seguro. Estado conocido a octubre de 2026:
+
+- **Anti-cheat en Mac:** desde el parche 25.S1.2 (enero 2025), LoL en macOS usa **Embedded
+  Vanguard (mVG)**, integrado dentro de la app. No requiere instalación aparte.
+- **Memoria del juego:** Riot anunció que las apps de terceros pierden el acceso a la
+  memoria del juego y que las **APIs oficiales son la única vía permitida** para obtener
+  datos. Las apps aprobadas tienen hasta abril de 2027 para migrar.
+- **Overlays:** la política de Riot habla de overlays que muestran información estática
+  disponible antes de la partida. Nada que dé ventaja en vivo que el juego no te da.
+- **Publicidad:** desde mayo de 2025 no se permite publicidad de terceros dentro del juego,
+  en overlays, en pantallas de carga ni en el Riot Client.
+- **Policy general de la API:** no crear juegos con la IP de Riot, nada de cripto o
+  blockchain, no actuar como "data broker", no parecerse demasiado a productos de Riot.
+
+### Reglas internas de Mito (derivadas)
+
+1. **Solo APIs oficiales o semi-oficiales**: LCU (local), Live Client Data (local, v2), Riot
+   API pública, Data Dragon y CommunityDragon.
+2. **Cero lectura o escritura de memoria. Cero inyección. Cero hooks al proceso del juego.**
+3. **Nada automatizado dentro de la partida.**
+4. **Respetar el anonimato del champ select.** En colas ranked, Riot oculta los nombres
+   durante la selección. Mito **no** intenta desanonimizar jugadores (ni aliados ni
+   rivales) mientras dure el champ select. El análisis usa campeones y roles, no identidades.
+5. **La API key de Riot nunca va dentro de la app.** Solo vive en el pipeline de datos.
+6. **El nombre y el ícono no usan marcas de Riot.** "Mito" está bien. No usar "Riot",
+   "League" ni logos oficiales como marca de la app. Los íconos de campeones e ítems se usan
+   como datos dentro de la UI, que es lo que permite la política para fan apps.
+7. **Disclaimer legal** visible en "Acerca de":
+   > Mito isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot
+   > Games or anyone officially involved in producing or managing Riot Games properties.
+   > Riot Games, and all associated properties are trademarks or registered trademarks of
+   > Riot Games, Inc.
+8. **Auto-pick y auto-ban:** son features sensibles. Si existen, van **apagadas por
+   defecto**, con confirmación explícita. El modo por defecto es "sugerir + un clic".
+9. Si Mito se distribuye públicamente: **registrar la app en el Riot Developer Portal** y
+   pedir una production key para el pipeline.
+
+---
+
+## 6. Arquitectura general
+
+```
+                        ┌──────────────────────────────────────────┐
+                        │              mito-data (Python)          │
+                        │                                          │
+  Riot API  ──────────▶ │  crawler ─▶ raw store ─▶ aggregator ─▶   │
+  (match-v5, league-v4) │  (async)    (parquet)    (DuckDB)        │
+                        │                              │           │
+  Data Dragon / CDragon▶│  static loader ──────────────┤           │
+                        │                              ▼           │
+                        │                     exporter: snapshot   │
+                        │                     mito-<patch>.sqlite  │
+                        │                     + manifest.json      │
+                        └──────────────────────────┬───────────────┘
+                                                   │ publish
+                                                   ▼
+                                   ┌───────────────────────────────┐
+                                   │ hosting estático (R2/S3/GH    │
+                                   │ Releases)  manifest + .sqlite │
+                                   └───────────────┬───────────────┘
+                                                   │ HTTPS (descarga
+                                                   │ al abrir / por parche)
+                                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        mito-app (Swift, macOS)                           │
+│                                                                          │
+│  ┌──────────┐   ┌─────────────┐   ┌──────────────┐   ┌────────────────┐  │
+│  │  LCUKit  │──▶│ GameSession │──▶│   Engine     │──▶│  UI (SwiftUI)  │  │
+│  │ REST+WAMP│   │ state mach. │   │ recomendador │   │ menubar+window │  │
+│  └────┬─────┘   └─────────────┘   └──────┬───────┘   └────────────────┘  │
+│       │                                  │                               │
+│       │         ┌────────────────────────┴──────┐                        │
+│       │         │ MitoStore (GRDB / SQLite)     │                        │
+│       │         │ - snapshot global (read-only) │                        │
+│       │         │ - datos personales (local)    │                        │
+│       │         │ - settings / overrides        │                        │
+│       │         └───────────────────────────────┘                        │
+└───────┼──────────────────────────────────────────────────────────────────┘
+        │ HTTPS + WSS a 127.0.0.1:<puerto>
+        ▼
+┌────────────────────────┐
+│ League Client (LCUx)   │
+└────────────────────────┘
+```
+
+### Decisiones clave
+
+- **Snapshot, no backend online (v1).** El pipeline precomputa todo por parche y lo exporta
+  a un **archivo SQLite**. La app lo descarga y consulta localmente. Ventajas:
+  - Respuesta instantánea en champ select (los timers son de 30 segundos).
+  - Funciona offline una vez descargado.
+  - No hay servidor que mantener, escalar ni pagar por request.
+  - La API key de Riot nunca sale del pipeline.
+- **El cálculo de recomendaciones corre en la app (Swift).** El snapshot trae estadísticas
+  agregadas y el motor combina eso con el estado del draft y los datos personales en tiempo
+  real.
+- **Los datos personales se calculan localmente** a partir del historial que da la LCU, sin
+  API key. Opcionalmente se enriquecen con más historial vía pipeline.
+- **Backend online (opcional, v1.5+):** una API chica (FastAPI) para consultas pesadas o
+  datos personales profundos. No es necesario para arrancar.
+
+### Por qué no todo en Swift
+
+- La recolección y agregación de cientos de miles de partidas es trabajo de datos: Python +
+  Polars/DuckDB es muchísimo más productivo y Joaco lo maneja mejor.
+- Swift queda para lo que tiene que ser nativo: la UI, la conexión con el cliente y el motor
+  de decisión en tiempo real.
+
+---
+
+## 7. Stack tecnológico
+
+### mito-app
+
+| Pieza | Elección | Notas |
+|---|---|---|
+| Lenguaje | Swift 6 | Strict concurrency activada |
+| UI | SwiftUI + AppKit puntual | AppKit para el panel del overlay (v2) y algunos detalles de ventana |
+| Target | macOS 15+ | Adoptar Liquid Glass y APIs nuevas con `if #available` |
+| Estado | `@Observable` (Observation) | Sin Combine salvo donde haga falta |
+| Concurrencia | async/await, actors | `LCUClient` como actor |
+| Networking | URLSession (REST + `URLSessionWebSocketTask`) | Sin dependencias para la LCU |
+| Persistencia | GRDB.swift sobre SQLite | Lee el snapshot y guarda los datos personales |
+| Gráficos | Swift Charts | Winrate por duración, curvas de oro, etc. |
+| Imágenes | AsyncImage + caché en disco propia | Assets del cliente local o de Data Dragon |
+| Updates | Sparkle | La app no va al Mac App Store |
+| Tests | Swift Testing + XCTest para UI | Mock LCU server para integración |
+| Logs | `os.Logger` | Categorías por módulo |
+
+### mito-data
+
+| Pieza | Elección | Notas |
+|---|---|---|
+| Lenguaje | Python 3.12+ | |
+| Gestor | uv | Lockfile reproducible |
+| HTTP | httpx (async) | Con rate limiter propio |
+| Estado del crawl | SQLite (o Postgres si crece) | Colas de puuids y matchIds ya vistos |
+| Raw store | Parquet (pyarrow) | Particionado por región y parche |
+| Agregación | DuckDB + Polars | SQL sobre parquet, rápido y sin servidor |
+| Export | sqlite3 | Genera `mito-<patch>-<bracket>.sqlite` |
+| Validación | pydantic | Modelos de match-v5 |
+| CLI | typer | `mito-data crawl`, `aggregate`, `export`, `publish` |
+| Scheduling | cron / GitHub Actions / Jenkins | Joaco ya usa Jenkins |
+| Publicación | Cloudflare R2 o S3 o GitHub Releases | Hosting estático |
+
+---
+
+## 8. Estructura del repositorio
+
+Monorepo:
+
+```
+mito/
+├── README.md
+├── MITO_CONTEXT.md              ← este documento
+├── LICENSE
+├── apps/
+│   └── macos/
+│       ├── Mito.xcodeproj
+│       ├── Mito/                ← target de la app (UI, App, Scenes)
+│       │   ├── MitoApp.swift
+│       │   ├── Scenes/
+│       │   │   ├── MenuBar/
+│       │   │   ├── MainWindow/
+│       │   │   └── Settings/
+│       │   ├── Features/
+│       │   │   ├── Connection/
+│       │   │   ├── Lobby/
+│       │   │   ├── ChampSelect/
+│       │   │   ├── Analysis/
+│       │   │   ├── History/
+│       │   │   └── Onboarding/
+│       │   ├── DesignSystem/
+│       │   └── Resources/
+│       └── Packages/
+│           ├── MitoCore/        ← modelos de dominio, IDs, enums (sin dependencias)
+│           ├── LCUKit/          ← conexión, REST, WAMP, endpoints tipados
+│           ├── MitoStore/       ← GRDB, snapshot, datos personales, settings
+│           ├── MitoEngine/      ← recomendador (puro, testeable)
+│           └── MitoAssets/      ← carga y caché de íconos
+├── data/
+│   ├── pyproject.toml
+│   ├── uv.lock
+│   ├── src/mito_data/
+│   │   ├── cli.py
+│   │   ├── config.py
+│   │   ├── riot/                ← cliente Riot API + rate limiter
+│   │   ├── crawl/               ← seeds, cola, workers
+│   │   ├── models/              ← pydantic match-v5 / timeline
+│   │   ├── raw/                 ← escritura a parquet
+│   │   ├── static/              ← Data Dragon / CDragon loader
+│   │   ├── aggregate/           ← SQL DuckDB + lógica en Polars
+│   │   ├── export/              ← generación del snapshot SQLite
+│   │   └── publish/             ← subida + manifest
+│   ├── sql/                     ← queries de agregación versionadas
+│   └── tests/
+├── tools/
+│   ├── lcu-mock/                ← servidor fake de LCU (Python) para testear la app
+│   └── lcu-recorder/            ← graba eventos WAMP reales a fixtures
+└── docs/
+    ├── adr/                     ← decisiones de arquitectura
+    └── lcu-endpoints.md         ← endpoints descubiertos y probados
+```
+
+---
+
+## 9. La app macOS (mito-app)
+
+### 9.1 Escenas
+
+```swift
+@main
+struct MitoApp: App {
+    @State private var app = AppModel()
+
+    var body: some Scene {
+        MenuBarExtra("Mito", systemImage: app.menuBarSymbol) {
+            MenuBarView().environment(app)
+        }
+        .menuBarExtraStyle(.window)
+
+        Window("Mito", id: "main") {
+            MainWindowView().environment(app)
+        }
+        .defaultSize(width: 1100, height: 720)
+
+        Settings {
+            SettingsView().environment(app)
+        }
+    }
+}
+```
+
+- **MenuBarExtra:** estado de conexión, fase actual, toggles rápidos (auto-accept, auto-runas)
+  y el pick recomendado durante champ select.
+- **Ventana principal:** se abre sola (configurable) al entrar en champ select. Muestra el
+  draft, las recomendaciones y el análisis.
+- **Settings:** escena estándar de macOS (⌘,).
+
+### 9.2 Módulos y responsabilidades
+
+| Módulo | Responsabilidad | Depende de |
+|---|---|---|
+| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet` | nada |
+| `LCUKit` | Descubrir el cliente, credenciales, REST tipado, WebSocket WAMP, reconexión | MitoCore |
+| `MitoStore` | Abrir el snapshot (read-only), DB personal (read-write), settings, migraciones | MitoCore, GRDB |
+| `MitoEngine` | Scoring de picks, bans, runas, ítems y spells. **Funciones puras** | MitoCore |
+| `MitoAssets` | Íconos de campeones, ítems y runas con caché | MitoCore, LCUKit |
+| App target | Features, vistas, `AppModel`, orquestación | todos |
+
+`MitoEngine` no sabe nada de red ni de UI: recibe un `DraftContext` y un `StatsProvider`
+(protocolo) y devuelve recomendaciones con su explicación. Eso permite testearlo con datos
+fijos.
+
+### 9.3 AppModel (orquestador)
+
+```swift
+@Observable @MainActor
+final class AppModel {
+    var connection: ConnectionState = .searching
+    var phase: GameflowPhase = .none
+    var champSelect: ChampSelectState?
+    var recommendations: Recommendations?
+    var settings: MitoSettings
+
+    private let lcu: LCUClient
+    private let store: MitoStore
+    private let engine: RecommendationEngine
+    private let importer: LoadoutImporter
+
+    func start() async {
+        for await event in lcu.events() {
+            await handle(event)
+        }
+    }
+}
+```
+
+### 9.4 Principios de código
+
+- Swift 6, strict concurrency, sin `@unchecked Sendable` salvo justificado.
+- Todo acceso a la LCU pasa por `LCUClient` (actor).
+- Los endpoints están tipados: nada de strings sueltos con paths por la app.
+- Los modelos `Codable` de la LCU son **tolerantes**: campos opcionales y valores
+  desconocidos de enums con un caso `.unknown(String)`. Riot cambia cosas sin avisar.
+- Errores tipados (`LCUError`, `StoreError`, `EngineError`) y nunca `fatalError` en runtime.
+- Cada feature tiene su `Model` (`@Observable`) + vistas. Nada de lógica en las vistas.
+
+---
+
+## 10. Conexión con el cliente: LCU API
+
+La **LCU (League Client Update) API** es una API REST + WebSocket que expone el cliente de
+LoL en localhost. No está documentada oficialmente como producto, pero es la base de todos
+los companions. Se usa "tal cual está" y puede cambiar sin aviso.
+
+### 10.1 Descubrimiento
+
+Hay dos métodos. Implementar los dos, con el de proceso como principal.
+
+**A) Argumentos del proceso (preferido)**
+
+```bash
+ps -A -o args | grep LeagueClientUx
+# ... --app-port=54321 --remote-auth-token=AbCdEf123... --app-pid=1234 ...
+```
+
+Se parsean `--app-port` y `--remote-auth-token`. Es más confiable porque refleja el proceso
+vivo.
+
+**B) Lockfile**
+
+- Ruta típica: `/Applications/League of Legends.app/Contents/LoL/lockfile`
+- Formato: `LeagueClient:<pid>:<port>:<password>:<protocol>`
+- Existe solo mientras el cliente está abierto.
+- La ruta de instalación puede variar, así que se busca la app y se deja configurar.
+
+```swift
+struct LCUCredentials: Sendable, Equatable {
+    let port: Int
+    let token: String
+    var authHeader: String {
+        "Basic " + Data("riot:\(token)".utf8).base64EncodedString()
+    }
+}
+
+enum LCUDiscovery {
+    static func fromProcess() async throws -> LCUCredentials? {
+        let output = try await Shell.run("/bin/ps", ["-A", "-o", "args"])
+        guard let line = output.split(separator: "\n")
+            .first(where: { $0.contains("LeagueClientUx") && $0.contains("--app-port") })
+        else { return nil }
+
+        func arg(_ name: String) -> String? {
+            line.split(separator: " ")
+                .first { $0.hasPrefix("--\(name)=") }?
+                .split(separator: "=", maxSplits: 1).last.map(String.init)
+        }
+        guard let p = arg("app-port"), let port = Int(p),
+              let token = arg("remote-auth-token") else { return nil }
+        return LCUCredentials(port: port, token: token)
+    }
+
+    static func fromLockfile(at path: String) throws -> LCUCredentials? {
+        guard let raw = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+        let parts = raw.split(separator: ":")
+        guard parts.count >= 5, let port = Int(parts[2]) else { return nil }
+        return LCUCredentials(port: port, token: String(parts[3]))
+    }
+}
+```
+
+> Ojo con los argumentos que traen espacios (por ejemplo, rutas). Si hace falta, parsear con
+> regex `--app-port=(\d+)` y `--remote-auth-token=([\w-]+)` sobre la línea completa.
+
+### 10.2 Polling de descubrimiento
+
+- Mientras no hay cliente: buscar cada 2 segundos (con backoff hasta 5 s).
+- Al encontrarlo: conectar REST, verificar con `GET /lol-summoner/v1/current-summoner`
+  (puede dar 404 mientras el cliente termina de cargar, así que se reintenta) y abrir el
+  WebSocket.
+- Al perder la conexión (el cliente se cerró o se reinició, y el puerto cambia): volver al
+  estado de búsqueda.
+
+### 10.3 Certificado TLS
+
+La LCU usa HTTPS con un certificado self-signed emitido por la CA de Riot.
+
+- **Opción correcta:** embeber el certificado raíz de Riot (`riotgames.pem`, conocido en la
+  comunidad) y validar contra él solo para `127.0.0.1`.
+- **Opción mínima:** aceptar el certificado del servidor **solo si el host es 127.0.0.1**.
+
+```swift
+final class LCUTrustDelegate: NSObject, URLSessionDelegate {
+    func urlSession(_ session: URLSession,
+                    didReceive challenge: URLAuthenticationChallenge) async
+        -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        guard challenge.protectionSpace.host == "127.0.0.1",
+              let trust = challenge.protectionSpace.serverTrust
+        else { return (.performDefaultHandling, nil) }
+        // TODO: validar contra el root de Riot embebido (SecTrustSetAnchorCertificates)
+        return (.useCredential, URLCredential(trust: trust))
+    }
+}
+```
+
+**Nunca** desactivar la validación TLS de forma global.
+
+### 10.4 REST
+
+```swift
+actor LCUClient {
+    private var credentials: LCUCredentials?
+    private let session: URLSession
+
+    func request<T: Decodable>(_ endpoint: LCUEndpoint<T>) async throws -> T {
+        guard let c = credentials else { throw LCUError.notConnected }
+        var req = URLRequest(url: URL(string: "https://127.0.0.1:\(c.port)\(endpoint.path)")!)
+        req.httpMethod = endpoint.method.rawValue
+        req.setValue(c.authHeader, forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = endpoint.body
+        let (data, resp) = try await session.data(for: req)
+        try LCUError.check(resp, data)
+        return try endpoint.decode(data)
+    }
+}
+
+struct LCUEndpoint<Response: Decodable> {
+    let method: HTTPMethod
+    let path: String
+    var body: Data? = nil
+    var decode: (Data) throws -> Response = { try JSONDecoder().decode(Response.self, from: $0) }
+}
+```
+
+### 10.5 WebSocket (WAMP)
+
+- URL: `wss://127.0.0.1:<port>/`, con el header `Authorization` y el subprotocolo `wamp`.
+- Suscripción a todos los eventos: `[5, "OnJsonApiEvent"]`.
+- Suscripción a un recurso puntual: `[5, "OnJsonApiEvent_lol-champ-select_v1_session"]`
+  (el path con `/` reemplazado por `_`).
+- Mensaje de evento recibido:
+
+```json
+[8, "OnJsonApiEvent", {
+  "data": { ... },
+  "eventType": "Create" | "Update" | "Delete",
+  "uri": "/lol-champ-select/v1/session"
+}]
+```
+
+Recomendación: suscribirse a eventos específicos y no al firehose. El firehose manda muchos
+eventos irrelevantes y cuesta CPU.
+
+Suscripciones de v1:
+
+| Evento | Para qué |
+|---|---|
+| `OnJsonApiEvent_lol-gameflow_v1_gameflow-phase` | Fase actual |
+| `OnJsonApiEvent_lol-matchmaking_v1_ready-check` | Auto-accept |
+| `OnJsonApiEvent_lol-champ-select_v1_session` | Draft en vivo |
+| `OnJsonApiEvent_lol-lobby_v2_lobby` | Estado del lobby y roles asignados |
+| `OnJsonApiEvent_lol-summoner_v1_current-summoner` | Cambio de cuenta |
+
+```swift
+func events() -> AsyncStream<LCUEvent> {
+    AsyncStream { continuation in
+        Task {
+            var req = URLRequest(url: URL(string: "wss://127.0.0.1:\(port)/")!)
+            req.setValue(authHeader, forHTTPHeaderField: "Authorization")
+            req.setValue("wamp", forHTTPHeaderField: "Sec-WebSocket-Protocol")
+            let ws = session.webSocketTask(with: req)
+            ws.resume()
+            for topic in Self.topics {
+                try await ws.send(.string(#"[5,"\#(topic)"]"#))
+            }
+            while true {
+                let msg = try await ws.receive()
+                if let event = LCUEvent.parse(msg) { continuation.yield(event) }
+            }
+        }
+    }
+}
+```
+
+### 10.6 Endpoints que usa Mito (v1)
+
+> Los nombres de campos se verifican contra el cliente real con `tools/lcu-recorder` y se
+> documentan en `docs/lcu-endpoints.md`. La LCU cambia, así que hay que mantenerlo vivo.
+
+**Sesión y cuenta**
+
+| Método | Path | Uso |
+|---|---|---|
+| GET | `/lol-summoner/v1/current-summoner` | puuid, summonerId, gameName, tagLine, nivel |
+| GET | `/lol-ranked/v1/current-ranked-stats` | Tier y división por cola (bracket del usuario) |
+| GET | `/lol-champion-mastery/v1/local-player/champion-mastery` | Maestría por campeón |
+| GET | `/lol-champions/v1/inventories/{summonerId}/champions-minimal` | Campeones que tenés |
+| GET | `/lol-region-locale/v1/region-locale` | Región y locale (para el ruteo de la Riot API) |
+
+**Gameflow, lobby y matchmaking**
+
+| Método | Path | Uso |
+|---|---|---|
+| GET | `/lol-gameflow/v1/gameflow-phase` | Fase actual |
+| GET | `/lol-gameflow/v1/session` | Cola, mapa y datos de la partida |
+| POST | `/lol-lobby/v2/lobby` | Crear lobby `{ "queueId": 420 }` |
+| PUT | `/lol-lobby/v2/lobby/members/localMember/position-preferences` | Roles `{ "firstPreference": "MIDDLE", "secondPreference": "TOP" }` |
+| POST | `/lol-lobby/v2/lobby/matchmaking/search` | Buscar partida |
+| DELETE | `/lol-lobby/v2/lobby/matchmaking/search` | Cancelar búsqueda |
+| GET | `/lol-matchmaking/v1/ready-check` | Estado del ready check |
+| POST | `/lol-matchmaking/v1/ready-check/accept` | Aceptar |
+| POST | `/lol-matchmaking/v1/ready-check/decline` | Rechazar |
+
+**Champ select**
+
+| Método | Path | Uso |
+|---|---|---|
+| GET | `/lol-champ-select/v1/session` | Estado completo del draft |
+| PATCH | `/lol-champ-select/v1/session/actions/{actionId}` | Hover o pick/ban `{ "championId": 103 }` |
+| POST | `/lol-champ-select/v1/session/actions/{actionId}/complete` | Lockear la acción |
+| PATCH | `/lol-champ-select/v1/session/my-selection` | `{ "spell1Id": 4, "spell2Id": 14 }` |
+| GET | `/lol-champ-select/v1/pickable-champion-ids` | Campeones que se pueden elegir |
+| GET | `/lol-champ-select/v1/bannable-champion-ids` | Campeones que se pueden banear |
+
+**Runas**
+
+| Método | Path | Uso |
+|---|---|---|
+| GET | `/lol-perks/v1/pages` | Páginas existentes |
+| GET | `/lol-perks/v1/currentpage` | Página activa |
+| POST | `/lol-perks/v1/pages` | Crear página |
+| PUT | `/lol-perks/v1/pages/{id}` | Editar página |
+| DELETE | `/lol-perks/v1/pages/{id}` | Borrar página |
+| GET | `/lol-perks/v1/inventory` | Cupo de páginas |
+| GET | `/lol-perks/v1/styles` | Árboles de runas |
+| GET | `/lol-perks/v1/perks` | Runas individuales |
+
+**Item sets**
+
+| Método | Path | Uso |
+|---|---|---|
+| GET | `/lol-item-sets/v1/item-sets/{summonerId}/sets` | Sets actuales |
+| PUT | `/lol-item-sets/v1/item-sets/{summonerId}/sets` | Reemplazar los sets (enviar todos) |
+
+**Historial propio**
+
+| Método | Path | Uso |
+|---|---|---|
+| GET | `/lol-match-history/v1/products/lol/current-summoner/matches?begIndex=0&endIndex=20` | Últimas partidas |
+| GET | `/lol-match-history/v1/games/{gameId}` | Detalle de una partida |
+
+**Assets (servidos por el propio cliente, sin internet)**
+
+| Método | Path | Uso |
+|---|---|---|
+| GET | `/lol-game-data/assets/v1/champion-summary.json` | Lista de campeones |
+| GET | `/lol-game-data/assets/v1/champion-icons/{championId}.png` | Ícono |
+| GET | `/lol-game-data/assets/v1/perks.json` | Runas |
+| GET | `/lol-game-data/assets/v1/perkstyles.json` | Árboles |
+| GET | `/lol-game-data/assets/v1/items.json` | Ítems |
+| GET | `/lol-game-data/assets/v1/summoner-spells.json` | Spells |
+
+---
+
+## 11. Flujo de juego (gameflow) y máquina de estados
+
+### 11.1 Fases del cliente
+
+Valores conocidos de `gameflow-phase` (tratar los desconocidos como `.unknown`):
+
+```
+None → Lobby → Matchmaking → ReadyCheck → ChampSelect → GameStart → InProgress
+     → WaitingForStats → PreEndOfGame → EndOfGame → (Lobby | None)
+```
+
+Otros: `Reconnect`, `CheckedIntoTournament`.
+
+### 11.2 Máquina de estados de Mito
+
+```
+            ┌───────────┐  cliente encontrado  ┌────────────┐
+            │ Searching │ ───────────────────▶ │ Connecting │
+            └───────────┘                      └─────┬──────┘
+                  ▲                                  │ OK
+                  │ conexión perdida                 ▼
+                  │                           ┌────────────┐
+                  └────────────────────────── │ Connected  │
+                                              └─────┬──────┘
+                                                    │ phase
+     ┌──────────┬──────────────┬────────────────────┼──────────────┬──────────────┐
+     ▼          ▼              ▼                    ▼              ▼              ▼
+   Idle      Lobby       Matchmaking          ReadyCheck     ChampSelect     InGame
+                                                    │              │
+                                         auto-accept│     draft engine +
+                                                    ▼     importers
+```
+
+### 11.3 Auto-accept
+
+- Al llegar `ReadyCheck` con `state == "InProgress"` y `playerResponse == "None"`:
+  - Esperar `settings.autoAccept.delay` (default 2 s, rango 0–8 s), para que parezca humano
+    y te dé tiempo de cancelar.
+  - Si en ese lapso el usuario rechazó desde el cliente, no hacer nada.
+  - `POST /lol-matchmaking/v1/ready-check/accept`.
+- Notificación del sistema: "Partida encontrada, aceptada".
+- Opciones: aceptar siempre, aceptar solo en ciertas colas, o solo notificar.
+
+---
+
+## 12. Champ select en detalle
+
+### 12.1 Estructura relevante de la sesión
+
+Campos que usa Mito de `GET /lol-champ-select/v1/session` (verificar con el recorder):
+
+```json
+{
+  "localPlayerCellId": 2,
+  "myTeam": [
+    {
+      "cellId": 2,
+      "championId": 0,
+      "championPickIntent": 103,
+      "assignedPosition": "middle",
+      "spell1Id": 4,
+      "spell2Id": 14,
+      "puuid": "...",
+      "team": 1
+    }
+  ],
+  "theirTeam": [ { "cellId": 7, "championId": 238, "assignedPosition": "" } ],
+  "actions": [
+    [ { "id": 1, "actorCellId": 0, "championId": 0, "type": "ban",
+        "isInProgress": true, "completed": false, "isAllyAction": true } ],
+    [ { "id": 11, "actorCellId": 2, "type": "pick", "isInProgress": false, "completed": false } ]
+  ],
+  "bans": { "myTeamBans": [], "theirTeamBans": [] },
+  "timer": { "phase": "BAN_PICK", "adjustedTimeLeftInPhase": 27000 }
+}
+```
+
+Notas:
+
+- `assignedPosition` viene en minúscula (`top`, `jungle`, `middle`, `bottom`, `utility`) en
+  colas con roles. En blind pick viene vacío.
+- El rol de los rivales **no viene**. Hay que inferirlo (ver 12.3).
+- `championPickIntent` es el hover. Sirve para recomendar antes de que el aliado lockee.
+- `timer.phase`: `PLANNING`, `BAN_PICK`, `FINALIZATION`.
+
+### 12.2 Modelo de dominio
+
+```swift
+struct DraftContext: Sendable {
+    let queue: QueueType                 // ranked solo, flex, normal draft, ARAM...
+    let patch: Patch
+    let myRole: Role?                    // nil en blind / ARAM
+    let myCellId: Int
+    let allies: [DraftSlot]              // incluye al jugador local
+    let enemies: [DraftSlot]
+    let bans: Set<ChampionID>
+    let pickable: Set<ChampionID>
+    let phase: DraftPhase
+    let isMyTurnToPick: Bool
+    let isMyTurnToBan: Bool
+}
+
+struct DraftSlot: Sendable {
+    let cellId: Int
+    let champion: ChampionID?            // lockeado
+    let hover: ChampionID?               // intent
+    let role: Role?                      // asignado (aliados) o inferido (rivales)
+    let roleConfidence: Double           // 1.0 asignado; <1 inferido
+}
+```
+
+### 12.3 Inferencia de roles rivales
+
+Los rivales no traen rol. Se infieren con las distribuciones de rol del snapshot:
+
+1. Para cada campeón rival lockeado se tiene `P(role | champion)` desde `champion_roles`.
+2. Se busca la **asignación 1 a 1** de campeones a roles que maximiza el producto de
+   probabilidades (con 5 campeones son 120 permutaciones, trivial por fuerza bruta).
+3. Con menos de 5 lockeados se hace lo mismo con los roles disponibles.
+4. Se guarda `roleConfidence` = probabilidad de la asignación / suma de las alternativas.
+5. Si la confianza del oponente de lane es baja, el motor mezcla matchups ponderando por
+   probabilidad (por ejemplo, 70 % vs Zed mid y 30 % vs Zed top).
+
+### 12.4 Cuándo recalcular
+
+- Cada `Update` de la sesión dispara un recálculo (con debounce de 150 ms).
+- El cálculo tiene que tardar **menos de 50 ms**: todo en memoria, con índices cargados al
+  entrar en champ select.
+- La UI muestra resultados parciales en cuanto los tiene.
+
+### 12.5 Auto-hover, auto-pick y auto-ban (opcionales)
+
+- **Auto-hover** (default: off): al empezar el turno de pick, hacer hover del pick #1
+  recomendado de tu pool (`PATCH` de la action sin `complete`). Bajo riesgo y útil.
+- **Auto-ban** (default: off): banear el #1 de la lista de bans configurada, o el
+  recomendado. Respetar el hover de los aliados: **nunca** banear lo que un aliado tiene en
+  hover.
+- **Auto-pick/lock** (default: off, con advertencia): lockear el pick preferido si está
+  disponible. Lista de prioridad configurada por rol.
+- Todas con confirmación explícita la primera vez que se activan.
+
+---
+
+## 13. Importación de runas, spells e ítems
+
+### 13.1 Cuándo se importa
+
+- Trigger principal: **cuando tu campeón queda lockeado**.
+- Trigger opcional: al hacer hover (configurable). Importa una versión preliminar y la
+  actualiza al lockear.
+- Re-import automático si cambia el contexto relevante: se revela el oponente de lane o la
+  composición rival cambia los situacionales. Solo si el usuario no tocó la página a mano
+  (se detecta comparando la página actual con la que puso Mito).
+
+### 13.2 Runas
+
+**Estrategia de páginas:**
+
+1. Mito administra **una** página propia, identificada por prefijo en el nombre:
+   `Mito · Ahri MID vs Zed`.
+2. Si ya existe una página "Mito ·", se **edita** (`PUT`).
+3. Si no existe y hay cupo (`/lol-perks/v1/inventory`), se **crea** (`POST`).
+4. Si no hay cupo:
+   - Default: reemplazar la página **activa** solo si es una página Mito; si no, pedir
+     confirmación en la UI.
+   - Opción en Settings: "Usar siempre la página N" (el usuario reserva una).
+5. Se marca como página actual (`"current": true`).
+
+Payload:
+
+```json
+{
+  "name": "Mito · Ahri MID vs Zed",
+  "primaryStyleId": 8100,
+  "subStyleId": 8200,
+  "selectedPerkIds": [8112, 8139, 8138, 8135, 8226, 8210, 5008, 5008, 5001],
+  "current": true
+}
+```
+
+`selectedPerkIds` va en orden: 4 de la primaria (keystone + 3), 2 de la secundaria y 3
+shards (ofensa, flex, defensa). **Validar siempre** contra `/lol-perks/v1/styles` antes de
+enviar. Una página inválida devuelve error y deja al usuario sin runas.
+
+Verificar al implementar si los shards cambiaron de estructura (Riot los modificó varias
+veces). La fuente de verdad es `perkstyles.json` del parche actual.
+
+### 13.3 Summoner spells
+
+- `PATCH /lol-champ-select/v1/session/my-selection` con `spell1Id` y `spell2Id`.
+- **Respetar la posición de Flash del usuario** (D o F). Se detecta de sus últimas
+  partidas o se configura. Si el usuario usa Flash en F, Flash siempre va en `spell2Id`.
+- Override por campeón y por rol (por ejemplo, "en jungla siempre Smite + Flash").
+- Modos: recomendado por datos, fijo por rol o desactivado.
+
+IDs comunes (verificar con `summoner.json`): Flash 4, Ignite 14, Teleport 12, Smite 11,
+Exhaust 3, Heal 7, Barrier 21, Cleanse 1, Ghost 6.
+
+### 13.4 Item sets
+
+- Se envía la lista **completa** de sets del usuario: hay que leer, quitar los sets de
+  Mito, agregar el nuevo y hacer `PUT`. Nunca pisar los sets propios del usuario.
+- Los sets de Mito se identifican por `title` con prefijo `Mito ·` y `uid` con prefijo
+  `mito-`.
+- Opción "limpiar sets de Mito viejos": dejar solo el del campeón actual o uno por campeón.
+
+Estructura:
+
+```json
+{
+  "accountId": 123456,
+  "timestamp": 1760000000000,
+  "itemSets": [
+    {
+      "uid": "mito-103-middle",
+      "title": "Mito · Ahri MID vs Zed",
+      "type": "custom",
+      "map": "SR",
+      "mode": "any",
+      "associatedChampions": [103],
+      "associatedMaps": [11],
+      "sortrank": 0,
+      "startedFrom": "blank",
+      "preferredItemSlots": [],
+      "blocks": [
+        { "type": "Inicio (54,8 % WR)", "items": [ {"id": "1056", "count": 1}, {"id": "2003", "count": 2} ] },
+        { "type": "Core", "items": [ {"id": "6655", "count": 1}, {"id": "3020", "count": 1}, {"id": "4645", "count": 1} ] },
+        { "type": "vs mucho AD: Zhonya primero", "items": [ {"id": "3157", "count": 1} ] },
+        { "type": "Situacionales", "items": [ {"id": "3135", "count": 1}, {"id": "3102", "count": 1} ] },
+        { "type": "Habilidades: Q > W > E (Q-W-E-Q-Q-R)", "items": [] }
+      ]
+    }
+  ]
+}
+```
+
+Los `type` de los bloques se usan como texto explicativo dentro del cliente. Los IDs de
+ítem van como string. Validar contra `items.json` del parche y no incluir ítems retirados.
+
+### 13.5 Importador
+
+```swift
+actor LoadoutImporter {
+    func apply(_ loadout: Loadout, settings: ImportSettings, lcu: LCUClient) async -> ImportReport
+}
+
+struct Loadout: Sendable {
+    let runes: RunePage?
+    let spells: SpellPair?
+    let itemSet: ItemSet?
+    let skillOrder: SkillOrder?
+    let explanation: [Reason]
+}
+
+struct ImportReport: Sendable {
+    var runes: StepResult      // .applied, .skipped(reason), .failed(error)
+    var spells: StepResult
+    var items: StepResult
+}
+```
+
+El resultado se muestra como un toast nativo en la ventana y como notificación si la
+ventana no está visible.
+
+---
+
+## 14. Pipeline de datos (mito-data)
+
+### 14.1 Objetivo
+
+Producir, **por parche y por bracket de elo**, un snapshot SQLite con todas las
+estadísticas agregadas que necesita el motor. Escrito en Python.
+
+### 14.2 Etapas
+
+```
+seed ──▶ discover players ──▶ discover matches ──▶ fetch match (+timeline)
+                                                        │
+                                                        ▼
+                                              normalize ──▶ parquet (raw)
+                                                                │
+                                                                ▼
+                                       aggregate (DuckDB) ──▶ tablas agregadas
+                                                                │
+                                                                ▼
+                                       export ──▶ mito-<patch>-<bracket>.sqlite
+                                                                │
+                                                                ▼
+                                       publish ──▶ hosting + manifest.json
+```
+
+### 14.3 Seed y descubrimiento de jugadores
+
+- Regiones iniciales: **LAS (la2)**, LAN (la1), NA (na1), BR (br1), todas bajo el ruteo
+  regional `americas`. Luego EUW y KR para tener volumen de alto elo.
+- Seed: `league-v4` challenger, grandmaster y master, más `entries` para Diamond y Emerald
+  (paginado).
+- league-v4 hoy expone `puuid` en las entradas. Usarlo directamente (los `summonerId` están
+  deprecados).
+- Cada jugador descubierto entra en la tabla `players(puuid, region, tier, division, lp,
+  last_crawled_at)`.
+
+### 14.4 Descubrimiento de partidas
+
+- `GET /lol/match/v5/matches/by-puuid/{puuid}/ids?queue=420&type=ranked&startTime=<inicio
+  del parche>&count=100`
+- Cola 420 (Solo/Duo) es la principal. 440 (Flex) en una segunda etapa.
+- Se deduplica por `matchId` (`matches_seen`).
+- Se priorizan jugadores de más alto elo y los menos recientemente crawleados.
+
+### 14.5 Descarga
+
+- `GET /lol/match/v5/matches/{matchId}`: participantes, ítems finales, runas, spells, bans
+  y estadísticas.
+- `GET /lol/match/v5/matches/{matchId}/timeline`: orden de compra de ítems y orden de
+  habilidades. Pedirla para una **muestra** (por ejemplo, 30–50 %) si el rate limit aprieta:
+  el orden de build converge con menos datos que los winrates.
+- Filtros al normalizar:
+  - Descartar remakes (`gameDuration < 300` s o `gameEndedInEarlySurrender`).
+  - Descartar partidas de un parche distinto al objetivo.
+  - Verificar `teamPosition` válido para los 10 participantes. Si falta, descartar o
+    marcar.
+
+### 14.6 Rate limiting
+
+- Dev key: 20 requests por segundo y 100 cada 2 minutos, y **expira cada 24 h**. Sirve para
+  prototipar.
+- Personal key: pedirla en el portal para uso propio y sostenido.
+- Production key: necesaria para una app pública. Límites mucho mayores.
+- Verificar los límites vigentes en el portal antes de dimensionar.
+- Implementación: **token bucket por (key, ruteo)** respetando ambos niveles (app y método)
+  y leyendo `X-App-Rate-Limit`, `X-Method-Rate-Limit` y `Retry-After`. Ante un 429, dormir
+  `Retry-After` y reintentar.
+
+```python
+class DualWindowLimiter:
+    """Respeta N req / ventana corta y M req / ventana larga."""
+    def __init__(self, limits: list[tuple[int, float]]):  # [(20, 1.0), (100, 120.0)]
+        self.limits = limits
+        self.history: deque[float] = deque()
+        self.lock = asyncio.Lock()
+
+    async def acquire(self) -> None:
+        async with self.lock:
+            while True:
+                now = time.monotonic()
+                wait = 0.0
+                for count, window in self.limits:
+                    recent = [t for t in self.history if now - t < window]
+                    if len(recent) >= count:
+                        wait = max(wait, window - (now - recent[0]))
+                if wait <= 0:
+                    self.history.append(now)
+                    cutoff = now - max(w for _, w in self.limits)
+                    while self.history and self.history[0] < cutoff:
+                        self.history.popleft()
+                    return
+                await asyncio.sleep(wait)
+```
+
+**Volumen estimado con una key de 100 req/2 min:** unas 72.000 requests por día. Con
+match + timeline son unas 36.000 partidas por día y por key. Un parche de dos semanas da
+unas 400.000–500.000 partidas: suficiente para winrates por campeón y rol, y para matchups
+de los pares comunes en un bracket amplio (Esmeralda+).
+
+### 14.7 Raw store
+
+- Parquet particionado: `raw/participants/region=la2/patch=16.21/part-*.parquet`.
+- Tablas raw:
+  - `matches`: match_id, region, patch, queue_id, game_start, duration_s, winning_team.
+  - `participants`: una fila por jugador por partida (ver columnas abajo).
+  - `bans`: match_id, team_id, champion_id, pick_turn.
+  - `item_events`: match_id, puuid, ts_ms, item_id, event (purchase/sell/undo).
+  - `skill_events`: match_id, puuid, ts_ms, skill_slot.
+- Guardar el JSON crudo comprimido (zstd) solo durante el desarrollo, para poder reprocesar.
+
+Columnas de `participants`:
+
+```
+match_id, puuid, team_id, win, champion_id, team_position, tier_bracket,
+summoner1_id, summoner2_id,
+primary_style, sub_style, perk0..perk5, stat_offense, stat_flex, stat_defense,
+item0..item6,
+kills, deaths, assists, cs_total, gold_earned,
+dmg_to_champs, phys_dmg_to_champs, magic_dmg_to_champs, true_dmg_to_champs,
+dmg_taken, dmg_self_mitigated, time_ccing_others, vision_score,
+gold_at_15, cs_at_15, xp_at_15        -- desde la timeline cuando exista
+```
+
+### 14.8 Bracket de elo de una partida
+
+match-v5 no trae el elo. Se estima:
+
+- Para cada participante se conoce su tier si fue descubierto vía league-v4 (cacheado).
+- Bracket de la partida = mediana de los tiers conocidos de sus participantes.
+- Brackets que exporta Mito: `emerald_plus`, `diamond_plus` y `master_plus`. Un campeón
+  puede no tener muestra en `master_plus`, así que se cae al bracket más amplio.
+
+### 14.9 Normalización de parche
+
+- `info.gameVersion` es un string tipo `"X.Y.build.algo"`. Se toma `X.Y` como clave interna.
+- La nomenclatura comercial de los parches cambió (por ejemplo, "25.S1.2" en 2025 y
+  numeración por año en 2026). Mito **no** hardcodea formatos: mantiene una tabla `patches`
+  con `game_version_prefix`, `display_name`, `start_date` y la versión de Data Dragon
+  correspondiente.
+
+### 14.10 Agregación (DuckDB)
+
+Ejemplo de stats por campeón y rol:
+
+```sql
+CREATE OR REPLACE TABLE champ_role_stats AS
+WITH base AS (
+  SELECT champion_id, team_position AS role, tier_bracket, win
+  FROM read_parquet('raw/participants/*/patch=16.21/*.parquet')
+),
+totals AS (
+  SELECT tier_bracket, COUNT(*) / 10.0 AS matches FROM base GROUP BY 1
+)
+SELECT b.champion_id, b.role, b.tier_bracket,
+       COUNT(*)                      AS games,
+       SUM(CASE WHEN win THEN 1 END) AS wins,
+       COUNT(*) / t.matches          AS pick_rate
+FROM base b JOIN totals t USING (tier_bracket)
+GROUP BY ALL;
+```
+
+Ejemplo de matchups (mismo rol, equipos opuestos):
+
+```sql
+CREATE OR REPLACE TABLE matchup_stats AS
+SELECT a.champion_id  AS champ,
+       a.team_position AS role,
+       b.champion_id  AS opp,
+       a.tier_bracket,
+       COUNT(*)                         AS games,
+       SUM(CASE WHEN a.win THEN 1 END)  AS wins,
+       AVG(a.gold_at_15 - b.gold_at_15) AS gold_diff_15,
+       AVG(a.cs_at_15   - b.cs_at_15)   AS cs_diff_15
+FROM participants a
+JOIN participants b
+  ON a.match_id = b.match_id
+ AND a.team_position = b.team_position
+ AND a.team_id <> b.team_id
+GROUP BY ALL
+HAVING COUNT(*) >= 30;
+```
+
+Sinergias (mismo equipo, pares de roles relevantes):
+
+```sql
+CREATE OR REPLACE TABLE synergy_stats AS
+SELECT a.champion_id AS champ, a.team_position AS role,
+       b.champion_id AS ally,  b.team_position AS ally_role,
+       a.tier_bracket,
+       COUNT(*) AS games, SUM(CASE WHEN a.win THEN 1 END) AS wins
+FROM participants a
+JOIN participants b
+  ON a.match_id = b.match_id AND a.team_id = b.team_id AND a.puuid <> b.puuid
+GROUP BY ALL
+HAVING COUNT(*) >= 50;
+```
+
+Tablas a producir (detalle en la sección 17):
+
+- `champion_roles`, `champ_role_stats`, `champ_ban_stats`
+- `matchup_stats`, `synergy_stats`, `vs_team_stats` (contra campeones en cualquier rol)
+- `rune_pages`, `rune_pages_vs`
+- `item_builds` (start, core de 3, boots, situacionales), `item_builds_vs_profile`
+- `spell_pairs`, `skill_orders`
+- `duration_curves` (winrate por bucket de duración)
+- `champion_profiles` (perfil de daño, tanqueo, CC y alcance, derivados de datos)
+
+### 14.11 Perfiles de campeón (derivados de datos)
+
+En vez de etiquetar a mano, se calculan desde match-v5:
+
+| Métrica | Fuente | Uso |
+|---|---|---|
+| `phys_share` | phys_dmg_to_champs / dmg_to_champs | Perfil AD/AP del equipo |
+| `magic_share` | magic_dmg_to_champs / dmg_to_champs | |
+| `true_share` | true_dmg_to_champs / dmg_to_champs | |
+| `tankiness` | (dmg_taken + dmg_self_mitigated) normalizado por rol | Frontline |
+| `cc_score` | time_ccing_others normalizado | CC del equipo |
+| `early_strength` | winrate en partidas < 25 min vs promedio | Power spikes |
+| `late_strength` | winrate en partidas > 35 min vs promedio | Scaling |
+| `gold_diff_15` medio | timeline | Fuerza de lane |
+
+Se complementan con los `tags` de Data Dragon (Mage, Assassin, Tank...) solo para la UI.
+
+### 14.12 Export
+
+- Un archivo por (parche, bracket): `mito-16.21-emerald_plus.sqlite`.
+- Se exportan solo filas con muestra mínima (umbrales en la sección 18.2).
+- `VACUUM` y luego compresión (`.sqlite.zst`) para la descarga.
+- Tamaño objetivo: menor a 50 MB comprimido por bracket.
+- `manifest.json`:
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-20T12:00:00Z",
+  "current_patch": "16.21",
+  "ddragon_version": "16.21.1",
+  "snapshots": [
+    {
+      "patch": "16.21",
+      "bracket": "emerald_plus",
+      "url": "https://cdn.example.com/mito/16.21/emerald_plus.sqlite.zst",
+      "sha256": "…",
+      "bytes": 38122110,
+      "matches": 412339,
+      "regions": ["la2", "la1", "na1", "br1"]
+    }
+  ]
+}
+```
+
+### 14.13 Inicio de parche (cold start)
+
+Los primeros 2–3 días de un parche hay pocos datos. Estrategia:
+
+- Mezclar el parche nuevo con el anterior, ponderado por muestra:
+  `peso_nuevo = n_nuevo / (n_nuevo + k)` con `k ≈ 20.000` partidas.
+- Si un campeón recibió cambios en las notas del parche (marca manual o heurística por la
+  diferencia de winrate), reducir el peso del parche viejo para ese campeón.
+- La UI muestra "Datos del parche 16.21 + 16.20 (inicio de parche)".
+
+### 14.14 Scheduling
+
+- `crawl`: continuo (daemon) o cada hora.
+- `aggregate + export + publish`: cada 12–24 h, más uno al detectar un parche nuevo.
+- Detección de parche nuevo: `https://ddragon.leagueoflegends.com/api/versions.json`.
+- Corre en una máquina propia, una VPS o Jenkins. Requisitos modestos: unos GB de disco por
+  parche en parquet.
+
+### 14.15 CLI
+
+```bash
+uv run mito-data seed      --region la2 --tiers MASTER,GRANDMASTER,CHALLENGER,DIAMOND,EMERALD
+uv run mito-data crawl     --regions la2,la1,na1,br1 --patch current --workers 4
+uv run mito-data aggregate --patch 16.21
+uv run mito-data export    --patch 16.21 --brackets emerald_plus,diamond_plus,master_plus
+uv run mito-data publish   --patch 16.21
+uv run mito-data static    --version latest       # descarga Data Dragon / CDragon
+uv run mito-data stats     --patch 16.21          # resumen de volumen y calidad
+```
+
+---
+
+## 15. Riot API pública
+
+### 15.1 Ruteo
+
+| Tipo | Valores | Se usa para |
+|---|---|---|
+| Plataforma | `la2` (LAS), `la1` (LAN), `br1`, `na1`, `euw1`, `kr`, … | league-v4, summoner-v4, champion-mastery-v4 |
+| Regional | `americas`, `europe`, `asia`, `sea` | account-v1, match-v5 |
+
+Base: `https://{routing}.api.riotgames.com`, con el header `X-Riot-Token: <key>`.
+
+### 15.2 Endpoints
+
+| Endpoint | Ruteo | Uso |
+|---|---|---|
+| `/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}` | regional | puuid desde Riot ID |
+| `/lol/league/v4/challengerleagues/by-queue/RANKED_SOLO_5x5` | plataforma | Seed |
+| `/lol/league/v4/grandmasterleagues/by-queue/RANKED_SOLO_5x5` | plataforma | Seed |
+| `/lol/league/v4/masterleagues/by-queue/RANKED_SOLO_5x5` | plataforma | Seed |
+| `/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{division}?page=N` | plataforma | Seed Diamond y Emerald |
+| `/lol/match/v5/matches/by-puuid/{puuid}/ids` | regional | Ids de partidas |
+| `/lol/match/v5/matches/{matchId}` | regional | Partida |
+| `/lol/match/v5/matches/{matchId}/timeline` | regional | Timeline |
+| `/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}` | plataforma | Capa personal profunda (opcional) |
+
+### 15.3 Campos de match-v5 que importan
+
+- `metadata.matchId`, `metadata.participants[]`
+- `info.gameVersion`, `info.queueId`, `info.gameDuration`, `info.gameEndedInEarlySurrender`
+- `info.teams[].bans[]`, `info.teams[].win`
+- `info.participants[]`: `puuid`, `championId`, `teamPosition`, `teamId`, `win`,
+  `summoner1Id`, `summoner2Id`, `item0..item6`, `perks.styles[]` (primaryStyle y subStyle
+  con `selections[].perk`), `perks.statPerks` (offense, flex, defense), estadísticas de daño,
+  `timeCCingOthers`, `visionScore` y `challenges` (métricas extra).
+
+### 15.4 Timeline
+
+- `info.frames[]` cada 60 s, con `participantFrames` (oro, xp, cs) y `events[]`.
+- Eventos útiles: `ITEM_PURCHASED`, `ITEM_SOLD`, `ITEM_UNDO`, `SKILL_LEVEL_UP`,
+  `CHAMPION_KILL`, `BUILDING_KILL`, `ELITE_MONSTER_KILL`.
+- Orden de build: secuencia de `ITEM_PURCHASED` neta de undo, filtrando consumibles y
+  componentes. Se arman tres capas:
+  - **Inicio:** compras con `timestamp < 60s`.
+  - **Core:** primeros 3 ítems legendarios terminados.
+  - **Botas:** primeras botas de tier 2.
+- Orden de habilidades: los primeros 15 `SKILL_LEVEL_UP` con `levelUpType == NORMAL`. Se
+  resume como prioridad de maxeo (por ejemplo, Q > W > E) más la secuencia de los primeros
+  3–4 niveles.
+
+---
+
+## 16. Datos estáticos
+
+### 16.1 Fuentes
+
+| Fuente | Qué tiene | Cuándo usarla |
+|---|---|---|
+| **Cliente local** (`/lol-game-data/assets/v1/...`) | Campeones, ítems, runas, spells e íconos en la versión exacta del cliente | **Prioridad en la app** (offline, versión exacta) |
+| **Data Dragon** (`ddragon.leagueoflegends.com`) | JSON y assets oficiales por versión, con locales (incluye `es_AR`) | Pipeline y fallback en la app |
+| **CommunityDragon** (`raw.communitydragon.org`) | Mismos datos del cliente, más completos y con IDs crudos | Pipeline, cuando a Data Dragon le falta algo |
+
+Archivos de Data Dragon:
+
+- `https://ddragon.leagueoflegends.com/api/versions.json`
+- `/cdn/{version}/data/es_AR/champion.json`
+- `/cdn/{version}/data/es_AR/item.json`
+- `/cdn/{version}/data/es_AR/runesReforged.json`
+- `/cdn/{version}/data/es_AR/summoner.json`
+- `/cdn/{version}/img/champion/{Name}.png`
+
+### 16.2 IDs
+
+- Los campeones se identifican siempre por **ID numérico** (`103` = Ahri), nunca por nombre.
+  El `key` de Data Dragon es el numérico y el `id` es el string.
+- Las runas tienen IDs de perk (por ejemplo, 8112) y de estilo (8100 Dominación, 8000
+  Precisión, 8200 Brujería, 8300 Inspiración, 8400 Valor). Verificar con `perkstyles.json`.
+- Los ítems tienen IDs numéricos. Al exportar se filtran los no comprables en SR y los
+  retirados.
+
+### 16.3 Clasificación de ítems (necesaria para builds)
+
+En el pipeline se clasifica cada ítem como:
+
+- `starter` (Doran's, Cull, ítems de jungla y support iniciales)
+- `consumable`
+- `component`
+- `boots_t1`, `boots_t2`
+- `legendary` (terminado)
+- `support_upgrade`
+
+Fuente: `item.json` (`into`, `from`, `depth`, `gold.total`, `tags`, `maps`) más una lista
+manual chica de excepciones en `data/static/item_overrides.yaml`.
+
+---
+
+## 17. Modelo de datos del snapshot
+
+Archivo SQLite de solo lectura. Todas las tablas tienen `patch` y `bracket` implícitos por
+archivo. Las tablas multi-parche (cold start) usan columnas propias.
+
+```sql
+-- Metadatos
+CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+-- schema_version, patch, bracket, generated_at, matches, regions, ddragon_version
+
+-- Campeones y roles
+CREATE TABLE champions (
+  champion_id INTEGER PRIMARY KEY,
+  key TEXT NOT NULL,             -- "Ahri"
+  name TEXT NOT NULL,            -- localizado
+  tags TEXT NOT NULL             -- JSON array
+);
+
+CREATE TABLE champion_roles (
+  champion_id INTEGER, role TEXT,  -- TOP|JUNGLE|MIDDLE|BOTTOM|UTILITY
+  games INTEGER, share REAL,       -- P(role | champion)
+  PRIMARY KEY (champion_id, role)
+);
+
+CREATE TABLE champ_role_stats (
+  champion_id INTEGER, role TEXT,
+  games INTEGER, wins INTEGER,
+  pick_rate REAL, ban_rate REAL,
+  wr_smoothed REAL,               -- ver 18.1
+  tier TEXT,                      -- S/A/B/C/D calculado
+  PRIMARY KEY (champion_id, role)
+);
+
+-- Perfiles derivados
+CREATE TABLE champion_profiles (
+  champion_id INTEGER, role TEXT,
+  phys_share REAL, magic_share REAL, true_share REAL,
+  tankiness REAL, cc_score REAL,
+  early_strength REAL, late_strength REAL,
+  gold_diff_15 REAL,
+  PRIMARY KEY (champion_id, role)
+);
+
+CREATE TABLE duration_curves (
+  champion_id INTEGER, role TEXT, bucket TEXT,  -- '<20','20-25','25-30','30-35','35-40','40+'
+  games INTEGER, wins INTEGER,
+  PRIMARY KEY (champion_id, role, bucket)
+);
+
+-- Relaciones
+CREATE TABLE matchup_stats (
+  champion_id INTEGER, role TEXT, opp_id INTEGER,
+  games INTEGER, wins INTEGER,
+  gold_diff_15 REAL, cs_diff_15 REAL,
+  PRIMARY KEY (champion_id, role, opp_id)
+);
+
+CREATE TABLE synergy_stats (
+  champion_id INTEGER, role TEXT, ally_id INTEGER, ally_role TEXT,
+  games INTEGER, wins INTEGER,
+  PRIMARY KEY (champion_id, role, ally_id, ally_role)
+);
+
+CREATE TABLE vs_team_stats (       -- contra un campeón rival en cualquier rol
+  champion_id INTEGER, role TEXT, enemy_id INTEGER,
+  games INTEGER, wins INTEGER,
+  PRIMARY KEY (champion_id, role, enemy_id)
+);
+
+-- Loadouts
+CREATE TABLE rune_pages (
+  champion_id INTEGER, role TEXT,
+  opp_id INTEGER,                  -- NULL = general
+  page_hash TEXT,                  -- hash de la página normalizada
+  primary_style INTEGER, sub_style INTEGER,
+  perks TEXT,                      -- JSON [6 perks]
+  shards TEXT,                     -- JSON [3]
+  games INTEGER, wins INTEGER,
+  PRIMARY KEY (champion_id, role, opp_id, page_hash)
+);
+
+CREATE TABLE rune_page_vs_profile (  -- página según el perfil del equipo rival
+  champion_id INTEGER, role TEXT,
+  enemy_profile TEXT,              -- 'heavy_ad' | 'heavy_ap' | 'mixed' | 'heavy_cc' | 'poke'
+  page_hash TEXT, games INTEGER, wins INTEGER,
+  PRIMARY KEY (champion_id, role, enemy_profile, page_hash)
+);
+
+CREATE TABLE item_builds (
+  champion_id INTEGER, role TEXT,
+  opp_id INTEGER,                  -- NULL = general
+  layer TEXT,                      -- 'start' | 'core' | 'boots' | 'fourth' | 'fifth' | 'sixth'
+  items TEXT,                      -- JSON ordenado
+  games INTEGER, wins INTEGER,
+  PRIMARY KEY (champion_id, role, opp_id, layer, items)
+);
+
+CREATE TABLE item_vs_profile (       -- ítem situacional según el perfil rival
+  champion_id INTEGER, role TEXT, enemy_profile TEXT, item_id INTEGER,
+  games INTEGER, wins INTEGER,
+  buy_rate REAL,
+  PRIMARY KEY (champion_id, role, enemy_profile, item_id)
+);
+
+CREATE TABLE spell_pairs (
+  champion_id INTEGER, role TEXT, opp_id INTEGER,
+  spell_a INTEGER, spell_b INTEGER,  -- normalizado (a < b)
+  games INTEGER, wins INTEGER,
+  PRIMARY KEY (champion_id, role, opp_id, spell_a, spell_b)
+);
+
+CREATE TABLE skill_orders (
+  champion_id INTEGER, role TEXT,
+  max_order TEXT,                  -- 'QWE'
+  first_levels TEXT,               -- 'QWEQ'
+  games INTEGER, wins INTEGER,
+  PRIMARY KEY (champion_id, role, max_order, first_levels)
+);
+
+-- Índices para consultas en champ select
+CREATE INDEX idx_matchup_opp ON matchup_stats(opp_id, role);
+CREATE INDEX idx_synergy_ally ON synergy_stats(ally_id, ally_role);
+```
+
+### Base personal (local, read-write, en la app)
+
+```sql
+CREATE TABLE my_matches (
+  game_id INTEGER PRIMARY KEY, queue_id INTEGER, patch TEXT, played_at INTEGER,
+  champion_id INTEGER, role TEXT, win INTEGER,
+  kills INTEGER, deaths INTEGER, assists INTEGER, cs INTEGER, duration_s INTEGER,
+  opp_champion_id INTEGER,
+  spell1 INTEGER, spell2 INTEGER, perks TEXT, items TEXT
+);
+
+CREATE TABLE champion_overrides (       -- preferencias manuales del usuario
+  champion_id INTEGER, role TEXT,
+  runes_mode TEXT, fixed_page TEXT,     -- JSON
+  spells_mode TEXT, fixed_spells TEXT,
+  items_mode TEXT,
+  favorite INTEGER, banned_from_pool INTEGER,
+  PRIMARY KEY (champion_id, role)
+);
+
+CREATE TABLE pool (                     -- pool declarado por rol
+  role TEXT, champion_id INTEGER, priority INTEGER,
+  PRIMARY KEY (role, champion_id)
+);
+
+CREATE TABLE import_log (
+  ts INTEGER, game_id INTEGER, champion_id INTEGER, what TEXT, result TEXT, detail TEXT
+);
+```
+
+---
+
+## 18. Motor de recomendaciones
+
+### 18.1 Fundamentos estadísticos
+
+**Suavizado bayesiano del winrate.** Nunca se usa el winrate crudo con muestras chicas.
+
+```
+wr_smoothed = (wins + α) / (games + α + β)
+con prior centrado en el winrate base del contexto:
+α = m · p0,  β = m · (1 − p0)
+p0 = winrate base (por ejemplo, el del campeón en ese rol)
+m  = fuerza del prior (en partidas): 200 para matchups, 500 para runas e ítems
+```
+
+**Delta contra la línea base.** Para matchups y sinergias se usa la **diferencia** respecto
+del winrate general del campeón, no el valor absoluto:
+
+```
+matchup_delta(A vs B) = wr_smoothed(A vs B) − wr_smoothed(A)
+```
+
+Así un campeón con winrate general alto no domina todas las listas solo por eso.
+
+**Intervalo de confianza.** Para mostrar en la UI y ordenar con cautela se usa el límite
+inferior de Wilson al 90 %. Las recomendaciones con poca muestra se marcan con un ícono de
+"muestra baja".
+
+**Backoff jerárquico.** Cada consulta busca del contexto más específico al más general y se
+queda con el primero que supera la muestra mínima. Si hay varios, los mezcla ponderando por
+muestra:
+
+```
+(champ, role, opp, bracket estrecho)
+  → (champ, role, opp, bracket amplio)
+  → (champ, role, perfil rival, bracket)
+  → (champ, role, bracket)
+  → (champ, role, parche anterior)
+```
+
+### 18.2 Umbrales de muestra mínima (iniciales, ajustables)
+
+| Dato | Mínimo para usar | Mínimo para "confiable" |
+|---|---|---|
+| champ+role | 200 | 1.000 |
+| matchup | 30 | 300 |
+| sinergia | 50 | 400 |
+| página de runas | 100 | 800 |
+| capa de build | 100 | 600 |
+| spells | 100 | 500 |
+
+### 18.3 Score de pick
+
+Para cada campeón candidato `c` en tu rol `r`:
+
+```
+score(c) =  w_meta    · meta(c, r)
+          + w_matchup · matchup(c, r, rival_de_lane)
+          + w_counter · Σ vs_team(c, r, e) para los rivales e ya lockeados (excepto el de lane)
+          + w_synergy · Σ synergy(c, r, a, rol_a) para los aliados a ya lockeados
+          + w_comp    · comp_fit(c, equipo_aliado, equipo_rival)
+          + w_personal· personal(c, r)
+          − penalties(c)
+```
+
+Componentes (todos en "puntos de winrate" para que sean comparables):
+
+- `meta`: `wr_smoothed(c, r) − 0,5`
+- `matchup`: delta contra el rival de lane, mezclado por probabilidad de rol si es inferido
+- `vs_team`: deltas contra el resto de los rivales, con peso reducido (0,3)
+- `synergy`: deltas con aliados. Peso alto para pares fuertes (bot + support, jungla + mid)
+- `comp_fit`: equilibrio de la composición (ver 18.4)
+- `personal`: ver sección 19
+- `penalties`: no lo tenés (si el modo es "solo mi pool"), está baneado o pickeado, o tiene
+  muestra demasiado baja
+
+Pesos iniciales:
+
+| Peso | Default | Notas |
+|---|---|---|
+| `w_meta` | 1,0 | |
+| `w_matchup` | 1,2 | Se anula si el rival de lane no se conoce |
+| `w_counter` | 0,3 | |
+| `w_synergy` | 0,6 | |
+| `w_comp` | 0,8 | |
+| `w_personal` | 1,0 | Se ajusta con el slider "Meta ↔ Comfort" |
+
+**Slider "Meta ↔ Comfort"** en Settings y en la ventana de champ select: mueve `w_personal`
+entre 0,2 y 2,5 y compensa `w_meta`.
+
+**Modos de candidatos:**
+
+- "Mi pool": solo campeones del pool declarado o con al menos N partidas propias.
+- "Campeones que tengo": todo lo que poseés.
+- "Todos": incluye campeones que no tenés (útil para aprender o comprar).
+
+**Salida:** el top 10 con score, desglose por componente y 2–3 razones en texto.
+
+```swift
+struct PickRecommendation: Sendable, Identifiable {
+    let id: ChampionID
+    let score: Double
+    let breakdown: [ScoreComponent: Double]
+    let reasons: [Reason]          // ordenadas por impacto
+    let confidence: Confidence     // .high / .medium / .low (muestra)
+}
+
+enum Reason: Sendable {
+    case strongMatchup(opp: ChampionID, delta: Double, games: Int)
+    case weakMatchup(opp: ChampionID, delta: Double, games: Int)
+    case synergyWith(ally: ChampionID, delta: Double)
+    case fillsDamageGap(type: DamageType)
+    case addsFrontline
+    case addsEngage
+    case comfortPick(games: Int, winrate: Double)
+    case metaStrong(tier: Tier)
+    case lowSample
+}
+```
+
+### 18.4 Comp fit
+
+Perfil del equipo aliado a partir de `champion_profiles` de los lockeados:
+
+```
+team_phys  = media de phys_share
+team_magic = media de magic_share
+team_tank  = suma de tankiness
+team_cc    = suma de cc_score
+team_early = media de early_strength
+```
+
+Reglas (cada una da un bonus o penalidad en puntos de winrate):
+
+- **Balance de daño:** si `team_phys > 0,7` con 3 o más lockeados, bonus a candidatos con
+  `magic_share` alto, y viceversa.
+- **Frontline:** si el equipo no tiene a nadie con `tankiness` en el top 30 %, bonus a
+  candidatos tanqueros (sobre todo en top, jungla y support).
+- **CC / engage:** bonus si `team_cc` es bajo.
+- **Curva de poder:** leve bonus a la coherencia (equipo early con campeón early) o una
+  advertencia si la mezcla es mala.
+
+Los bonus son chicos (±0,5 a ±2 puntos) y se calibran comparando contra el winrate real de
+composiciones en los datos (v1.5: aprender los pesos con una regresión logística sobre
+features de composición).
+
+### 18.5 Score de ban
+
+Para el jugador en su rol:
+
+```
+ban_score(e) =  presencia(e) · amenaza(e)
+presencia(e) = probabilidad de que e termine en tu lane o en el equipo rival
+             ≈ pick_rate(e, tu_rol) · (1 − ban_rate) + λ · pick_rate_global(e)
+amenaza(e)   = media ponderada de −matchup_delta(c, tu_rol, e) sobre tus campeones
+               probables c (top 3 de tu pool), más wr_meta(e) − 0,5
+```
+
+Reglas:
+
+- Nunca recomendar banear lo que un aliado tiene en hover.
+- Nunca recomendar banear un campeón de tu propio pool principal.
+- Mostrar el top 5 con la razón ("Malzahar: −4,2 % para tu Ahri y −3,1 % para tu Syndra").
+
+### 18.6 Runas
+
+1. Candidatas: `rune_pages` del (champ, role), con backoff.
+2. Si el rival de lane es conocido y `rune_pages` con ese `opp_id` tiene muestra, se mezcla:
+   `score(page) = wr_s(page | opp) · w_opp + wr_s(page | general) · (1 − w_opp)`, con
+   `w_opp = n_opp / (n_opp + 300)`.
+3. Perfil rival (por ejemplo, `heavy_ap`): ajuste con `rune_page_vs_profile`, sobre todo en
+   shards y runas defensivas de la rama Valor.
+4. Se elige la página con mayor score **entre las que tienen pick rate ≥ 5 %** dentro del
+   contexto. Así se evitan páginas raras que ganan por ruido.
+5. Explicación: "Electrocutar (58 % de uso, 53,9 % WR). vs Zed: Segunda Piel en vez de
+   Cosecha".
+
+**Normalización de página:** el orden de los perks secundarios y de los shards se normaliza
+antes de hashear para agrupar páginas equivalentes.
+
+### 18.7 Items
+
+- **Inicio:** el más ganador con pick rate ≥ 10 % para (champ, role, opp). Backoff a general.
+- **Core (3 ítems):** el combo ordenado más frecuente con buen winrate. Mostrar 1 principal
+  y 1–2 alternativos.
+- **Botas:** mezcla del general y del perfil rival (por ejemplo, Tabis vs `heavy_ad` con
+  muchos autoataques, Mercurio vs `heavy_cc` o `heavy_ap`).
+- **Situacionales:** desde `item_vs_profile`, los ítems cuyo `buy_rate` y winrate suben
+  claramente contra ese perfil frente al general. Por ejemplo: antiheal si el rival tiene
+  2 o más campeones con curación alta (lista estática), Zhonya vs asesinos AD, Banshee vs
+  CC de punto y clic.
+- Cada bloque del item set lleva el motivo en el título.
+
+### 18.8 Spells
+
+- Par más ganador con pick rate ≥ 10 % para (champ, role, opp), con backoff.
+- Reglas de seguridad: Smite obligatorio en jungla. Nunca sacar Flash salvo que el campeón
+  tenga un par alternativo dominante (≥ 60 % de uso).
+- Respetar la posición de Flash del usuario (D/F).
+
+### 18.9 Orden de habilidades
+
+- `skill_orders` más jugado con buen winrate. Mostrar la prioridad de maxeo y los primeros
+  4 niveles.
+- Se muestra en la UI y como bloque de texto en el item set.
+
+### 18.10 Rendimiento
+
+- Al entrar en champ select se cargan en memoria (diccionarios) las filas relevantes para
+  los campeones del rol y para los rivales y aliados a medida que aparecen.
+- El recálculo completo tiene que tardar menos de 50 ms en un M1 con unos 170 campeones.
+- `MitoEngine` es síncrono y puro. Se llama desde un `Task.detached` con prioridad
+  `.userInitiated`.
+
+---
+
+## 19. Capa personal
+
+### 19.1 Fuentes
+
+1. **LCU match history** (sin API key): últimas partidas del usuario. Se sincroniza al
+   abrir Mito y después de cada partida (`EndOfGame`).
+2. **LCU champion mastery:** puntos y nivel por campeón.
+3. **Pool declarado:** el usuario marca sus campeones por rol (onboarding).
+4. **Opcional (v1.5):** historial profundo vía pipeline con la puuid del usuario (meses de
+   partidas), consumido desde un endpoint propio o un archivo personal.
+
+### 19.2 Métricas por campeón y rol
+
+```
+my_games(c, r)
+my_wr_smoothed(c, r)   = (wins + m·p_global) / (games + m)   con m = 15 y p_global = wr_s(c, r)
+recency(c, r)          = Σ exp(−días_desde_partida / 30)
+mastery_norm(c)        = log(1 + puntos) / log(1 + max_puntos)
+kda_vs_avg(c, r)       = mi KDA / KDA promedio del snapshot
+cs_vs_avg(c, r)        = mi CS/min / CS/min promedio
+```
+
+### 19.3 Score personal
+
+```
+personal(c, r) =  0,4 · (my_wr_smoothed − wr_s(c, r))      -- ¿lo juego mejor que el promedio?
+                + 0,3 · comfort(c, r)                      -- familiaridad
+                + 0,2 · in_pool(c, r)                      -- pool declarado
+                + 0,1 · rendimiento relativo (kda, cs)
+
+comfort(c, r) = 0,6 · min(1, my_games / 30) + 0,4 · min(1, recency / 5)
+                + 0,2 · mastery_norm   (con techo en 1)
+```
+
+Escalado a puntos de winrate: un comfort máximo vale unos +3 puntos, ajustable. Es
+consistente con la evidencia de que jugar campeones con experiencia mejora el winrate.
+
+### 19.4 Insights personales (para la UI)
+
+- "Tu Ahri vs asesinos AD: 7 partidas, 2 victorias. Considerá Zhonya antes".
+- "Ganás 61 % en partidas de menos de 25 minutos con Syndra: jugá agresivo early".
+- "Tus 3 mejores matchups y tus 3 peores".
+- Detección de tilt (opcional y suave): "Perdiste 4 seguidas". Sin moralina, como dato.
+
+---
+
+## 20. Pantalla de análisis pre-partida
+
+Es el corazón de la v1. Se abre al entrar en champ select y se actualiza en vivo.
+
+### 20.1 Layout (ventana principal, durante champ select)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  Ranked Solo/Duo · Parche 16.21 · Esmeralda+          ⏱ 24s · Tu turno: PICK │
+├───────────────┬───────────────────────────────────────────┬──────────────────┤
+│ TU EQUIPO     │  RECOMENDADOS PARA VOS (MID)              │ EQUIPO RIVAL     │
+│               │                                           │                  │
+│ ▣ Garen  TOP  │  1. Ahri       +3,8   ████████▌  conf.alta│ ▣ Zed     MID?82%│
+│ ▣ Vi     JG   │     · +2,1 vs Zed (8.212 partidas)        │ ▣ Darius  TOP 95%│
+│ ▢ (vos)  MID  │     · Tu 3er campeón (41 partidas, 56 %)  │ ▢ ...            │
+│ ▢ ...    ADC  │     · Tu equipo es 78 % AD → aporta AP    │ ▢ ...            │
+│ ▢ ...    SUP  │  2. Syndra     +3,1   ███████             │ ▢ ...            │
+│               │  3. Galio      +2,7   ██████              │                  │
+│               │  [Meta ●────────○ Comfort]  [Mi pool ▾]   │                  │
+├───────────────┴───────────────────────────────────────────┴──────────────────┤
+│  ANÁLISIS                                                                    │
+│  [Matchup] [Composición] [Build] [Mi historial]                              │
+│                                                                              │
+│  Matchup: Ahri vs Zed                                                        │
+│  Winrate 52,3 % (±0,9)  ·  Oro @15: −85  ·  CS @15: +4                       │
+│  Curva por duración: ▁▂▄▆▇▇  (Ahri escala mejor después del minuto 25)       │
+│  Claves: guardar la E para cuando entra la R de Zed · Zhonya 2do ítem si...  │
+│                                                                              │
+│  Composición                                                                 │
+│  Daño: Aliado ███████░░░ 78 % AD   Rival ████░░░░░░ 41 % AD                  │
+│  Frontline: Aliado baja · Rival alta   CC: Aliado media · Rival alta         │
+│                                                                              │
+│  Loadout que se va a importar         [✓ Runas] [✓ Spells] [✓ Ítems]         │
+│  Electrocutar · Sabor a sangre · ...  Flash/Ignite    Luden → Botas → ...    │
+│                                              [Importar ahora]  [Editar]      │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 20.2 Pestañas del análisis
+
+1. **Matchup:** winrate suavizado con intervalo, diffs @15, curva por duración (Swift
+   Charts), power spikes por nivel e ítem (si hay datos) y "claves" (v1: plantillas
+   generadas por datos; v1.5: tips curados opcionales).
+2. **Composición:** perfil de daño de ambos equipos, frontline, CC, early vs late,
+   "condiciones de victoria" textuales derivadas (por ejemplo, "Ustedes: early fuerte,
+   buscar cerrar antes del minuto 30").
+3. **Build:** runas, ítems por capas con alternativas, spells y habilidades, cada uno con su
+   winrate, muestra y motivo.
+4. **Mi historial:** tu rendimiento con ese campeón, vs ese rival y en ese rol.
+
+### 20.3 Estados especiales
+
+- **Blind pick / sin roles:** el rol se infiere de tus preferencias o se elige manualmente.
+- **ARAM:** solo meta, runas, ítems y sinergias generales (sin matchup de lane).
+- **Rival de lane desconocido:** se muestran recomendaciones "seguras" (mejor promedio
+  contra los rivales más probables del rol, ponderado por pick rate).
+- **Sin snapshot descargado:** modo degradado. Funcionan el auto-accept, las páginas fijas
+  por campeón y la capa personal.
+
+---
+
+## 21. Configuración y toggles
+
+Todo vive en `MitoSettings` (Codable, persistido en Application Support) más las tablas de
+overrides en la base personal.
+
+### 21.1 General
+
+| Setting | Tipo | Default |
+|---|---|---|
+| Abrir Mito al iniciar sesión | bool | off |
+| Mostrar ventana al entrar en champ select | bool | on |
+| Ícono en la barra de menú | bool | on |
+| Ícono en el Dock | bool | off |
+| Idioma | es-AR / en | sistema |
+| Ruta de instalación de LoL | path | auto |
+| Bracket de datos | auto (según tu elo) / emerald_plus / diamond_plus / master_plus | auto |
+| Regiones de datos preferidas | multiselect | auto |
+
+### 21.2 Partida
+
+| Setting | Tipo | Default |
+|---|---|---|
+| Auto-accept | off / siempre / solo colas elegidas | siempre |
+| Delay del auto-accept | 0–8 s | 2 s |
+| Notificar partida encontrada | bool | on |
+
+### 21.3 Champ select
+
+| Setting | Tipo | Default |
+|---|---|---|
+| Recomendaciones de pick | bool | on |
+| Recomendaciones de ban | bool | on |
+| Candidatos | mi pool / que tengo / todos | que tengo |
+| Slider Meta ↔ Comfort | 0–1 | 0,5 |
+| Auto-hover del recomendado | bool | off |
+| Auto-ban | off / lista / recomendado | off |
+| Auto-pick | off / lista por rol | off |
+
+### 21.4 Importación
+
+| Setting | Tipo | Default |
+|---|---|---|
+| Importar runas | bool | on |
+| Modo de runas | adaptativo (matchup) / general / fijo por campeón | adaptativo |
+| Página a usar | página Mito / página N / la actual | página Mito |
+| Importar spells | bool | on |
+| Posición de Flash | D / F / auto | auto |
+| Importar item sets | bool | on |
+| Limpiar sets viejos de Mito | bool | on |
+| Importar al hacer hover | bool | off |
+| Re-importar si cambia el rival | bool | on |
+| No pisar cambios manuales | bool | on |
+
+### 21.5 Overrides por campeón
+
+Pantalla con buscador de campeones. Por cada (campeón, rol):
+
+- Runas: adaptativo / general / página fija (editor visual de runas nativo).
+- Spells: recomendado / fijo.
+- Ítems: recomendado / set fijo / no importar.
+- Marcar como favorito o excluir del pool.
+
+---
+
+## 22. Diseño de UI nativa
+
+### 22.1 Principios
+
+- **Se tiene que sentir como una app de Apple**: barra lateral, toolbar, Settings estándar,
+  atajos de teclado, modo oscuro y claro, accesibilidad (VoiceOver, Dynamic Type donde
+  aplique, contraste).
+- **Nada de webviews.** Todo SwiftUI.
+- **Densidad informativa alta pero limpia**: las recomendaciones se leen en 2 segundos.
+- **Colores semánticos**: verde = favorable, rojo = desfavorable, gris = muestra baja. No
+  depender solo del color: incluir íconos y signos (+/−).
+- **Animaciones sutiles** al actualizarse el draft (`.contentTransition(.numericText())`,
+  `matchedGeometryEffect` en los slots).
+- **Liquid Glass** en toolbar y sidebar donde el sistema lo soporte, con fallback
+  `.regularMaterial` en versiones previas.
+
+### 22.2 Navegación (ventana principal)
+
+`NavigationSplitView` con sidebar:
+
+- **Ahora** (estado actual: lobby, champ select o en partida)
+- **Campeones** (tier list del parche por rol, ficha de campeón)
+- **Mi perfil** (historial, mejores campeones, insights)
+- **Overrides** (configuración por campeón)
+
+### 22.3 Componentes del design system
+
+- `ChampionIcon(id:size:state:)`: con estados hover, lockeado, baneado y no disponible.
+- `WinrateBar(value:baseline:confidence:)`
+- `DeltaBadge(delta:)`: "+2,1" / "−3,4" con color e ícono.
+- `ConfidenceIndicator(level:)`
+- `RunePageView(page:)`: visual con los árboles y las runas elegidas.
+- `ItemRow(items:title:)`
+- `ReasonRow(reason:)`: texto con ícono SF Symbol.
+- `TeamColumn(slots:side:)`
+- `DurationCurveChart(curve:)`: Swift Charts.
+- `DamageProfileBar(phys:magic:true:)`
+
+### 22.4 Barra de menú
+
+```
+● Mito — Conectado como Joaco#LAS
+──────────────────────────────
+Fase: Champ select (tu turno)
+Recomendado: Ahri (+3,8)
+──────────────────────────────
+✓ Auto-accept
+✓ Importar runas
+✓ Importar ítems
+──────────────────────────────
+Abrir Mito                ⌘O
+Settings…                 ⌘,
+Salir                     ⌘Q
+```
+
+Ícono de la barra según el estado (SF Symbols): desconectado `circle.dashed`, conectado
+`circle.fill`, buscando partida `magnifyingglass`, champ select `person.3.fill`, en partida
+`gamecontroller.fill`.
+
+### 22.5 Notificaciones (UserNotifications)
+
+- "Partida encontrada, aceptada ✓"
+- "Te toca elegir. Recomendado: Ahri"
+- "Runas, spells e ítems importados para Ahri vs Zed"
+- Acción en la notificación: "Abrir análisis".
+
+### 22.6 Localización
+
+- `String Catalogs` (`.xcstrings`) desde el día 1.
+- Nombres de campeones, ítems y runas: desde los datos estáticos en el locale del cliente o
+  `es_AR`.
+- Números con el formateador del locale (coma decimal en es-AR).
+
+---
+
+## 23. Testing y entorno de desarrollo
+
+### 23.1 Mock LCU (`tools/lcu-mock`)
+
+Servidor Python (aiohttp) que simula la LCU para desarrollar sin abrir el juego ni hacer
+cola:
+
+- Escribe un lockfile falso en una ruta configurable.
+- HTTPS con certificado self-signed propio en `127.0.0.1`.
+- Endpoints REST con respuestas desde fixtures JSON.
+- WebSocket WAMP que **reproduce secuencias grabadas** (ready check → champ select
+  completo → partida) con timing real o acelerado.
+- Endpoints de escritura (`POST /lol-perks/v1/pages`, etc.) que validan el payload y lo
+  guardan para que el test lo inspeccione.
+
+```bash
+uv run lcu-mock --scenario ranked_mid_vs_zed --speed 4x
+```
+
+La app tiene un flag de debug para apuntar al mock: lockfile alternativo y CA del mock
+aceptada solo en builds de debug.
+
+### 23.2 Recorder (`tools/lcu-recorder`)
+
+- Se conecta a la LCU real y graba todos los eventos WAMP y las respuestas de los GET
+  relevantes, con timestamps, a `fixtures/<escenario>/`.
+- Anonimiza puuids, nombres e IDs antes de guardar.
+- Se usa para crear escenarios del mock y para detectar cambios de la LCU entre parches.
+
+### 23.3 Tests
+
+- **MitoEngine:** unit tests con un `StatsProvider` en memoria. Casos: matchup conocido,
+  backoff por muestra baja, comp sin frontline, rival de lane inferido con baja confianza,
+  modo ARAM.
+- **LCUKit:** parsing de lockfile y de args de proceso, decodificación tolerante de
+  sesiones reales grabadas, reconexión.
+- **Importer:** contra el mock, verificando el payload exacto de runas e item sets, que no
+  pise los sets del usuario y el manejo del cupo de páginas.
+- **mito-data:** pytest para normalización, filtros de remake, clasificación de ítems,
+  agregaciones sobre un dataset chico fijo y validación del schema exportado.
+- **Contrato snapshot ↔ app:** test que abre un snapshot generado por el pipeline con el
+  código Swift y verifica `schema_version` y las consultas principales.
+
+### 23.4 Calidad de las recomendaciones (offline)
+
+Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10 %):
+
+- ¿El score de composición predice la victoria mejor que el azar? Métricas: AUC y log-loss.
+- Calibración: los equipos con +3 puntos estimados ¿ganan cerca del 53 %?
+- Sirve para ajustar los pesos `w_*` con datos y no a ojo.
+
+---
+
+## 24. Distribución
+
+- **Fuera del Mac App Store**: la app necesita leer fuera de su contenedor (lockfile,
+  `ps`), así que el App Sandbox está **desactivado**.
+- Firma con **Developer ID** + **notarización** de Apple + Hardened Runtime.
+- Actualizaciones con **Sparkle** (appcast firmado con EdDSA).
+- Instalación por DMG. Opcional: cask de Homebrew.
+- Permisos de macOS: notificaciones. No hace falta Accesibilidad ni Grabación de pantalla
+  en la v1.
+
+---
+
+## 25. Seguridad y privacidad
+
+- El token de la LCU se mantiene solo en memoria y **nunca** se loguea.
+- Los logs con `os.Logger` usan `privacy: .private` para puuids y nombres.
+- La API key de Riot vive solo en el pipeline (variables de entorno o secret manager). Nunca
+  en el repo ni en la app.
+- La app no tiene telemetría en la v1. Si se agrega, será opt-in, anónima y documentada.
+- Los datos personales quedan en el Mac (Application Support). Hay un botón "Borrar mis
+  datos".
+- El snapshot se verifica por `sha256` contra el manifest antes de abrirse. El manifest se
+  sirve por HTTPS (opcional: firmarlo).
+- Las conexiones a la LCU aceptan el certificado **solo** para `127.0.0.1`.
+
+---
+
+## 26. Roadmap por fases
+
+Cada fase termina con algo usable.
+
+### Fase 0 — Setup (½ semana)
+
+- [ ] Monorepo, `README`, este documento y ADR-001 (snapshot vs backend).
+- [ ] Proyecto de Xcode con los paquetes locales vacíos (`MitoCore`, `LCUKit`, `MitoStore`,
+      `MitoEngine`, `MitoAssets`).
+- [ ] Proyecto Python con uv, CLI con typer vacío y CI básico (lint + tests).
+- [ ] Pedir la personal API key en el Riot Developer Portal.
+
+### Fase 1 — Conexión (1 semana)
+
+- [ ] `LCUDiscovery` (proceso + lockfile) con tests.
+- [ ] `LCUClient` REST con TLS restringido a 127.0.0.1.
+- [ ] WebSocket WAMP con suscripción a temas y reconexión.
+- [ ] MenuBarExtra con el estado de conexión y el Riot ID.
+- [ ] `tools/lcu-recorder` grabando una sesión real.
+
+**Hecho cuando:** abrir el cliente y ver "Conectado como X" en menos de 3 s, y que se
+reconecte solo al reiniciar el cliente.
+
+### Fase 2 — Gameflow + auto-accept (½ semana)
+
+- [ ] Máquina de estados de gameflow.
+- [ ] Auto-accept con delay y notificación.
+- [ ] `tools/lcu-mock` con el escenario de ready check.
+
+**Hecho cuando:** hacer cola, irse a otra app y que la partida se acepte sola con
+notificación.
+
+### Fase 3 — Champ select en vivo (1 semana)
+
+- [ ] Decodificación tolerante de la sesión.
+- [ ] `DraftContext`, inferencia de roles rivales.
+- [ ] Vista de champ select (equipos, bans, timer) sin recomendaciones todavía.
+
+### Fase 4 — Importador con datos fijos (1 semana)
+
+- [ ] Datos estáticos desde el cliente local (`/lol-game-data/...`).
+- [ ] Importador de runas, spells e item sets con un JSON de builds escrito a mano para 5
+      campeones.
+- [ ] Gestión de páginas (crear, editar, cupo) y de sets sin pisar los del usuario.
+- [ ] Settings de importación.
+
+**Hecho cuando:** lockear Ahri y que aparezcan runas, spells y el item set correctos.
+
+### Fase 5 — Pipeline MVP (2 semanas, en paralelo con 3–4)
+
+- [ ] Cliente de la Riot API + rate limiter + cola de crawl en SQLite.
+- [ ] Seed de LAS alto elo. Crawl de un parche.
+- [ ] Normalización a parquet.
+- [ ] Agregaciones: `champ_role_stats`, `champion_roles`, `rune_pages`, `item_builds`,
+      `spell_pairs`, `skill_orders`.
+- [ ] Export del snapshot y manifest. Publicación en R2/S3/GH Releases.
+
+### Fase 6 — La app consume el snapshot (1 semana)
+
+- [ ] Descarga y verificación del snapshot. `MitoStore` read-only.
+- [ ] El importador usa datos reales (general, sin matchup).
+- [ ] Ficha de campeón y tier list por rol.
+
+### Fase 7 — Motor de recomendaciones v1 (2 semanas)
+
+- [ ] Agregaciones de matchups, sinergias, `vs_team`, perfiles y curvas de duración.
+- [ ] Score de pick (meta + matchup + counter + sinergia + comp).
+- [ ] Score de ban.
+- [ ] Runas, ítems y spells adaptados al matchup y al perfil rival.
+- [ ] Razones explicables.
+
+### Fase 8 — Capa personal (1 semana)
+
+- [ ] Sincronización del historial vía LCU a la base personal.
+- [ ] Onboarding: pool por rol, posición de Flash y bracket.
+- [ ] Score personal y slider Meta ↔ Comfort.
+- [ ] Pestaña "Mi historial" e insights.
+
+### Fase 9 — Análisis pre-partida completo (1–2 semanas)
+
+- [ ] Pestañas Matchup, Composición, Build y Mi historial con Swift Charts.
+- [ ] Estados especiales (blind, ARAM, sin snapshot, rival desconocido).
+- [ ] Pulido visual, animaciones y accesibilidad.
+
+### Fase 10 — Release beta (1 semana)
+
+- [ ] Firma, notarización, Sparkle y DMG.
+- [ ] Disclaimer legal y pantalla "Acerca de".
+- [ ] Registro de la app en el Riot Developer Portal (si se distribuye públicamente).
+- [ ] Beta con amigos.
+
+### Después (v1.5 / v2)
+
+- Backtest y ajuste de pesos con regresión logística.
+- Cold start de parche refinado.
+- Historial personal profundo vía pipeline.
+- Flex, ARAM con datos propios.
+- **Overlay y Live Client Data (v2).**
+- Post-game.
+
+---
+
+## 27. Overlay (v2) — notas para después
+
+Queda fuera de la v1 a propósito. Notas para cuando se retome:
+
+- **Fuente de datos:** Live Client Data API, `https://127.0.0.1:2999/liveclientdata/allgamedata`
+  (también `activeplayer`, `playerlist`, `eventdata`). Solo existe mientras corre la
+  partida. Certificado self-signed de Riot.
+- **Ventana:** `NSPanel` sin bordes, `isOpaque = false`, `backgroundColor = .clear`,
+  `ignoresMouseEvents = true`, `level = .statusBar` (probar niveles más altos si hace
+  falta), `collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]`,
+  `hidesOnDeactivate = false`. Contenido en SwiftUI vía `NSHostingView`.
+- **Modo de ventana del juego:** funciona seguro en ventana sin bordes. El fullscreen de
+  macOS usa un Space propio: hay que probar `.fullScreenAuxiliary` contra la versión actual
+  del cliente. Probablemente sea lo que hoy le falla a Blitz en Mac.
+- **Contenido permitido:** solo información que el juego ya da o que estaba disponible antes
+  de la partida (build planificada, recordatorios de runas, power spikes del plan). **Nada**
+  de timers de enemigos ni información oculta.
+- **Interacción:** atajo global para mostrar u ocultar (por ejemplo, ⌥Tab), con un modo
+  "editar posición" que activa los clics temporalmente.
+- **Riesgo:** el área con más chances de romper la política de Riot o de cambiar con mVG.
+  Revisar la política vigente antes de implementar.
+
+---
+
+## 28. Riesgos y preguntas abiertas
+
+### Riesgos
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Riot restringe la LCU o algún endpoint | Alto | Decodificación tolerante, recorder para detectar cambios rápido, features degradables |
+| Cambios de política de terceros | Alto | Solo APIs oficiales, nada in-game en la v1, seguir el portal de desarrolladores |
+| Rate limits que no alcanzan para matchups | Medio | Production key, foco en un bracket amplio, timelines muestreadas, mezcla de parches |
+| Pocos datos al inicio de parche | Medio | Cold start con el parche anterior, aviso visible |
+| Calidad de la recomendación "a ojo" | Medio | Backtest, calibración y razones visibles para que el usuario juzgue |
+| Cambio de estructura de runas o shards | Bajo | Validar siempre contra `perkstyles.json` del cliente |
+| Costo de hosting del snapshot | Bajo | Archivos estáticos comprimidos, R2 sin egress |
+
+### Preguntas abiertas
+
+1. ¿Bracket por defecto: el del usuario o siempre un poco más alto (aprender del mejor)?
+2. ¿Se hace pública Mito o es uso personal y amigos? Define si hace falta production key y
+   registro formal.
+3. ¿Hosting del snapshot: R2, S3 o GitHub Releases?
+4. ¿Tips de matchup curados a mano (calidad) o solo generados por datos (escala)?
+5. ¿Auto-pick existe en la v1 o se deja directamente afuera?
+6. ¿Regiones: solo Américas al principio o desde el día 1 se suma KR/EUW para alto elo?
+7. ¿Hace falta un backend online antes de la v2? Hipótesis actual: no.
+
+---
+
+## 29. Glosario
+
+| Término | Significado |
+|---|---|
+| **LCU** | League Client Update: el cliente de LoL (UI fuera de la partida) y su API local |
+| **LCUx / LeagueClientUx** | Proceso de la UI del cliente; sus argumentos traen puerto y token |
+| **WAMP** | Protocolo sobre WebSocket que usa la LCU para eventos (`[5, topic]` para suscribirse) |
+| **Gameflow** | Fases del cliente: Lobby, Matchmaking, ReadyCheck, ChampSelect, InProgress… |
+| **Champ select** | Selección de campeones (bans, picks, runas, spells) |
+| **Hover / intent** | Campeón marcado pero no lockeado |
+| **Lock** | Confirmar el pick o ban |
+| **Snapshot** | Archivo SQLite con estadísticas agregadas por parche y bracket |
+| **Bracket** | Rango de elo de los datos (emerald_plus, diamond_plus, master_plus) |
+| **Backoff** | Caer a un contexto más general cuando falta muestra |
+| **Delta** | Diferencia de winrate contra la línea base del campeón |
+| **Comfort** | Familiaridad del usuario con un campeón (partidas, recencia, maestría) |
+| **mVG** | Embedded Vanguard, el anti-cheat integrado en LoL para macOS |
+| **Data Dragon** | CDN oficial de Riot con datos estáticos por versión |
+| **CommunityDragon** | Espejo comunitario de los datos crudos del cliente |
+| **match-v5** | Endpoint de la Riot API con el detalle de partidas |
+| **Timeline** | Detalle minuto a minuto de una partida (compras, habilidades, eventos) |
+| **Roles** | TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY (support) |
+| **Colas** | 420 = Ranked Solo/Duo, 440 = Ranked Flex, 400 = Normal Draft, 450 = ARAM |
+
+---
+
+## 30. Referencias
+
+- Riot Developer Portal y políticas: https://developer.riotgames.com/docs/lol
+- Data Dragon: https://ddragon.leagueoflegends.com/api/versions.json
+- CommunityDragon: https://raw.communitydragon.org/
+- Riot Vanguard (wiki, incluye mVG en macOS): https://wiki.leagueoflegends.com/en-us/Riot_Vanguard
+- Restricción de acceso a memoria para terceros (Sheep Esports):
+  https://www.sheepesports.com/de/articles/riot-explain-league-replays-restrictions-in-new-anti-cheat-update/en
+- Cambio de política de anuncios de terceros (Overwolf):
+  https://blog.overwolf.com/supporting-creators-in-riots-ecosystem-our-response-and-commitment/
+- GRDB.swift: https://github.com/groue/GRDB.swift
+- Sparkle: https://sparkle-project.org
+- DuckDB: https://duckdb.org
+- Polars: https://pola.rs
+
+> **Nota de mantenimiento:** los endpoints de la LCU, los nombres de campos y los límites de
+> la Riot API se tienen que verificar contra la realidad (recorder y portal) y actualizar acá
+> cuando cambien. Este documento manda; el código lo sigue.
