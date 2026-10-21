@@ -93,7 +93,7 @@ enum ImportFixture {
             #"[{"id": 103, "alias": "Ahri", "name": "Ahri"}, {"id": 238, "alias": "Zed", "name": "Zed"}]"#
                 .utf8),
         LCUEndpoint.gameDataItems.path: Data(
-            #"[{"id": 3165, "name": "Morellonomicon"}, {"id": 3047, "name": "Plated Steelcaps"}]"#
+            #"[{"id": 3033, "name": "Mortal Reminder"}, {"id": 3047, "name": "Plated Steelcaps"}]"#
                 .utf8),
         LCUEndpoint.gameDataPerkStyles.path: Data(#"{"styles": []}"#.utf8),
         LCUEndpoint.gameDataPerks.path: Data("[]".utf8),

@@ -76,14 +76,14 @@ struct SnapshotContractTests {
         #expect(
             stats == [
                 ChampionID(rawValue: 64): ChampionRoleStats(
-                    games: 3600, wins: 1916, timelineGames: 900, kills: 14400, deaths: 14400,
-                    assists: 25200, cs: 345600, minutes: 100800),
+                    games: 3600, wins: 1796, timelineGames: 900, kills: 28800, deaths: 18000,
+                    assists: 39600, cs: 392400, minutes: 100800),
                 Self.udyr: ChampionRoleStats(
-                    games: 2558, wins: 1261, timelineGames: 639, kills: 10232, deaths: 12790,
-                    assists: 23022, cs: 66508, minutes: 71624),
+                    games: 2558, wins: 1157, timelineGames: 639, kills: 17906, deaths: 7674,
+                    assists: 10232, cs: 544854, minutes: 74182),
                 Self.zed: ChampionRoleStats(
-                    games: 2746, wins: 1340, timelineGames: 40, kills: 8238, deaths: 10984,
-                    assists: 19222, cs: 329520, minutes: 79634),
+                    games: 2746, wins: 1344, timelineGames: 40, kills: 10984, deaths: 13730,
+                    assists: 21968, cs: 227918, minutes: 76888),
             ])
     }
 
@@ -97,14 +97,14 @@ struct SnapshotContractTests {
                         subStyle: PerkStyleID(rawValue: 8300),
                         perks: [8112, 8143, 8140, 8135, 8345, 8347, 5008, 5008, 5011].map(
                             PerkID.init(rawValue:))),
-                    games: 2118, wins: 1105),
+                    games: 2118, wins: 1093),
                 RunePageCandidate(
                     page: RunePage(
                         primaryStyle: PerkStyleID(rawValue: 8200),
                         subStyle: PerkStyleID(rawValue: 8300),
                         perks: [8229, 8226, 8210, 8237, 8304, 8347, 5007, 5008, 5011].map(
                             PerkID.init(rawValue:))),
-                    games: 706, wins: 374),
+                    games: 706, wins: 336),
             ])
     }
 
@@ -114,10 +114,10 @@ struct SnapshotContractTests {
             pairs == [
                 SpellPairCandidate(
                     spellA: SummonerSpellID(rawValue: 4), spellB: SummonerSpellID(rawValue: 14),
-                    games: 1519, wins: 695),
+                    games: 2650, wins: 1325),
                 SpellPairCandidate(
                     spellA: SummonerSpellID(rawValue: 4), spellB: SummonerSpellID(rawValue: 12),
-                    games: 1305, wins: 591),
+                    games: 174, wins: 80),
             ])
     }
 
@@ -131,12 +131,12 @@ struct SnapshotContractTests {
         }
         #expect(
             builds == [
-                build(.start, [1056, 2003, 2003], 572, 301),
-                build(.fifth, [3142], 503, 230),
-                build(.sixth, [3157], 373, 188),
-                build(.boots, [3020], 321, 174),
-                build(.core, [6655, 3157, 3089], 235, 129),
-                build(.fourth, [3107], 150, 77),
+                build(.boots, [3020], 688, 354),
+                build(.sixth, [3046], 650, 341),
+                build(.fifth, [3033], 415, 225),
+                build(.start, [1056, 2003, 2003], 373, 188),
+                build(.fourth, [3031], 305, 148),
+                build(.core, [6655, 3157, 3089], 303, 152),
             ])
     }
 
@@ -147,7 +147,7 @@ struct SnapshotContractTests {
                 SkillOrderCandidate(
                     order: SkillOrder(
                         maxOrder: [.q, .w, .e], sequence: Self.abilities("QWEQQRQQWWRWWEEREE")),
-                    games: 706, wins: 367)
+                    games: 706, wins: 338)
             ])
     }
 
@@ -158,14 +158,14 @@ struct SnapshotContractTests {
             orders == [
                 SkillOrderCandidate(
                     order: SkillOrder(
-                        maxOrder: [.q, .r, .w, .e],
-                        sequence: Self.abilities("QRWEQQQQRRRRWWWWEE")),
-                    games: 474, wins: 225),
-                SkillOrderCandidate(
-                    order: SkillOrder(
                         maxOrder: [.r, .q, .w, .e],
                         sequence: Self.abilities("RQWERRRRQQQQWWWWEE")),
-                    games: 165, wins: 80),
+                    games: 497, wins: 229),
+                SkillOrderCandidate(
+                    order: SkillOrder(
+                        maxOrder: [.q, .r, .w, .e],
+                        sequence: Self.abilities("QRWEQQQQRRRRWWWWEE")),
+                    games: 142, wins: 74),
             ])
     }
 
@@ -180,7 +180,7 @@ struct SnapshotContractTests {
                 SkillOrderCandidate(
                     order: SkillOrder(
                         maxOrder: [.q, .e, .w], sequence: Self.abilities("QEWQQRQQEEREEWWRWW")),
-                    games: 40, wins: 21)
+                    games: 40, wins: 20)
             ])
         #expect(orders.allSatisfy { $0.games < minimum })
     }
@@ -214,7 +214,7 @@ struct SnapshotContractTests {
         #expect(
             start == [
                 ItemBuildCandidate(
-                    layer: .start, items: [ItemID(rawValue: 1101)], games: 32, wins: 14)
+                    layer: .start, items: [ItemID(rawValue: 1101)], games: 26, wins: 14)
             ])
         #expect(start.allSatisfy { $0.games <= stats.timelineGames })
         #expect(builds.allSatisfy { ![.fourth, .fifth, .sixth].contains($0.layer) })

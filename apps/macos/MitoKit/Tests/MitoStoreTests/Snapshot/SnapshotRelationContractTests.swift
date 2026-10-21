@@ -53,8 +53,8 @@ struct SnapshotRelationContractTests {
         #expect(
             try Self.reader().matchup(for: Self.ahri, role: .middle, against: Self.zed)
                 == MatchupStats(
-                    games: 497, wins: 237, timelineGames: 124, goldDiffAt15: -309.3,
-                    csDiffAt15: -5.9))
+                    games: 463, wins: 246, timelineGames: 115, goldDiffAt15: 123.1,
+                    csDiffAt15: -6.6))
     }
 
     /// §17 writes every relation in both orientations; the reader serves each row as written.
@@ -63,18 +63,18 @@ struct SnapshotRelationContractTests {
         #expect(
             reader.matchup(for: Self.zed, role: .middle, against: Self.ahri)
                 == MatchupStats(
-                    games: 497, wins: 260, timelineGames: 124, goldDiffAt15: 309.3,
-                    csDiffAt15: 5.9))
+                    games: 463, wins: 217, timelineGames: 115, goldDiffAt15: -123.1,
+                    csDiffAt15: 6.6))
         #expect(
             reader.matchup(for: Self.zed, role: .jungle, against: Self.leeSin)
                 == MatchupStats(
-                    games: 518, wins: 254, timelineGames: 5, goldDiffAt15: 218.2,
-                    csDiffAt15: 0.8))
+                    games: 443, wins: 242, timelineGames: 5, goldDiffAt15: 356.2,
+                    csDiffAt15: -11))
         #expect(
             reader.matchup(for: Self.leeSin, role: .jungle, against: Self.zed)
                 == MatchupStats(
-                    games: 518, wins: 264, timelineGames: 5, goldDiffAt15: -218.2,
-                    csDiffAt15: -0.8))
+                    games: 443, wins: 201, timelineGames: 5, goldDiffAt15: -356.2,
+                    csDiffAt15: 11))
     }
 
     @Test func aMatchupWithoutARowIsNil() throws {
@@ -87,10 +87,10 @@ struct SnapshotRelationContractTests {
         let reader = try Self.reader()
         #expect(
             reader.synergy(for: Self.zed, role: .jungle, with: Self.lux, allyRole: .middle)
-                == RelationStats(games: 175, wins: 89))
+                == RelationStats(games: 168, wins: 82))
         #expect(
             reader.synergy(for: Self.zed, role: .jungle, with: Self.lux, allyRole: .utility)
-                == RelationStats(games: 184, wins: 93))
+                == RelationStats(games: 76, wins: 35))
         #expect(reader.synergy(for: Self.zed, role: .jungle, with: Self.lux, allyRole: .top) == nil)
     }
 
@@ -98,24 +98,48 @@ struct SnapshotRelationContractTests {
         let reader = try Self.reader()
         #expect(
             reader.synergy(for: Self.ahri, role: .middle, with: Self.zed, allyRole: .jungle)
-                == RelationStats(games: 180, wins: 90))
+                == RelationStats(games: 116, wins: 59))
         #expect(
             reader.synergy(for: Self.zed, role: .jungle, with: Self.ahri, allyRole: .middle)
-                == RelationStats(games: 180, wins: 90))
+                == RelationStats(games: 116, wins: 59))
     }
 
     @Test func versusTeamIsAgainstTheEnemyInAnyRole() throws {
         let reader = try Self.reader()
         #expect(
             reader.versusTeam(for: Self.ahri, role: .middle, against: Self.zed)
-                == RelationStats(games: 661, wins: 307))
+                == RelationStats(games: 520, wins: 273))
         #expect(
             reader.versusTeam(for: Self.zed, role: .jungle, against: Self.ahri)
-                == RelationStats(games: 201, wins: 103))
+                == RelationStats(games: 57, wins: 30))
         #expect(
             reader.versusTeam(for: Self.zed, role: .middle, against: Self.ahri)
-                == RelationStats(games: 574, wins: 314))
+                == RelationStats(games: 463, wins: 217))
         #expect(reader.versusTeam(for: Self.zed, role: .top, against: Self.ahri) == nil)
+    }
+
+    /// §17: A vs B summed over A's roles equals B vs A summed over B's roles, with complementary
+    /// wins. Ahri plays only MIDDLE and Zed plays JUNGLE and MIDDLE, all of them exported.
+    @Test func versusTeamAgreesAcrossBothOrientations() throws {
+        let reader = try Self.reader()
+        let ahriRoles = reader.roleGames(for: Self.ahri).keys
+        let zedRoles = reader.roleGames(for: Self.zed).keys
+        let ahriVersusZed = ahriRoles.compactMap {
+            reader.versusTeam(for: Self.ahri, role: $0, against: Self.zed)
+        }
+        let zedVersusAhri = zedRoles.compactMap {
+            reader.versusTeam(for: Self.zed, role: $0, against: Self.ahri)
+        }
+        #expect(ahriVersusZed.count == ahriRoles.count)
+        #expect(zedVersusAhri.count == zedRoles.count)
+
+        let ahriGames = ahriVersusZed.map(\.games).reduce(0, +)
+        let zedGames = zedVersusAhri.map(\.games).reduce(0, +)
+        let ahriWins = ahriVersusZed.map(\.wins).reduce(0, +)
+        let zedWins = zedVersusAhri.map(\.wins).reduce(0, +)
+        #expect(ahriGames == 520)
+        #expect(zedGames == ahriGames)
+        #expect(ahriWins + zedWins == ahriGames)
     }
 
     // MARK: Profiles
@@ -124,10 +148,10 @@ struct SnapshotRelationContractTests {
         #expect(
             try Self.reader().championProfile(for: Self.ahri, role: .middle)
                 == ChampionProfile(
-                    physicalShare: 0.157, magicShare: 0.834, trueShare: 0.009,
-                    damagePerMinute: 771.2, tankiness: 0.333, ccScore: 0.333, timelineGames: 706,
-                    goldDiffAt15: 163.1, levelSixSeconds: 367, firstItemSeconds: 636,
-                    secondItemSeconds: 1025, thirdItemSeconds: 1322))
+                    physicalShare: 0.118, magicShare: 0.848, trueShare: 0.034,
+                    damagePerMinute: 491.1, tankiness: 0.333, ccScore: 0.333, timelineGames: 706,
+                    goldDiffAt15: 115.4, levelSixSeconds: 462, firstItemSeconds: 623,
+                    secondItemSeconds: 878, thirdItemSeconds: 1212))
     }
 
     /// Zed JUNGLE has 40 timelines and no third-item sample: `item3_s` is NULL.
@@ -136,20 +160,20 @@ struct SnapshotRelationContractTests {
         #expect(
             reader.championProfile(for: Self.zed, role: .jungle)
                 == ChampionProfile(
-                    physicalShare: 0.718, magicShare: 0.27, trueShare: 0.012,
-                    damagePerMinute: 813.4, tankiness: 0.5, ccScore: 0, timelineGames: 40,
-                    goldDiffAt15: 103.7, levelSixSeconds: 411, firstItemSeconds: 555,
-                    secondItemSeconds: 903, thirdItemSeconds: nil))
+                    physicalShare: 0.9, magicShare: 0.025, trueShare: 0.075,
+                    damagePerMinute: 451.2, tankiness: 0.5, ccScore: 0, timelineGames: 40,
+                    goldDiffAt15: -227.1, levelSixSeconds: 422, firstItemSeconds: 658,
+                    secondItemSeconds: 1048, thirdItemSeconds: nil))
         #expect(reader.championProfile(for: Self.zed, role: .top) == nil)
     }
 
     @Test func profileStatsAreTheGamesAgainstEachEnemyProfile() throws {
         let reader = try Self.reader()
         let expected: [EnemyProfile: RelationStats] = [
-            .heavyAD: RelationStats(games: 614, wins: 306),
-            .heavyAP: RelationStats(games: 662, wins: 345),
-            .heavyCC: RelationStats(games: 698, wins: 349),
-            .mixed: RelationStats(games: 1187, wins: 615),
+            .heavyAD: RelationStats(games: 797, wins: 433),
+            .heavyAP: RelationStats(games: 491, wins: 249),
+            .heavyCC: RelationStats(games: 770, wins: 377),
+            .mixed: RelationStats(games: 1176, wins: 543),
         ]
         for (profile, stats) in expected {
             #expect(reader.profileStats(for: Self.ahri, role: .middle, against: profile) == stats)
@@ -159,8 +183,8 @@ struct SnapshotRelationContractTests {
     @Test func runePagesAgainstAProfileAreThatProfilesRowsMostPlayedFirst() throws {
         #expect(
             try Self.reader().runePages(for: Self.ahri, role: .middle, against: .heavyAD) == [
-                RunePageCandidate(page: Self.page(1), games: 449, wins: 235),
-                RunePageCandidate(page: Self.page(2), games: 159, wins: 86),
+                RunePageCandidate(page: Self.page(1), games: 573, wins: 309),
+                RunePageCandidate(page: Self.page(2), games: 220, wins: 108),
             ])
     }
 
@@ -168,8 +192,8 @@ struct SnapshotRelationContractTests {
         #expect(
             try Self.reader().finalItems(for: Self.ahri, role: .middle)
                 == Self.items([
-                    (3089, 1959, 1053), (3020, 1694, 804), (6655, 1693, 789), (3047, 339, 178),
-                    (3157, 226, 103), (3165, 226, 119),
+                    (3020, 2752, 1418), (6655, 1991, 1051), (3089, 1815, 892), (3157, 1588, 769),
+                    (3047, 339, 168), (3165, 226, 105),
                 ]))
     }
 
@@ -177,8 +201,8 @@ struct SnapshotRelationContractTests {
         #expect(
             try Self.reader().finalItems(for: Self.ahri, role: .middle, against: .heavyAD)
                 == Self.items([
-                    (3089, 426, 224), (3020, 368, 177), (6655, 368, 176), (3047, 221, 128),
-                    (3157, 123, 63),
+                    (3157, 797, 391), (3020, 777, 378), (6655, 562, 302), (3089, 513, 238),
+                    (3047, 287, 144), (3165, 64, 30),
                 ]))
     }
 
@@ -193,12 +217,12 @@ struct SnapshotRelationContractTests {
 
     // MARK: Per opponent
 
-    /// Ahri MIDDLE vs Zed has two pages tied at 198 games; the lower `page_id` comes first.
+    /// Ahri MIDDLE vs Zed has two pages tied at 185 games; the lower `page_id` comes first.
     @Test func perOpponentRunePagesAreTheRowsForThatOpponent() throws {
         #expect(
             try Self.reader().runePages(for: Self.ahri, role: .middle, against: Self.zed) == [
-                RunePageCandidate(page: Self.page(1), games: 198, wins: 95),
-                RunePageCandidate(page: Self.page(2), games: 198, wins: 107),
+                RunePageCandidate(page: Self.page(1), games: 185, wins: 89),
+                RunePageCandidate(page: Self.page(2), games: 185, wins: 100),
             ])
     }
 
@@ -207,7 +231,7 @@ struct SnapshotRelationContractTests {
             try Self.reader().spellPairs(for: Self.ahri, role: .middle, against: Self.zed) == [
                 SpellPairCandidate(
                     spellA: SummonerSpellID(rawValue: 4), spellB: SummonerSpellID(rawValue: 14),
-                    games: 248, wins: 121)
+                    games: 231, wins: 118)
             ])
     }
 
@@ -216,22 +240,22 @@ struct SnapshotRelationContractTests {
             try Self.reader().itemBuilds(for: Self.ahri, role: .middle, against: Self.zed) == [
                 ItemBuildCandidate(
                     layer: .start, items: [1056, 2003, 2003].map(ItemID.init(rawValue:)),
-                    games: 124, wins: 63),
+                    games: 115, wins: 63),
                 ItemBuildCandidate(
                     layer: .core, items: [6655, 3157, 3089].map(ItemID.init(rawValue:)),
-                    games: 106, wins: 48),
+                    games: 110, wins: 51),
                 ItemBuildCandidate(
-                    layer: .boots, items: [ItemID(rawValue: 3020)], games: 101, wins: 46),
+                    layer: .boots, items: [ItemID(rawValue: 3020)], games: 107, wins: 54),
             ])
     }
 
     @Test func generalLoadoutsNeverIncludePerOpponentRows() throws {
         let reader = try Self.reader()
         #expect(reader.runePages(for: Self.ahri, role: .middle).map(\.games) == [2118, 706])
-        #expect(reader.spellPairs(for: Self.zed, role: .middle).map(\.games) == [1117, 1078])
+        #expect(reader.spellPairs(for: Self.zed, role: .middle).map(\.games) == [1876, 319])
         #expect(
             reader.itemBuilds(for: Self.zed, role: .middle).filter { $0.layer == .start }
-                .map(\.games) == [422])
+                .map(\.games) == [505])
     }
 
     @Test func perOpponentLoadoutsNeverFallBackToTheGeneralRows() throws {
@@ -251,10 +275,10 @@ struct SnapshotRelationContractTests {
         let reader = try Self.reader()
         #expect(
             reader.runePages(for: Self.zed, role: .jungle, against: Self.leeSin).map(\.games)
-                == [259])
+                == [221])
         #expect(
             reader.spellPairs(for: Self.zed, role: .jungle, against: Self.leeSin).map(\.games)
-                == [259])
+                == [221])
         #expect(reader.itemBuilds(for: Self.zed, role: .jungle, against: Self.leeSin).isEmpty)
     }
 
@@ -262,8 +286,8 @@ struct SnapshotRelationContractTests {
 
     @Test func bansAreTheMatchesInWhichTheChampionWasBanned() throws {
         let reader = try Self.reader()
-        #expect(reader.bans(of: ChampionID(rawValue: 86)) == 3758)
-        #expect(reader.bans(of: Self.ahri) == 996)
+        #expect(reader.bans(of: ChampionID(rawValue: 86)) == 974)
+        #expect(reader.bans(of: Self.ahri) == 505)
         #expect(reader.bans(of: ChampionID(rawValue: 999_999)) == nil)
     }
 

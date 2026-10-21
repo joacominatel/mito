@@ -269,17 +269,15 @@ struct ImportSnapshotTests {
         await harness.stop(run)
 
         let page = try #require(try harness.sentRunePage())
-        #expect(page["primaryStyleId"] as? Int == 8200)
+        #expect(page["primaryStyleId"] as? Int == 8100)
         #expect(page["subStyleId"] as? Int == 8300)
-        #expect(
-            page["selectedPerkIds"] as? [Int]
-                == [8229, 8226, 8210, 8237, 8304, 8347, 5007, 5008, 5011])
+        #expect(page["selectedPerkIds"] as? [Int] == electrocutePerks)
         #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
 
         let blocks = try #require(try harness.sentItemSet()?["blocks"] as? [[String: Any]])
         #expect(
             blocks.map { $0["type"] as? String }
-                == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem"])
+                == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "6.º ítem"])
         let items = blocks.map { block in
             (block["items"] as? [[String: Any]] ?? []).map {
                 "\($0["id"] as? String ?? "?")x\($0["count"] as? Int ?? 0)"
@@ -287,8 +285,8 @@ struct ImportSnapshotTests {
         }
         #expect(
             items == [
-                ["1056x1", "2003x2"], ["6655x1", "3157x1", "3089x1"], ["3020x1"], ["3107x1"],
-                ["3142x1"],
+                ["1056x1", "2003x2"], ["6655x1", "3157x1", "3089x1"], ["3020x1"], ["3031x1"],
+                ["3033x1"], ["3046x1"],
             ])
         #expect(harness.model.outcome?.status == .imported)
     }
@@ -301,7 +299,7 @@ struct ImportSnapshotTests {
             try ImportFixture.lockedSession(champion: 238, mySpells: [4, 14], position: "jungle"))
         await harness.stop(run)
 
-        // Zed JUNGLE: the page has 687 games (under rune_page's 800) and the start 32 (under
+        // Zed JUNGLE: the page has 687 games (under rune_page's 800) and the start 26 (under
         // build_layer's 100); the spells are reliable.
         let outcome = try #require(harness.model.outcome)
         #expect(outcome.title == "Zed JGL")
@@ -309,7 +307,8 @@ struct ImportSnapshotTests {
         #expect(outcome.rows.map(\.isLowSample) == [true, false, true])
     }
 
-    @Test func ahriMiddleMarksItsRunesAndItems() async throws {
+    /// Electrocute has 2,118 games (over rune_page's 800); the set is not reliable.
+    @Test func ahriMiddleMarksOnlyItsItems() async throws {
         let harness = try Harness(windowInFront: true)
         let run = harness.start()
 
@@ -317,7 +316,7 @@ struct ImportSnapshotTests {
         await harness.stop(run)
 
         let outcome = try #require(harness.model.outcome)
-        #expect(outcome.rows.map(\.isLowSample) == [true, false, true])
+        #expect(outcome.rows.map(\.isLowSample) == [false, false, true])
     }
 
     @Test func aSkippedPartCarriesNoLowSampleMark() async throws {
@@ -601,7 +600,7 @@ struct AutoAcceptQuickToggleTests {
     }
 }
 
-/// A valid Domination page against `runes/styles.json`, unlike the engine's Sorcery one.
+/// A valid Domination page against `runes/styles.json`, with other perks than the engine's.
 private let fixedPage = RunePage(
     primaryStyle: PerkStyleID(rawValue: 8100), subStyle: PerkStyleID(rawValue: 8200),
     perks: [8112, 8139, 8140, 8135, 8226, 8210, 5008, 5008, 5001].map(PerkID.init(rawValue:)))
@@ -652,7 +651,6 @@ struct ImportOverrideTests {
         let runes = try #require(harness.model.outcome?.rows.first)
         #expect(runes.origin == .override)
         #expect(String(localized: try #require(runes.origin).marker) == "· override")
-        // Ahri's general page is low sample; the user's own page is not.
         #expect(!runes.isLowSample)
     }
 
@@ -661,7 +659,7 @@ struct ImportOverrideTests {
             settings: ImportSettings(runeMode: .fixedPerChampion),
             overrides: [ahriOverride(runeMode: .general)])
 
-        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8200)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
         #expect(harness.model.outcome?.origins[.runes] == nil)
     }
 
@@ -671,7 +669,7 @@ struct ImportOverrideTests {
             settings: ImportSettings(runeMode: .fixedPerChampion),
             overrides: [ahriOverride(runeMode: .adaptive)])
 
-        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8100)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == fixedPerks)
         #expect(harness.model.outcome?.origins[.runes] == .override)
     }
 
@@ -684,7 +682,7 @@ struct ImportOverrideTests {
             settings: ImportSettings(runeMode: global),
             overrides: [ahriOverride(runeMode: .adaptive)])
 
-        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8200)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
         #expect(harness.model.outcome?.origins[.runes] == nil)
     }
 
@@ -711,7 +709,7 @@ struct ImportOverrideTests {
             settings: ImportSettings(runeMode: .fixedPerChampion),
             overrides: [ahriOverride(runeMode: .unknown("matchup_v2"))])
 
-        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8100)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == fixedPerks)
         #expect(harness.model.outcome?.origins[.runes] == .override)
     }
 
@@ -719,13 +717,13 @@ struct ImportOverrideTests {
         let harness = try await importAhri(
             settings: ImportSettings(runeMode: .fixedPerChampion), overrides: [])
 
-        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8200)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
         let runes = try #require(harness.model.outcome?.rows.first)
         #expect(runes.origin == .noFixedChoice)
         #expect(
             String(localized: try #require(runes.origin).marker)
                 == "· sin fija guardada, va la general")
-        #expect(runes.isLowSample)
+        #expect(!runes.isLowSample)
     }
 
     @Test func fixedSpellsKeepTheFlashRule() async throws {
@@ -811,7 +809,7 @@ struct ImportOverrideTests {
         #expect(try other.sentSpells() == plain.sentSpells())
         #expect(try other.sentItemSet() as NSDictionary? == plain.sentItemSet() as NSDictionary?)
         #expect(other.model.outcome?.origins == [:])
-        #expect(other.model.outcome?.rows.map(\.isLowSample) == [true, false, true])
+        #expect(other.model.outcome?.rows.map(\.isLowSample) == [false, false, true])
     }
 
     @Test func planLeavesTheAdaptedLoadoutWithoutAnOverride() {
@@ -991,7 +989,7 @@ struct ImportEdgeTests {
         harness.connection.emit(try ImportFixture.lockedSession(mySpells: [4, 12]))
         await harness.stop(run)
 
-        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8200)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
         #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
         #expect(harness.connection.writes(.put, itemSetsPath).count == 1)
         let outcome = try #require(harness.model.outcome)
@@ -1061,10 +1059,12 @@ private let darius = 122
 private let soraka = 16
 private let leeSin = 64
 private let ashe = 22
+private let garen = 86
+private let jinx = 222
 
 /// Zed assigned MIDDLE; Darius TOP, Lee Sin JUNGLE, Ashe BOTTOM and Soraka UTILITY by inference
-/// make a heavy_ad and heavy_cc team, with two `high_heal` enemies.
-private let zedInAHeavyADTeam: [(champion: Int, position: String)] = [
+/// make a heavy_cc and mixed team, with two `high_heal` enemies.
+private let zedWithTwoHealers: [(champion: Int, position: String)] = [
     (238, "middle"), (darius, ""), (soraka, ""), (leeSin, ""), (ashe, ""),
 ]
 /// Darius TOP, Lee Sin JUNGLE, Ashe BOTTOM: heavy_ad and heavy_cc, nobody in MIDDLE.
@@ -1078,6 +1078,7 @@ private let mixedWithoutAMid: [(champion: Int, position: String)] = [
 
 private let phaseRushPerks = [8229, 8226, 8210, 8237, 8304, 8347, 5007, 5008, 5011]
 private let electrocutePerks = [8112, 8143, 8140, 8135, 8345, 8347, 5008, 5008, 5011]
+private let fixedPerks = fixedPage.perks.map(\.rawValue)
 
 /// One locked Ahri MID import against `enemies`, with the window in front.
 private func importAhri(
@@ -1115,29 +1116,26 @@ extension Harness {
 @Suite(.timeLimit(.minutes(1)))
 struct ImportAdaptedLoadoutTests {
     @Test func aKnownLaneOpponentSendsTheLoadoutAdaptedToIt() async throws {
-        let harness = try await importAhri(against: zedInAHeavyADTeam)
+        let harness = try await importAhri(against: zedWithTwoHealers)
 
-        // Against Zed the page, the pair, start, core and boots come from his rows: the same
-        // content as the general ones in the fixture, so the markers tell them apart.
+        // Against Zed the page, the pair, start, core and boots come from his rows; start, core
+        // and boots have the general content in the fixture, so the markers tell them apart.
         #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
         #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
         let blocks = try harness.sentBlocks()
         #expect(
             blocks.map(\.title) == [
-                "Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "Situacionales",
+                "Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "6.º ítem",
             ])
         #expect(blocks[2].items == ["3020"])
-        // Darius and Soraka heal: Morellonomicon.
-        #expect(blocks.last?.items == ["3165"])
-        #expect(
-            harness.markers == [
-                "· vs Zed", "· vs Zed", "· vs Zed · Morellonomicon: 2 rivales con curación alta",
-            ])
+        // Darius and Soraka heal, but the fifth item is already Mortal Reminder.
+        #expect(blocks[4].items == ["3033"])
+        #expect(harness.markers == ["· vs Zed", "· vs Zed", "· vs Zed"])
         #expect(harness.model.outcome?.opponent == zed)
     }
 
     @Test func theNotificationNamesTheLaneOpponent() async throws {
-        let harness = try await importAhri(against: zedInAHeavyADTeam, windowInFront: false)
+        let harness = try await importAhri(against: zedWithTwoHealers, windowInFront: false)
 
         #expect(
             harness.poster.posts.map(\.notification) == [
@@ -1150,7 +1148,10 @@ struct ImportAdaptedLoadoutTests {
 
         #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
         let blocks = try harness.sentBlocks()
-        #expect(blocks.map(\.title) == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem"])
+        #expect(
+            blocks.map(\.title) == [
+                "Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "6.º ítem",
+            ])
         // Plated Steelcaps rise 3× against heavy_ad.
         #expect(blocks[2].items == ["3047"])
         #expect(
@@ -1161,13 +1162,9 @@ struct ImportAdaptedLoadoutTests {
     @Test func aMixedTeamSendsTheProfilePageOverTheGeneralOne() async throws {
         let harness = try await importAhri(against: mixedWithoutAMid)
 
-        // Electrocute wins over mixed and heavy_cc; the general page is Phase Rush.
-        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
-        #expect(
-            harness.markers == [
-                "· vs mucho CC · vs daño mixto", nil,
-                "· Morellonomicon: 2 rivales con curación alta",
-            ])
+        // Phase Rush wins over mixed and heavy_cc; the general page is Electrocute.
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        #expect(harness.markers == ["· vs mucho CC · vs daño mixto", nil, nil])
     }
 
     @Test func anOpponentInferredAtEvenOddsOrBetterCounts() async throws {
@@ -1184,32 +1181,29 @@ struct ImportAdaptedLoadoutTests {
 
         #expect(harness.model.outcome?.opponent == nil)
         #expect(harness.markers == [nil, nil, nil])
-        #expect(try harness.sentBlocks().map(\.title).last == "5.º ítem")
+        #expect(try harness.sentBlocks().map(\.title).last == "6.º ítem")
     }
 
     @Test func noLockedEnemySendsTheGeneralLoadout() async throws {
         let harness = try await importAhri(against: [])
 
-        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
         #expect(try harness.sentBlocks().map(\.items)[2] == ["3020"])
         #expect(harness.markers == [nil, nil, nil])
     }
 
     @Test func aPartLeftOutCarriesNoMarker() async throws {
         let harness = try await importAhri(
-            against: zedInAHeavyADTeam, settings: ImportSettings(importRunes: false))
+            against: zedWithTwoHealers, settings: ImportSettings(importRunes: false))
 
-        #expect(
-            harness.markers == [
-                nil, "· vs Zed", "· vs Zed · Morellonomicon: 2 rivales con curación alta",
-            ])
+        #expect(harness.markers == [nil, "· vs Zed", "· vs Zed"])
     }
 
     @Test func withoutASnapshotNothingIsImportedWhateverTheEnemies() async throws {
         let harness = try Harness(windowInFront: true, stats: NoStats())
         let run = harness.start()
         harness.connection.emit(
-            try ImportFixture.lockedSession(enemies: zedInAHeavyADTeam))
+            try ImportFixture.lockedSession(enemies: zedWithTwoHealers))
         await harness.stop(run)
 
         #expect(harness.writes.isEmpty)
@@ -1222,9 +1216,9 @@ struct ImportAdaptedLoadoutTests {
 struct ImportAdaptedOverrideTests {
     @Test func fixedChoicesBeatTheAdaptedOnes() async throws {
         let harness = try await importAhri(
-            against: zedInAHeavyADTeam, overrides: [ahriOverride()])
+            against: zedWithTwoHealers, overrides: [ahriOverride()])
 
-        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8100)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == fixedPerks)
         // Teleport + Flash, which the player already holds, instead of Ignite against Zed.
         #expect(harness.model.outcome?.report.spells == .skipped(.alreadySelected))
         #expect(try harness.sentBlocks().map(\.title) == ["Mi set"])
@@ -1237,15 +1231,15 @@ struct ImportAdaptedOverrideTests {
 
     @Test func aGeneralRuneOverrideSendsTheGeneralPage() async throws {
         let harness = try await importAhri(
-            against: mixedWithoutAMid,
+            against: heavyADWithoutAMid,
             overrides: [
                 ahriOverride(runeMode: .general, spellMode: .recommended, itemMode: .recommended)
             ])
 
-        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
         #expect(harness.markers.first == .some(nil))
         // Only the runes go general.
-        #expect(harness.markers.last == "· Morellonomicon: 2 rivales con curación alta")
+        #expect(harness.markers.last == "· vs mucho AD")
     }
 
     @Test func theGeneralGlobalModeSendsTheGeneralPage() async throws {
@@ -1253,7 +1247,7 @@ struct ImportAdaptedOverrideTests {
             against: mixedWithoutAMid, settings: ImportSettings(runeMode: .general),
             overrides: [ahriOverride(runeMode: .adaptive)])
 
-        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
         #expect(harness.model.outcome?.origins[.runes] == nil)
     }
 
@@ -1261,17 +1255,20 @@ struct ImportAdaptedOverrideTests {
         let harness = try await importAhri(
             against: mixedWithoutAMid, overrides: [ahriOverride(runeMode: .adaptive)])
 
-        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
         #expect(harness.markers.first == "· vs mucho CC · vs daño mixto")
     }
 
     @Test func aFixedModeWithNothingSavedSendsTheGeneralPart() async throws {
         let harness = try await importAhri(
-            against: zedInAHeavyADTeam,
+            against: zedWithTwoHealers,
             overrides: [ahriOverride(runeMode: .fixed, page: nil, spells: nil, items: nil)])
 
         let blocks = try harness.sentBlocks()
-        #expect(blocks.map(\.title) == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem"])
+        #expect(
+            blocks.map(\.title) == [
+                "Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "6.º ítem",
+            ])
         #expect(
             harness.model.outcome?.origins
                 == [.runes: .noFixedChoice, .spells: .noFixedChoice, .items: .noFixedChoice])
@@ -1315,22 +1312,32 @@ struct ImportLaneOpponentTests {
 /// §13.4: the engine's `situational` block gets its copy.
 @Suite(.timeLimit(.minutes(1)))
 struct ImportBlockTitleTests {
+    /// Ahri already builds Mortal Reminder; Zed MIDDLE adds it for Darius and Soraka.
     @Test func theSituationalBlockIsTitledSituacionales() async throws {
-        let harness = try await importAhri(against: zedInAHeavyADTeam)
+        let harness = try Harness(windowInFront: true)
+        let run = harness.start()
+        harness.connection.emit(
+            try ImportFixture.lockedSession(
+                champion: 238, mySpells: [4, 12], enemies: mixedWithoutAMid))
+        await harness.stop(run)
 
-        #expect(try harness.sentBlocks().last?.title == "Situacionales")
+        let last = try #require(try harness.sentBlocks().last)
+        #expect(last.title == "Situacionales")
+        #expect(last.items == ["3033"])
+        #expect(harness.markers.last == "· Mortal Reminder: 2 rivales con curación alta")
     }
 }
 
 // MARK: Re-import
 
-/// Darius, Soraka and Ashe: mixed, so the first page is Electrocute, with a Morellonomicon.
-private let mixedTeam: [(champion: Int, position: String)] = [
-    (darius, ""), (soraka, ""), (ashe, ""),
+/// Garen, Lee Sin and Jinx: heavy_ad only, so the first page is Electrocute, with Plated
+/// Steelcaps.
+private let heavyADTeam: [(champion: Int, position: String)] = [
+    (garen, ""), (leeSin, ""), (jinx, ""),
 ]
-/// Zed shows up MIDDLE and Lee Sin takes Soraka's place: Phase Rush, and no situationals.
+/// Zed shows up MIDDLE: Phase Rush, and Sorcerer's Shoes from his rows.
 private let zedRevealed: [(champion: Int, position: String)] = [
-    (238, "middle"), (darius, ""), (leeSin, ""), (ashe, ""),
+    (238, "middle"), (garen, ""), (leeSin, ""), (jinx, ""),
 ]
 private let mitoPageID = 300
 
@@ -1396,7 +1403,7 @@ private func reimport(
 @Suite(.timeLimit(.minutes(1)))
 struct ImportReimportTests {
     @Test func aRevealedOpponentResendsTheRunesAndItemsAndSaysWhy() async throws {
-        let (harness, _) = try await reimport(from: mixedTeam, to: zedRevealed)
+        let (harness, _) = try await reimport(from: heavyADTeam, to: zedRevealed)
 
         #expect(harness.pageWrites == 2)
         let update = try #require(harness.runePageWrites().last)
@@ -1411,7 +1418,7 @@ struct ImportReimportTests {
                 as? [[String: Any]])
         #expect(
             (sets.last?["blocks"] as? [[String: Any]])?.map { $0["type"] as? String }
-                == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem"])
+                == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "6.º ítem"])
         // The pair against Zed is the one already held.
         #expect(harness.spellWrites == 1)
 
@@ -1425,7 +1432,8 @@ struct ImportReimportTests {
     }
 
     @Test func aRevealedOpponentResendsTheSpells() async throws {
-        // Zed MIDDLE takes Teleport in general and Ignite against Ahri.
+        // Zed MIDDLE takes Teleport in general and Ignite against Ahri, and his only page
+        // against her is not his general one.
         let (harness, _) = try await reimport(
             238, from: [], to: [(103, "middle")], firstSpells: [4, 14], heldSpells: [4, 12])
 
@@ -1434,35 +1442,37 @@ struct ImportReimportTests {
         #expect(
             try JSONSerialization.jsonObject(with: last) as? [String: Int]
                 == ["spell1Id": 4, "spell2Id": 14])
-        #expect(harness.pageWrites == 1)
+        #expect(harness.pageWrites == 2)
         #expect(harness.itemSetWrites == 1)
         #expect(
             String(localized: try #require(harness.model.outcome).headline)
-                == "Rival revelado: Ahri · spells actualizados")
+                == "Rival revelado: Ahri · runas y spells actualizados")
     }
 
+    /// heavy_ad keeps the general Electrocute and swaps the boots for Plated Steelcaps.
     @Test func aNewEnemyProfileResendsOnlyTheItems() async throws {
-        let (harness, _) = try await reimport(
-            from: [(238, "middle")], to: [(238, "middle"), (darius, ""), (soraka, ""), (ashe, "")])
+        let (harness, _) = try await reimport(from: [], to: heavyADTeam)
 
         #expect(harness.pageWrites == 1)
         #expect(harness.spellWrites == 1)
         #expect(harness.itemSetWrites == 2)
-        #expect(try harness.sentBlocks().count == 5)
+        #expect(try harness.sentBlocks()[2].items == ["3020"])
         let put = try #require(harness.connection.writes(.put, itemSetsPath).last?.body)
         let sets = try #require(
             (try JSONSerialization.jsonObject(with: put) as? [String: Any])?["itemSets"]
                 as? [[String: Any]])
         let blocks = try #require(sets.last?["blocks"] as? [[String: Any]])
-        #expect(blocks.last?["type"] as? String == "Situacionales")
+        let boots = blocks[2]["items"] as? [[String: Any]]
+        #expect(boots?.compactMap { $0["id"] as? String } == ["3047"])
         #expect(
             String(localized: try #require(harness.model.outcome).headline)
                 == "Cambió el equipo rival · ítems actualizados")
     }
 
     @Test func aContextChangeThatLeavesTheLoadoutResendsNothing() async throws {
-        // Lee Sin plays only JUNGLE, which makes Zed the opponent; against him nothing differs.
-        let (harness, first) = try await reimport(from: [(238, "")], to: [(238, ""), (leeSin, "")])
+        // Zed shows up MIDDLE and the team stays heavy_cc and mixed: against him nothing differs
+        // from that profile's Phase Rush and the general items.
+        let (harness, first) = try await reimport(from: mixedWithoutAMid, to: zedWithTwoHealers)
 
         #expect(harness.pageWrites == 1)
         #expect(harness.spellWrites == 1)
@@ -1473,7 +1483,7 @@ struct ImportReimportTests {
 
     @Test func reimportOffImportsOnce() async throws {
         let (harness, first) = try await reimport(
-            from: mixedTeam, to: zedRevealed,
+            from: heavyADTeam, to: zedRevealed,
             settings: ImportSettings(reimportOnOpponentChange: false))
 
         #expect(harness.pageWrites == 1)
@@ -1484,7 +1494,7 @@ struct ImportReimportTests {
 
     @Test func runesTheUserEditedAreLeftAloneAndTheRestIsResent() async throws {
         let (harness, _) = try await reimport(
-            from: mixedTeam, to: zedRevealed,
+            from: heavyADTeam, to: zedRevealed,
             client: {
                 try $0.clientHoldsWhatMitoSent(perks: phaseRushPerks)
             })
@@ -1503,7 +1513,7 @@ struct ImportReimportTests {
 
     @Test func anotherCurrentPageCountsAsAManualChange() async throws {
         let (harness, _) = try await reimport(
-            from: mixedTeam, to: zedRevealed,
+            from: heavyADTeam, to: zedRevealed,
             client: {
                 try $0.clientHoldsWhatMitoSent(mitoPageIsCurrent: false)
             })
@@ -1514,7 +1524,7 @@ struct ImportReimportTests {
 
     @Test func anItemSetTheUserEditedIsLeftAlone() async throws {
         let (harness, _) = try await reimport(
-            from: mixedTeam, to: zedRevealed,
+            from: heavyADTeam, to: zedRevealed,
             client: {
                 try $0.clientHoldsWhatMitoSent(items: ["id": "3089", "count": 1])
             })
@@ -1533,12 +1543,12 @@ struct ImportReimportTests {
         #expect(harness.model.outcome?.reimport?.manual == [.spells])
         #expect(
             String(localized: try #require(harness.model.outcome).headline)
-                == "Rival revelado: Ahri · nada actualizado")
+                == "Rival revelado: Ahri · runas actualizadas")
     }
 
     @Test func withoutPreserveManualChangesTheEditedPageIsOverwritten() async throws {
         let (harness, _) = try await reimport(
-            from: mixedTeam, to: zedRevealed,
+            from: heavyADTeam, to: zedRevealed,
             settings: ImportSettings(preserveManualChanges: false),
             client: {
                 try $0.clientHoldsWhatMitoSent(perks: phaseRushPerks, mitoPageIsCurrent: false)
@@ -1553,7 +1563,7 @@ struct ImportReimportTests {
 
     @Test func aPendingRuneConfirmationIsLeftAsItIs() async throws {
         let (harness, first) = try await reimport(
-            from: mixedTeam, to: zedRevealed,
+            from: heavyADTeam, to: zedRevealed,
             prepare: {
                 $0.connection.serve(
                     LCUEndpoint.perkInventory.path,
@@ -1583,7 +1593,7 @@ struct ImportReimportTests {
 
     @Test func aFixedOverrideIsNeverResent() async throws {
         let (harness, _) = try await reimport(
-            from: mixedTeam, to: zedRevealed,
+            from: heavyADTeam, to: zedRevealed,
             overrides: [ahriOverride(spellMode: .recommended, itemMode: .recommended)])
 
         #expect(harness.pageWrites == 1)
@@ -1594,7 +1604,7 @@ struct ImportReimportTests {
 
     @Test func eachReimportLogsItsParts() async throws {
         let (harness, _) = try await reimport(
-            from: mixedTeam, to: zedRevealed,
+            from: heavyADTeam, to: zedRevealed,
             client: {
                 try $0.clientHoldsWhatMitoSent(perks: phaseRushPerks)
             })
@@ -1611,7 +1621,7 @@ struct ImportReimportTests {
         let harness = try Harness(windowInFront: true)
         let run = harness.start()
         harness.connection.emit(
-            try ImportFixture.lockedSession(mySpells: [4, 12], enemies: mixedTeam))
+            try ImportFixture.lockedSession(mySpells: [4, 12], enemies: heavyADTeam))
         harness.connection.emitDelete()
         await waitUntil { harness.model.outcome == nil && harness.pageWrites == 1 }
         try harness.clientHoldsWhatMitoSent()

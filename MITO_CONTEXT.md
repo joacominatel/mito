@@ -3748,7 +3748,9 @@ y nunca se guarda.
   (Zed JUNGLE, `tl_games` 40), la fila única que queda bajo el mínimo y el `max_order` de 4
   letras (Udyr JUNGLE). `SnapshotRelationContractTests` hace lo mismo con las tablas de
   Fase 7: matchups y sinergias servidos desde la fila de cada lado (A vs B y B vs A),
-  `vs_team_stats`, `champion_profiles` con todas sus columnas (Zed JUNGLE sin `item3_s`),
+  `vs_team_stats` coherente en las dos orientaciones (A vs B sumado sobre los roles de A es
+  B vs A sumado sobre los de B, con wins complementarios: Ahri vs Zed), `champion_profiles`
+  con todas sus columnas (Zed JUNGLE sin `item3_s`),
   `champ_vs_profile`, páginas e ítems finales por perfil con `'any'` como línea base y no
   como perfil, loadouts por rival sin cruzarse con los generales (ni en un sentido ni en el
   otro), bans, flags y `meta.profile_rules`. `SnapshotReaderTests` cubre los errores
