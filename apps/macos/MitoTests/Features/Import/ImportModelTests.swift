@@ -20,7 +20,7 @@ private nonisolated struct NoStats: StatsProvider {
 }
 
 /// One model over `ImportStats` and a scripted connection that serves the recorded cases, and a
-/// recording poster.
+/// recording poster. Its default clock ends the wait for the selector's role at once.
 private struct Harness {
     let connection = ImportTestConnection()
     let poster = RecordingPoster()
@@ -32,7 +32,8 @@ private struct Harness {
         stats: (any StatsProvider)? = nil, overrides: [ChampionOverride] = [],
         detectedFlash: ImportSettings.FlashPosition? = nil,
         personal: (any PersonalStore)? = nil, servesGameData: Bool = true,
-        scoringRole: @escaping @MainActor () -> Role? = { nil }
+        scoringRole: @escaping @MainActor () -> Role? = { nil },
+        clock: any Clock<Duration> = ImmediateClock()
     ) throws {
         let stats = stats ?? ImportStats()
         let store = ImportTestStore(overrides: overrides)
@@ -40,8 +41,8 @@ private struct Harness {
         model = ImportModel(
             connection: connection, catalog: GameDataCatalog(connection: connection),
             settings: { settings }, stats: { stats }, store: personal ?? store,
-            detectedFlash: { detectedFlash }, scoringRole: scoringRole, poster: poster,
-            appIsActive: { true })
+            detectedFlash: { detectedFlash }, scoringRole: scoringRole, clock: clock,
+            poster: poster, appIsActive: { true })
         if windowInFront { model.windowAppeared() }
         if servesGameData {
             for (path, body) in ImportFixture.gameData { connection.serve(path, body) }
@@ -1688,6 +1689,113 @@ struct ImportBlindRoleTests {
         await harness.stop(run)
 
         #expect(harness.model.outcome?.title == "Ahri MID")
+    }
+}
+
+/// §13.1: a blind lock that arrives before the selector has a role waits for it, up to
+/// `ImportModel.roleWait`.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportSelectorWaitTests {
+    let clock = ManualClock()
+    let champSelect = ChampSelectModel(connection: ImportTestConnection())
+
+    private func harness(settings: ImportSettings = ImportSettings()) throws -> Harness {
+        let champSelect = champSelect
+        return try Harness(
+            settings: settings, windowInFront: true,
+            scoringRole: { champSelect.scoringRole }, clock: clock)
+    }
+
+    /// Waits until the model has started waiting for the selector.
+    private func armed() async {
+        while clock.sleepCalls < 1 { await Task.yield() }
+    }
+
+    /// The selector's draft for `session`: blind pick, nothing in the history or the pool.
+    private func showTheDraft(_ session: Data) throws {
+        champSelect.show(
+            try LCUEndpoint.champSelectSession.decode(session), queue: .normalBlind,
+            pickable: [])
+    }
+
+    @Test func aFirstSessionLockWaitsForTheSelectorsRole() async throws {
+        let harness = try harness()
+        let session = try ImportFixture.lockedSession(champion: 238, position: "")
+        let run = harness.start()
+
+        harness.connection.emit(session)
+        await armed()
+        #expect(harness.writes.isEmpty)
+        // Zed's most played role is JUNGLE; the selector's default is MIDDLE.
+        try showTheDraft(session)
+        await harness.stop(run)
+
+        #expect(harness.model.outcome?.title == "Zed MID")
+        #expect(harness.runePageWrites().count == 1)
+    }
+
+    @Test func withoutARoleInTimeItFallsBackToTheMostPlayedRole() async throws {
+        let harness = try harness()
+        let run = harness.start()
+
+        harness.connection.emit(
+            try ImportFixture.lockedSession(champion: 238, position: ""))
+        await armed()
+        #expect(harness.writes.isEmpty)
+        clock.advance(by: ImportModel.roleWait)
+        await harness.stop(run)
+
+        #expect(harness.model.outcome?.title == "Zed JGL")
+    }
+
+    @Test func anAssignedRoleDoesNotWait() async throws {
+        let harness = try harness()
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        #expect(harness.model.outcome?.title == "Ahri MID")
+        #expect(clock.sleepCalls == 0)
+    }
+
+    @Test func aramDoesNotWait() async throws {
+        let harness = try Harness(
+            windowInFront: true, overrides: [ahriOverride()], clock: clock)
+        harness.connection.serve(
+            LCUEndpoint.gameflowSession.path,
+            try ImportFixture.data("session-aram", in: "gameflow-lobby"))
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession(position: ""))
+        await harness.stop(run)
+
+        #expect(harness.runePageWrites().count == 1)
+        #expect(clock.sleepCalls == 0)
+    }
+
+    @Test func aChampionChangeDuringTheWaitImportsOnlyTheNewOne() async throws {
+        let harness = try harness(settings: ImportSettings(importOnHover: true))
+        let ahriHover = try ImportWiringFixture.blindHover()
+        let zedLock = try ImportFixture.lockedSession(champion: 238, position: "")
+        let run = harness.start()
+
+        harness.connection.emit(ahriHover)
+        await armed()
+        harness.connection.emit(zedLock)
+        harness.connection.emit(zedLock)
+        // Each waiting session reads the queue: the third read means Zed's first one is handled.
+        while harness.connection.requests.count(where: {
+            $0.path == LCUEndpoint.gameflowSession.path
+        }) < 3 {
+            await Task.yield()
+        }
+        try showTheDraft(zedLock)
+        await harness.stop(run)
+
+        #expect(harness.model.outcome?.title == "Zed MID")
+        #expect(harness.runePageWrites().count == 1)
+        #expect(await harness.store.log.count == ImportOutcome.Part.allCases.count)
     }
 }
 

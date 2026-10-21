@@ -1433,8 +1433,16 @@ pendiente. Una sesión que no se puede decodificar se ignora.
   `assignedPosition` del jugador local; en blind pick es el del selector de la columna
   (`ChampSelectModel.scoringRole`, §20.3: la elección del usuario o su default), que
   `ImportModel` lee con el `scoringRole` de su `init` (el shell se lo pasa desde `AppModel`,
-  P9-06). Si el selector todavía no tiene rol y hay snapshot, va el rol con más `roleGames`
-  de ese campeón en el snapshot (empate: el primero en `Role.allCases`), y si no tiene ninguno no se importa nada ni se avisa. Sin rol asignado,
+  P9-06). Si el selector todavía no tiene rol (la primera sesión que ve la app ya trae el lock,
+  o el lock llega antes de que el draft del selector se asiente tras su debounce y sus
+  lecturas), el import **espera** al selector (FX-13): observa `scoringRole` y, cuando tiene
+  rol, vuelve a decidir con la sesión más nueva; una sesión nueva mientras espera reemplaza a la
+  anterior, así un cambio de campeón importa solo el nuevo, una vez. La espera es una por champ
+  select y dura como mucho `ImportModel.roleWait` (2 s, con el reloj inyectado): holgado frente
+  a los 150 ms de debounce más las lecturas locales, corto frente al timer de pick. Si vence sin
+  rol y hay snapshot, va el rol con más `roleGames` de ese campeón en el snapshot (empate: el
+  primero en `Role.allCases`), y si no tiene ninguno no se importa nada ni se avisa. Con rol
+  asignado o en ARAM no se espera. Sin rol asignado,
   `ImportModel` lee la cola de `GET /lol-gameflow/v1/session` para separar blind pick de ARAM
   (abajo). No se avisa si el campeón no tiene datos en ese rol (las tres partes vacías). Los bloques del item set
   llegan titulados con el `BuildLayer` (o `situational`) y la app los traduce (§13.4) antes de

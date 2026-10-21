@@ -19,6 +19,10 @@ final class ImportModel {
     /// Editable rune pages, for picking the reserved page in Settings.
     private(set) var editablePages: [PerkPage] = []
 
+    /// How long a blind import waits for the selector's role before it falls back to the most
+    /// played one: the selector's draft lands after a 150 ms debounce and a few local reads.
+    static let roleWait: Duration = .seconds(2)
+
     let settings: @MainActor () -> ImportSettings
     private let connection: any LCUConnection
     private let importer: LoadoutImporter
@@ -29,6 +33,7 @@ final class ImportModel {
     private let store: any PersonalStore
     private let detectedFlash: @MainActor () -> ImportSettings.FlashPosition?
     private let scoringRole: @MainActor () -> Role?
+    private let clock: any Clock<Duration>
 
     @ObservationIgnored private var imported: Set<ChampionID> = []
     @ObservationIgnored private var lastImports: [ChampionID: LastImport] = [:]
@@ -37,6 +42,12 @@ final class ImportModel {
     @ObservationIgnored private var windows = 0
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var lastID = 0
+    /// The newest session whose blind import waits for the selector's role.
+    @ObservationIgnored private var awaitingRole: ChampSelectSession?
+    /// At most one per champ select.
+    @ObservationIgnored private var roleWaiter: Task<Void, Never>?
+    /// From then on a blind import without a role falls back at once.
+    @ObservationIgnored private var roleWaitIsOver = false
 
     init(
         connection: any LCUConnection,
@@ -48,6 +59,7 @@ final class ImportModel {
         detectedFlash: @escaping @MainActor () -> ImportSettings.FlashPosition? = { nil },
         /// The champ-select selector's role (§20.3), which blind pick imports for.
         scoringRole: @escaping @MainActor () -> Role? = { nil },
+        clock: any Clock<Duration> = ContinuousClock(),
         poster: any NotificationPosting = SystemNotificationPoster(),
         appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
     ) {
@@ -56,6 +68,7 @@ final class ImportModel {
         self.store = store
         self.detectedFlash = detectedFlash
         self.scoringRole = scoringRole
+        self.clock = clock
         self.catalog = catalog
         self.settings = settings
         self.poster = poster
@@ -71,6 +84,7 @@ final class ImportModel {
                 reset()
             }
         }
+        await roleWaiter?.value
     }
 
     // MARK: Window
@@ -136,6 +150,7 @@ final class ImportModel {
     }
 
     private func handle(_ session: ChampSelectSession) async {
+        awaitingRole = nil
         let settings = settings()
         guard let target = Self.target(in: session, onHover: settings.importOnHover) else {
             return
@@ -151,6 +166,11 @@ final class ImportModel {
             ? (try? await connection.send(.gameflowSession))?.queueType : nil
         guard generation == self.generation else { return }
         let isARAM = queue == .aram
+        guard target.role != nil || isARAM || roleWaitIsOver || scoringRole() != nil else {
+            imported.remove(target.champion)
+            waitForTheSelector(session)
+            return
+        }
         let stats = readStats()
         // Without a snapshot only the override's fixed choices go (§20.3).
         let withoutStats = !isARAM && stats.meta == nil
@@ -168,6 +188,41 @@ final class ImportModel {
             return
         }
         await importLoadout(prepared, session: session, withoutStats: withoutStats)
+    }
+
+    /// Handles `session` again once the selector shows a role or `roleWait` runs out, whichever
+    /// comes first; a newer session replaces it meanwhile.
+    private func waitForTheSelector(_ session: ChampSelectSession) {
+        awaitingRole = session
+        guard roleWaiter == nil else { return }
+        let generation = generation
+        roleWaiter = Task { [clock] in
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await self.selectorShowsARole() }
+                group.addTask { try? await clock.sleep(for: Self.roleWait) }
+                await group.next()
+                group.cancelAll()
+            }
+            guard generation == self.generation else { return }
+            roleWaitIsOver = true
+            guard let awaitingRole else { return }
+            await handle(awaitingRole)
+        }
+    }
+
+    /// Returns once `scoringRole` has a value, or on cancellation.
+    private func selectorShowsARole() async {
+        let (changes, change) = AsyncStream.makeStream(
+            of: Void.self, bufferingPolicy: .bufferingNewest(1))
+        func hasARole() -> Bool {
+            withObservationTracking {
+                scoringRole() != nil
+            } onChange: {
+                change.yield()
+            }
+        }
+        guard !hasARole() else { return }
+        for await _ in changes where hasARole() { return }
     }
 
     /// What one import of a champion is built from, before anything reaches the client.
@@ -545,6 +600,10 @@ final class ImportModel {
         toldNothingToImport = false
         pendingRunes = nil
         outcome = nil
+        roleWaiter?.cancel()
+        roleWaiter = nil
+        awaitingRole = nil
+        roleWaitIsOver = false
     }
 
     private func nextID() -> Int {
