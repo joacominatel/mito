@@ -26,3 +26,14 @@ data/out/
 .worktrees/
 .claude/lane
 .claude/settings.local.json
+
+# Signing and release material — never committed
+*.p12
+*.p8
+*.cer
+*.provisionprofile
+apps/macos/Config/Local.xcconfig
+*.dmg
+*.xcarchive
+*.xcresult
+build/
