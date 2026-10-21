@@ -1359,8 +1359,12 @@ gold_at_15, cs_at_15, xp_at_15        -- desde la timeline cuando exista
 
 match-v5 no trae el elo. Se estima:
 
-- Para cada participante se conoce su tier si fue descubierto vía league-v4 (cacheado).
-- Bracket de la partida = mediana de los tiers conocidos de sus participantes.
+- Se siembra toda la escalera Esmeralda IV+ de cada plataforma vía league-v4 (cacheado por
+  jugador). Un participante que no está en esa escalera cuenta como debajo de Esmeralda.
+- Una partida es `emerald_plus` si al menos 6 de sus 10 participantes son Esmeralda+ (la
+  mediana inferior). La "mediana de los tiers conocidos" se descartó: con solo Esmeralda+
+  sembrado, todo tier conocido es Esmeralda+ y la mediana queda sesgada. `diamond_plus` es el
+  mismo filtro con Diamante+.
 - Brackets que publica Mito: `emerald_plus` (base, siempre se descarga) y `diamond_plus`
   (capa opcional que el usuario activa). `master_plus` no se publica hasta que el volumen
   medido lo justifique. Cada bracket incluye a los de más arriba, así que el backoff a un
