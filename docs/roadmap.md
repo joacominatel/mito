@@ -164,7 +164,7 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P2-02 | Ready check and auto-accept policy | lcu | `MitoKit/Sources/LCUKit/Matchmaking/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Matchmaking.swift`, `fixtures/lcu/cases/gameflow-lobby/ready-check-*` | §11.3 | P2-01 | merged |
 | P2-03 | Settings persistence in Application Support, named from the bundle id | store | `MitoKit/Sources/MitoStore/Settings/**` | §21 (intro) | P0-C | merged |
 | P2-04 | Gameflow feature: menu section, notification, "Partida" settings tab | gameflow | `Mito/Features/Gameflow/**` | §21.2, §22.5 | P2-01, P2-02, P2-03 | todo |
-| P2-05 | `tools/lcu-mock` and the ready-check scenario | tools-lcu-mock + fixtures-ready-check | `tools/lcu-mock/**`, `fixtures/lcu/ready-check/**` | §23.1 | P1-07 | todo |
+| P2-05 | `tools/lcu-mock` with synthetic test scenarios; the recorded ready-check scenario follows Q3 | tools-lcu-mock | `tools/lcu-mock/**` | §23.1 | P1-07 | in progress |
 | P2-06 | Debug lockfile override (`-MitoLCULockfilePath`) on `LCUClient` and in `AppModel`, to point discovery at `tools/lcu-mock` | lcu + shell (serial) | `MitoKit/Sources/LCUKit/Connection/**`, `Mito/App/**` | §9.3, §10.2 | P1-08, P2-05 | todo |
 
 ## P3 — Live champ select
@@ -203,7 +203,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | P6-00 | CONTRACT: `StatsProvider` Phase 6 methods and the GRDB dependency | core (serial) + `Package.swift` | `MitoKit/Sources/MitoCore/**`, `MitoKit/Package.swift`, `MitoKit/Package.resolved` | §9.2 | P5-01 | todo |
-| P6-01 | Manifest fetch, sha256 check, xz decode, cache | store | `MitoKit/Sources/MitoStore/Download/**`, `MitoKit/Tests/ArchitectureTests/NetworkSentinelTests.swift` | — | P0-C, P1-02 | todo |
+| P6-01 | Manifest fetch, sha256 check, xz decode, cache | store (+ arch, authorized) | `MitoKit/Sources/MitoStore/Download/**`, `MitoKit/Tests/ArchitectureTests/NetworkSentinelTests.swift`, `MitoKit/Tests/ArchitectureTests/ImportBoundaryTests.swift` (MitoStore allowlist only) | §25 | P0-C, P1-02 | in progress |
 | P6-02 | Read-only snapshot reader and contract test | store (snapshot contract) | `MitoKit/Sources/MitoStore/Snapshot/**`, `MitoKit/Tests/ArchitectureTests/ContractPinTests.swift` | §23.3 | P6-00 | todo |
 | P6-03 | Smoothing, Wilson intervals, tiers, sample backoff (§18.1) | engine | `MitoKit/Sources/MitoEngine/Stats/**` | §18.1, §18.2 | P6-00 | todo |
 | P6-04 | General loadout selection | engine | `MitoKit/Sources/MitoEngine/Loadout/**` | §18.6–§18.9 | P6-03 | todo |
