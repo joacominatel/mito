@@ -2876,6 +2876,33 @@ runas.
 para agrupar páginas equivalentes. Los shards son posicionales (ofensa, flex, defensa) y nunca
 se reordenan. Cada página distinta es una fila de `rune_page_defs`.
 
+**Adaptado implementado (P7-06, `LoadoutSelection.adapted` en `MitoEngine/Loadout`).** Entrada:
+el rival de lane (opcional), el perfil rival (`Set<EnemyProfile>`, el de
+`Composition.enemyProfile`, §18.4) y los rivales lockeados (para los flags de §18.7). Sin
+nada a qué adaptarse devuelve exactamente lo mismo que `general`. Reglas comunes a
+§18.6–§18.8:
+
+- **Backoff sin mezcla.** Cada parte se queda con el primer contexto en el que alguna fila
+  pasa el mínimo de su tipo y la regla de uso de la parte, en el orden de §18.1: rival de lane
+  → perfil rival → general. La mezcla ponderada de los pasos 2 y 3 de arriba (`w_opp`) no se
+  implementa: un contexto adaptado gana entero o no se usa. Solo el general conserva el
+  fallback a la fila más jugada (§14.12); un contexto adaptado sin fila que pase cae al
+  siguiente. La capa `diamond_plus` no está en esta fase.
+- El rival cuenta solo si tiene fila en `matchup_stats` (es el denominador). `wr_s` de cada
+  fila sigue centrado en `wr_smoothed(champ, role)`, igual que en el general.
+- Cada parte adaptada suma su razón (`adaptedToOpponent` o `adaptedToProfile`) con las
+  partidas de la fila elegida y su `SampleLevel`; ese mismo nivel es el de la parte en
+  `sampleLevels`. Las partes que caen al general no llevan razón. El skill order es siempre
+  general (§18.9).
+- Razones en orden: runas, spells, capas de ítems en orden de bloque, flags y situacionales.
+
+Runas adaptadas: vs rival, las de `rune_pages` con ese `opp_id`, uso ≥ 5 % de
+`matchup_stats.games`. Si no, las de `rune_page_vs_profile`: con varios perfiles activos se
+**suman** partidas y victorias por página y el denominador es la suma de sus
+`champ_vs_profile.games` (es el "se promedian sus ajustes" del paso 3, ponderado por muestra);
+un perfil sin fila en `champ_vs_profile` no cuenta. Lleva un `adaptedToProfile` por perfil
+que tenga la página elegida, con sus partidas.
+
 ### 18.7 Items
 
 - Las capas salen de `item_builds` (timeline): el "uso ≥ X %" se mide contra
@@ -2902,7 +2929,37 @@ por su copy (Inicio, Núcleo, …) y el motivo. Los repetidos del inicio van com
 `tl_games`); el core, el más jugado con buen winrate. Una capa nunca repite un ítem de una
 capa anterior (se descartan esas filas). Si `tl_games` no llega al mínimo de `build_layer`,
 core y botas son de ítems finales (§14.12) y su uso se mide contra `champ_role_stats.games`.
-Los alternativos del core y la mezcla con perfil rival no están todavía (P7-06).
+Los alternativos del core no están todavía.
+
+**Adaptado implementado (P7-06).** Con las reglas comunes de §18.6:
+
+- **Capas vs rival.** Cada capa prueba primero las filas de `item_builds` con ese `opp_id`
+  (las que el export haya guardado; hoy `start`, `core` y `boots`), con la misma regla de la
+  capa y el uso medido contra `matchup_stats.tl_games`. Si ninguna pasa, la capa general.
+- **Señales por perfil.** Un ítem de `item_vs_profile` sube contra un perfil activo si su fila
+  pasa el mínimo de `item_vs_profile`, `buy_rate(perfil) ≥ 10 %`,
+  `buy_rate(perfil) ≥ 1,5 × buy_rate('any')` y `wr_s(perfil) > wr_s('any')` (los dos con el
+  prior de loadout; sin fila `'any'` su buy rate es 0 y su `wr_s` es la línea base). Se
+  ordenan por `buy_rate(perfil) / buy_rate('any')` de mayor a menor, después por delta de
+  winrate e id. Un ítem que sube contra dos perfiles cuenta una vez, con el más fuerte. En el
+  fixture: 3047 ×3 y 3157 ×2,5 vs `heavy_ad`, 3075 ×2 vs `heavy_ad`, 3111 ×2,5 vs `heavy_ap`
+  y ×3 vs `heavy_cc`.
+- **Botas.** Si las botas no salieron del rival, la señal más fuerte que sea botas tier 2
+  reemplaza a las generales, con `adaptedToProfile` y el nivel de `item_vs_profile`. Las
+  otras botas que suben no se agregan en ningún bloque.
+- **Bloque `situational`.** Después de las capas, un bloque titulado `situational` (la app
+  pone el copy): primero los flags y después las demás señales, cada una con
+  `situationalItem` (buy rates, delta de `wr_s` y nivel). Tabis vs `auto_attacker` y Zhonya vs
+  `heavy_ad` no son reglas fijas: salen de las señales. Este bloque no tiene `SampleLevel` en
+  `sampleLevels`; lo llevan sus razones.
+- **Flags.** Con 2 o más rivales lockeados con `high_heal`, el antiheal que el campeón termina
+  más seguido en la línea base `'any'` (desde el mínimo de `item_vs_profile`); con 2 o más
+  `point_click_cc`, Banshee (3102) si el campeón la termina. Si la build ya tiene un ítem de la
+  regla, no se agrega nada. Razón `countersFlag` sin muestra.
+- **Sin repetidos.** Ninguna capa, flag ni señal repite un ítem ya elegido.
+- **Clases de ítems.** `StatsProvider` no expone `item_classes` (ni `class` ni `antiheal`).
+  Hasta que lo haga, el motor usa listas mínimas: botas tier 2 3006, 3009, 3020, 3047, 3111,
+  3117 y 3158; antiheal 3033, 3075, 3165 y 6609.
 
 ### 18.8 Spells
 
@@ -2917,6 +2974,10 @@ ninguno, no hay spells. Si algún par tiene Flash (4), los pares sin Flash cuent
 uso ≥ 60 % (inclusivo); si ninguno tiene Flash, cuentan todos. Entre los que quedan, la regla
 del uso ≥ 10 %. El par sale en orden neutro (`spellA < spellB`); la posición de Flash la
 decide el importador (§13.3).
+
+**Adaptado implementado (P7-06).** Vs rival, los pares de `spell_pairs` con ese `opp_id`, con
+las mismas reglas de Smite y Flash y uso medido contra `matchup_stats.games` (también el 60 %
+de dominancia). Si ninguno pasa, el par general. No hay capa por perfil (no hay tabla).
 
 ### 18.9 Orden de habilidades
 

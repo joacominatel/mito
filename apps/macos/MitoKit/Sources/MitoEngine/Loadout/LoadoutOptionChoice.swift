@@ -1,6 +1,6 @@
 import MitoCore
 
-/// A snapshot row the general loadout chooses among.
+/// A snapshot row a loadout part chooses among.
 protocol LoadoutOption {
     var games: Int { get }
     var wins: Int { get }
@@ -39,7 +39,7 @@ enum ChoiceRule {
     case mostPlayedWithGoodWinrate
 }
 
-/// The (champ, role) a general loadout is chosen for.
+/// The (champ, role) a loadout is chosen for.
 struct ChoiceContext {
     let meta: SnapshotMeta
     /// `wr_smoothed(champ, role)`, the prior every loadout winrate centers on.
@@ -47,8 +47,17 @@ struct ChoiceContext {
     /// Below the `champ_role` minimum every part is still chosen but marked below minimum.
     let isChampionRoleBelowMinimum: Bool
 
+    init(meta: SnapshotMeta, row: ChampionRoleStats) {
+        self.meta = meta
+        baseline = meta.priors.championRoleWinrate(wins: row.wins, games: row.games)
+        isChampionRoleBelowMinimum =
+            meta.sampleLevel(.championRole, games: row.games) == .belowMinimum
+    }
+
+    /// Without `fallsBackToMostPlayed`, `nil` when no option passes: an adapted context backs
+    /// off instead (§18.1).
     func choose<Option: LoadoutOption>(
-        _ options: [Option], kind: SampleKind, rule: ChoiceRule
+        _ options: [Option], kind: SampleKind, rule: ChoiceRule, fallsBackToMostPlayed: Bool = true
     ) -> (option: Option, level: SampleLevel)? {
         let minimum = meta.thresholds[kind]?.minimum ?? 0
         let usable = options.filter { $0.games >= minimum }
@@ -64,18 +73,25 @@ struct ChoiceContext {
                 .max { isRanked($0, below: $1, by: { [Double($0.games), winrate($0)] }) }
         }
         // §14.12: when nothing passes, the exporter keeps the most played option alone.
-        guard
-            let chosen = pick
-                ?? options.max(by: { isRanked($0, below: $1, by: { [Double($0.games)] }) })
-        else { return nil }
+        let fallback =
+            fallsBackToMostPlayed
+            ? options.max(by: { isRanked($0, below: $1, by: { [Double($0.games)] }) }) : nil
+        guard let chosen = pick ?? fallback else { return nil }
+        return (chosen, level(kind, games: chosen.games))
+    }
 
+    func level(_ kind: SampleKind, games: Int) -> SampleLevel {
         // A file without this kind's threshold cannot vouch for the sample.
-        let level = meta.sampleLevel(kind, games: chosen.games) ?? .usable
-        return (chosen, isChampionRoleBelowMinimum ? .belowMinimum : level)
+        let level = meta.sampleLevel(kind, games: games) ?? .usable
+        return isChampionRoleBelowMinimum ? .belowMinimum : level
+    }
+
+    func winrate(wins: Int, games: Int) -> Double {
+        meta.priors.loadoutWinrate(wins: wins, games: games, baseline: baseline)
     }
 
     private func winrate(_ option: some LoadoutOption) -> Double {
-        meta.priors.loadoutWinrate(wins: option.wins, games: option.games, baseline: baseline)
+        winrate(wins: option.wins, games: option.games)
     }
 
     private func isRanked<Option: LoadoutOption>(

@@ -1,6 +1,7 @@
 public import MitoCore
 
-/// The general (`opp_id = 0`) loadout of one (champ, role) and how far each part can be trusted.
+/// A loadout of one (champ, role), general (`opp_id = 0`) or adapted to the draft, and how far
+/// each part can be trusted.
 public struct GeneralLoadout: Hashable, Sendable {
     public let loadout: Loadout
     public let sampleLevels: LoadoutSampleLevels
@@ -47,17 +48,13 @@ public enum LoadoutSelection {
         guard let meta = stats.meta, let row = stats.championRoleStats(in: role)[champion] else {
             return .empty
         }
-        let context = ChoiceContext(
-            meta: meta,
-            baseline: meta.priors.championRoleWinrate(wins: row.wins, games: row.games),
-            isChampionRoleBelowMinimum: meta.sampleLevel(.championRole, games: row.games)
-                == .belowMinimum)
+        let context = ChoiceContext(meta: meta, row: row)
 
         let runes = context.choose(
             stats.runePages(for: champion, role: role).filter { $0.page.perks.count == 9 },
             kind: .runePage, rule: .highestWinrate(minimumUsagePercent: 5, of: row.games))
         let spells = context.choose(
-            spellOptions(stats.spellPairs(for: champion, role: role), role: role, row: row),
+            spellOptions(stats.spellPairs(for: champion, role: role), role: role, games: row.games),
             kind: .spells, rule: .highestWinrate(minimumUsagePercent: 10, of: row.games))
         let layers = itemLayers(stats.itemBuilds(for: champion, role: role), row: row, context)
         let skillOrder = context.choose(
@@ -85,47 +82,54 @@ public enum LoadoutSelection {
     private static let smite = SummonerSpellID(rawValue: 11)
 
     /// §18.8: Smite is mandatory in the jungle, and Flash stays unless a pair without it is
-    /// dominant (≥ 60 % usage).
-    private static func spellOptions(
-        _ pairs: [SpellPairCandidate], role: Role, row: ChampionRoleStats
+    /// dominant (≥ 60 % of `games`, the context's denominator).
+    static func spellOptions(
+        _ pairs: [SpellPairCandidate], role: Role, games: Int
     ) -> [SpellPairCandidate] {
         let pairs = role == .jungle ? pairs.filter { $0.contains(smite) } : pairs
         guard pairs.contains(where: { $0.contains(flash) }) else { return pairs }
-        return pairs.filter { $0.contains(flash) || $0.games * 100 >= 60 * row.games }
+        return pairs.filter { $0.contains(flash) || $0.games * 100 >= 60 * games }
     }
 
     /// One choice per layer in `BuildLayer` order; a layer never repeats an earlier layer's item.
     private static func itemLayers(
         _ builds: [ItemBuildCandidate], row: ChampionRoleStats, _ context: ChoiceContext
     ) -> [(option: ItemBuildCandidate, level: SampleLevel)] {
-        // §14.12: below the build_layer minimum, core and boots come from final items, which
-        // are counted per match.
-        let fromFinalItems =
-            row.timelineGames < (context.meta.thresholds[.buildLayer]?.minimum ?? 0)
         var taken: Set<ItemID> = []
         var chosen: [(option: ItemBuildCandidate, level: SampleLevel)] = []
         for layer in BuildLayer.allCases {
-            let options = builds.filter {
-                $0.layer == layer && taken.isDisjoint(with: $0.items)
-            }
-            let usageGames =
-                fromFinalItems && (layer == .core || layer == .boots)
-                ? row.games : row.timelineGames
-            let rule: ChoiceRule =
-                layer == .core
-                ? .mostPlayedWithGoodWinrate
-                : .highestWinrate(minimumUsagePercent: 10, of: usageGames)
-            guard let choice = context.choose(options, kind: .buildLayer, rule: rule) else {
-                continue
-            }
+            guard
+                let choice = generalLayer(
+                    layer, from: builds, excluding: taken, row: row, context)
+            else { continue }
             taken.formUnion(choice.option.items)
             chosen.append(choice)
         }
         return chosen
     }
 
+    static func generalLayer(
+        _ layer: BuildLayer, from builds: [ItemBuildCandidate], excluding taken: Set<ItemID>,
+        row: ChampionRoleStats, _ context: ChoiceContext
+    ) -> (option: ItemBuildCandidate, level: SampleLevel)? {
+        // §14.12: below the build_layer minimum, core and boots come from final items, which
+        // are counted per match.
+        let fromFinalItems =
+            row.timelineGames < (context.meta.thresholds[.buildLayer]?.minimum ?? 0)
+        let usageGames =
+            fromFinalItems && (layer == .core || layer == .boots) ? row.games : row.timelineGames
+        return context.choose(
+            builds.filter { $0.layer == layer && taken.isDisjoint(with: $0.items) },
+            kind: .buildLayer, rule: layerRule(layer, usageGames: usageGames))
+    }
+
+    static func layerRule(_ layer: BuildLayer, usageGames: Int) -> ChoiceRule {
+        layer == .core
+            ? .mostPlayedWithGoodWinrate : .highestWinrate(minimumUsagePercent: 10, of: usageGames)
+    }
+
     /// Titled with the layer's `item_builds.layer` value; the app supplies the copy.
-    private static func block(_ build: ItemBuildCandidate) -> ItemSet.Block {
+    static func block(_ build: ItemBuildCandidate) -> ItemSet.Block {
         var items: [ItemSet.Block.Item] = []
         for id in build.items {
             if let index = items.firstIndex(where: { $0.id == id }) {
