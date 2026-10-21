@@ -2749,6 +2749,24 @@ Reglas:
 - Nunca recomendar banear un campeón de tu propio pool principal.
 - Mostrar el top 5 con la razón ("Malzahar: −4,2 % para tu Ahri y −3,1 % para tu Syndra").
 
+Precisiones (`MitoEngine/Ban/BanScoring`):
+
+- `λ = 0,3`, el mismo peso reducido que `w_counter` (§18.3) para lo que no es la lane.
+- Candidatos: los campeones con fila de `champ_role_stats` en tu rol desde el mínimo de
+  `champ_role`; la `confidence` es ese nivel. `wr_meta(e) = wr_smoothed(e, tu_rol)`. Los
+  pick rates usan los conteos crudos, sin umbral; un campeón sin fila en `champ_ban_stats`
+  tiene `ban_rate = 0`.
+- Tus campeones probables son los 3 primeros de tu pool del rol, en orden de prioridad; la
+  app lo pasa como entrada. La media pondera por `matchup_stats.games` (como el backoff de
+  §18.1) y solo usa los matchups desde el mínimo de `matchup`; sin ninguno ese término vale 0.
+- Exclusiones: lo baneado, lo lockeado o en hover de cualquier aliado (vos incluido), lo
+  lockeado por el rival y todo tu pool del rol, no solo los 3 primeros. Lo que no podés
+  pickear sí se puede recomendar: banear no exige tenerlo.
+- Razones: un `threatens` por cada campeón probable con delta negativo, del más amenazado al
+  menos, con el nivel de muestra del matchup; después el tier del candidato. `amenaza` puede
+  ser negativa: ese candidato queda debajo de los que tienen `ban_score` positivo.
+- Orden por `ban_score` descendente y, a igualdad, por `champion_id`.
+
 ### 18.6 Runas
 
 **Loadout general implementado (P6-04, `LoadoutSelection.general` en `MitoEngine/Loadout`).**
