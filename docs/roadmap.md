@@ -148,8 +148,8 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | P2-01 | Tolerant `GameflowPhase` and pure Mito state machine | lcu | `MitoKit/Sources/LCUKit/Gameflow/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Gameflow.swift`, `fixtures/lcu/cases/gameflow-lobby/**` | §11.1, §11.2 | P0-C | merged |
-| P2-02 | Ready check and auto-accept policy | lcu | `MitoKit/Sources/LCUKit/Matchmaking/**` | §11.3 | P2-01 | todo |
-| P2-03 | Settings persistence in Application Support, named from the bundle id | store | `MitoKit/Sources/MitoStore/Settings/**` | §21 (intro) | P0-C | ready |
+| P2-02 | Ready check and auto-accept policy | lcu | `MitoKit/Sources/LCUKit/Matchmaking/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Matchmaking.swift`, `fixtures/lcu/cases/gameflow-lobby/ready-check-*` | §11.3 | P2-01 | in progress |
+| P2-03 | Settings persistence in Application Support, named from the bundle id | store | `MitoKit/Sources/MitoStore/Settings/**` | §21 (intro) | P0-C | in progress |
 | P2-04 | Gameflow feature: menu section, notification, "Partida" settings tab | gameflow | `Mito/Features/Gameflow/**` | §21.2, §22.5 | P2-01, P2-02, P2-03 | todo |
 | P2-05 | `tools/lcu-mock` and the ready-check scenario | tools-lcu-mock + fixtures-ready-check | `tools/lcu-mock/**`, `fixtures/lcu/ready-check/**` | §23.1 | P1-07 | todo |
 
