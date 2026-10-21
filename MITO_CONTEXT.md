@@ -1008,6 +1008,15 @@ todavía contra el cliente real:
   ARAM) todos los roles son `nil`.
 - **Rival.** El único enemigo con el mismo rol que el jugador local; si hay más de uno, ninguno
   o el rol es `nil`, no hay rival.
+- **Un solo ganador.** Una partida sin exactamente un equipo ganador (un aborto del servidor,
+  `endOfGameResult: Abort_Unexpected`, trae los dos equipos perdidos) no se mapea: se descarta
+  de la página y `matchHistoryGame` es `LCUError.decoding`. Decide `teams[].win` (string,
+  `"Win"` o `"Fail"`; cualquier otro valor cuenta como sin resultado) cuando da resultado para
+  dos equipos o más: tiene que haber exactamente un `"Win"`. Si no, decide `stats.win` de cada
+  participante agrupado por `teamId`: se descarta solo si reportan dos equipos o más y ningún
+  participante ganó. Sin ninguno de los dos (sin `teams` y solo el `stats` del jugador local)
+  la partida se mapea como antes, con su `stats.win`. Las remakes no se tocan acá; las partidas
+  cortas se excluyen en los insights (§19.4).
 - **Los otros nueve.** Solo campeón, lado (`teamId` distinto del propio) y rol. Un
   participante sin `participantId`, `teamId` o campeón se descarta.
 

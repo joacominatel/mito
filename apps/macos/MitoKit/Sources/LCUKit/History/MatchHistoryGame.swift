@@ -2,7 +2,8 @@ import Foundation
 public import MitoCore
 
 /// A page of `GET /lol-match-history/v1/products/lol/current-summoner/matches`, newest first.
-/// `games.games` is required; a game that cannot be mapped to a `MyMatch` is skipped.
+/// `games.games` is required; a game that cannot be mapped to a `MyMatch`, or without exactly one
+/// winning team, is skipped.
 public struct MatchHistoryPage: Decodable, Hashable, Sendable {
     public let matches: [MyMatch]
 
@@ -27,7 +28,7 @@ public struct MatchHistoryGame: Decodable, Hashable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case gameId, queueId, gameVersion, gameCreation, gameDuration, mapId
-        case participants, participantIdentities
+        case teams, participants, participantIdentities
     }
 
     public init(from decoder: any Decoder) throws {
@@ -44,6 +45,11 @@ public struct MatchHistoryGame: Decodable, Hashable, Sendable {
         else {
             throw DecodingError.dataCorrupted(
                 .init(codingPath: decoder.codingPath, debugDescription: "No local player"))
+        }
+        let teams = container.decodeLossyArray(Team.self, forKey: .teams)
+        guard Self.hasOneWinner(teams: teams, participants: participants) else {
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: decoder.codingPath, debugDescription: "No single winner"))
         }
 
         let mapID = try? container.decodeIfPresent(Int.self, forKey: .mapId)
@@ -82,6 +88,23 @@ public struct MatchHistoryGame: Decodable, Hashable, Sendable {
     }
 }
 
+extension MatchHistoryGame {
+    /// `teams[].win` decides when it settles two teams; otherwise `stats.win`, which fails only
+    /// when two or more teams report and none won. With neither, the game is kept.
+    private static func hasOneWinner(teams: [Team], participants: [Participant]) -> Bool {
+        let teamResults = Dictionary(
+            teams.compactMap { team in team.won.map { (team.teamId, $0) } },
+            uniquingKeysWith: { $0 || $1 })
+        if teamResults.count >= 2 {
+            return teamResults.values.filter(\.self).count == 1
+        }
+        let playerResults = Dictionary(
+            participants.compactMap { player in player.won.map { (player.teamId, $0) } },
+            uniquingKeysWith: { $0 || $1 })
+        return playerResults.count < 2 || playerResults.values.contains(true)
+    }
+}
+
 extension CodingUserInfoKey {
     /// `CurrentSummoner.puuid`, set by the history endpoints; failable only by signature.
     static let localPUUID = CodingUserInfoKey(rawValue: "localPUUID")
@@ -97,6 +120,8 @@ extension MatchHistoryGame {
         let spell1Id: SummonerSpellID?
         let spell2Id: SummonerSpellID?
         let stats: Stats?
+        /// `stats.win` alone, so a partial `stats` still reports the result.
+        let won: Bool?
         /// From `timeline.lane` and `timeline.role`.
         let role: Role?
 
@@ -107,6 +132,10 @@ extension MatchHistoryGame {
         private struct Timeline: Decodable {
             let lane: String?
             let role: String?
+        }
+
+        private struct Outcome: Decodable {
+            let win: Bool
         }
 
         init(from decoder: any Decoder) throws {
@@ -122,6 +151,7 @@ extension MatchHistoryGame {
             spell1Id = try? container.decodeID(SummonerSpellID.self, forKey: .spell1Id)
             spell2Id = try? container.decodeID(SummonerSpellID.self, forKey: .spell2Id)
             stats = try? container.decodeIfPresent(Stats.self, forKey: .stats)
+            won = (try? container.decodeIfPresent(Outcome.self, forKey: .stats))?.win
             let timeline = try? container.decodeIfPresent(Timeline.self, forKey: .timeline)
             role = Self.role(lane: timeline?.lane, role: timeline?.role)
         }
@@ -187,6 +217,27 @@ extension MatchHistoryGame {
             }
             items = (slots("item", 0...6) + [roleBound].compactMap(\.self))
                 .map(ItemID.init(rawValue:))
+        }
+    }
+
+    /// `win` is `"Win"` or `"Fail"`; anything else is no result.
+    private struct Team: Decodable {
+        let teamId: Int
+        let won: Bool?
+
+        private enum CodingKeys: String, CodingKey {
+            case teamId, win
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            teamId = try container.decode(Int.self, forKey: .teamId)
+            won =
+                switch try? container.decodeIfPresent(String.self, forKey: .win) {
+                case "Win": true
+                case "Fail": false
+                default: nil
+                }
         }
     }
 
