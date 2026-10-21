@@ -3350,9 +3350,9 @@ aparece un picker con las páginas editables del cliente (`GET /lol-perks/v1/pag
 `reservedRunePageID`; un ID guardado que ya no está en el cliente se muestra como tal.
 
 - **Modo de runas** (§13.1): "Fijo por campeón" usa la página fija del override del campeón y,
-  si no hay, la general con un aviso en el toast; "General" y "Adaptativo" importan la página
-  general (el adaptativo por matchup llega en la Fase 7). Un override con runas en "General"
-  o "Página fija" gana sobre este; uno en "Adaptativo" lo sigue.
+  si no hay, la general con un aviso en el toast; "General" importa la página general y
+  "Adaptativo" la adaptada al rival de línea o al perfil del equipo rival (§18.6). Un override
+  con runas en "General" o "Página fija" gana sobre este; uno en "Adaptativo" lo sigue.
 - **Posición de Flash**: "Automática" usa el slot detectado de las últimas 20 partidas
   (§21.1); sin mayoría, el slot donde el jugador ya tiene Flash en la sesión (§13.3).
 - Los toggles de importar runas, spells e item sets ganan siempre sobre los overrides.
