@@ -118,7 +118,7 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | MD0 | `mito-data` project with uv, empty typer CLI, basic CI | mito-data | — | — | — | todo |
-| KEY | Personal API key from the Riot Developer Portal | CEO | — | — | — | todo |
+| KEY | Personal API key from the Riot Developer Portal | CEO | — | — | — | development key in hand (expires every 24 h); personal key pending |
 | MD5 | `mito-data` pipeline MVP: crawl, normalize, P5 aggregations, export, R2 publish | mito-data | — | — | MD0, KEY | todo |
 | MD7 | `mito-data` Phase 7 aggregations, curated flags, `meta.profile_rules` | mito-data | — | — | MD5 | todo |
 | MD-tips | Curated es-AR tips file published by `mito-data` | mito-data | — | — | MD5 | todo |
