@@ -55,6 +55,9 @@ extension LoadoutSelection {
 
     /// The last block: flag counters, then situational items. The app supplies the copy.
     public static let situationalBlockTitle = "situational"
+
+    /// Banshee's Veil, the `point_click_cc` counter: one item, not an `item_classes` class.
+    static let banshee = ItemID(rawValue: 3102)
 }
 
 private struct Lane {
@@ -218,7 +221,7 @@ private struct AdaptedSelection<Stats: StatsProvider> {
                         sample: opponentChoice.level))
             } else if layer == .boots,
                 let boots = signals.first(where: {
-                    ItemFallbacks.tierTwoBoots.contains($0.item) && !taken.contains($0.item)
+                    isTierTwoBoots($0.item) && !taken.contains($0.item)
                 })
             {
                 choice = (
@@ -251,7 +254,7 @@ private struct AdaptedSelection<Stats: StatsProvider> {
                     sample: nil))
         }
         for signal in signals
-        where !ItemFallbacks.tierTwoBoots.contains(signal.item) && !taken.contains(signal.item) {
+        where !isTierTwoBoots(signal.item) && !taken.contains(signal.item) {
             situational.append(signal.item)
             taken.insert(signal.item)
             reasons.append(
@@ -263,6 +266,10 @@ private struct AdaptedSelection<Stats: StatsProvider> {
                     sample: signal.level))
         }
         return (layers, situational, reasons)
+    }
+
+    private func isTierTwoBoots(_ item: ItemID) -> Bool {
+        stats.itemClass(of: item) == .bootsT2
     }
 
     /// Strongest lift first; the cutoffs are in `MITO_CONTEXT.md` §18.7.
@@ -313,10 +320,14 @@ private struct AdaptedSelection<Stats: StatsProvider> {
     )] {
         let minimum = context.meta.thresholds[.itemVsProfile]?.minimum ?? 0
         let finalItems = stats.finalItems(for: champion, role: role)
-        return ItemFallbacks.flagRules.compactMap { flag, items in
+        let rules: [(flag: ChampionFlag, counters: (ItemID) -> Bool)] = [
+            (.highHeal, { stats.isAntiheal($0) }),
+            (.pointClickCC, { $0 == LoadoutSelection.banshee }),
+        ]
+        return rules.compactMap { flag, counters in
             let count = enemies.filter { stats.flags(of: $0).contains(flag) }.count
-            guard count >= 2, taken.isDisjoint(with: items),
-                let best = finalItems.filter({ items.contains($0.item) && $0.games >= minimum })
+            guard count >= 2, !taken.contains(where: counters),
+                let best = finalItems.filter({ counters($0.item) && $0.games >= minimum })
                     .max(by: {
                         ($0.games, $1.item.rawValue) < ($1.games, $0.item.rawValue)
                     })
@@ -324,20 +335,4 @@ private struct AdaptedSelection<Stats: StatsProvider> {
             return (best.item, flag, count)
         }
     }
-}
-
-/// `item_classes` (§16.3) is in the snapshot but not in `StatsProvider`; swap these for it then.
-enum ItemFallbacks {
-    /// Berserker's, Swiftness, Sorcerer's, Plated Steelcaps, Mercury's, Mobility, Lucidity.
-    static let tierTwoBoots: Set<ItemID> = Set(
-        [3006, 3009, 3020, 3047, 3111, 3117, 3158].map(ItemID.init(rawValue:)))
-
-    /// Mortal Reminder, Thornmail, Morellonomicon, Chempunk Chainsword.
-    static let antiheal: Set<ItemID> = Set([3033, 3075, 3165, 6609].map(ItemID.init(rawValue:)))
-
-    static let banshee: Set<ItemID> = [ItemID(rawValue: 3102)]
-
-    static let flagRules: [(flag: ChampionFlag, items: Set<ItemID>)] = [
-        (.highHeal, antiheal), (.pointClickCC, banshee),
-    ]
 }

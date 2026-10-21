@@ -25,12 +25,21 @@ struct CompFitTests {
         candidate profile: ChampionProfile? = nil,
         candidateRole: Role = .top,
         flags: [ChampionID: Set<ChampionFlag>] = [:],
-        candidateGames: Int? = nil
+        candidateGames: Int? = nil,
+        allyCurve: [DurationBucket: RelationStats]? = nil,
+        candidateCurve: [DurationBucket: RelationStats]? = nil
     ) -> InMemoryStatsProvider {
         var profiles: [ChampionID: [Role: ChampionProfile]] = [
             garen: [.top: ally], leeSin: [.jungle: ally], jinx: [.bottom: ally],
         ]
         profiles[candidate] = profile.map { [candidateRole: $0] }
+        var curves: [ChampionID: [Role: [DurationBucket: RelationStats]]] = [:]
+        if let allyCurve {
+            curves = [
+                garen: [.top: allyCurve], leeSin: [.jungle: allyCurve], jinx: [.bottom: allyCurve],
+            ]
+        }
+        curves[candidate] = candidateCurve.map { [candidateRole: $0] }
         return InMemoryStatsProvider(
             meta: compositionMeta(),
             championRoleStatsByRole: candidateGames.map {
@@ -41,7 +50,8 @@ struct CompFitTests {
                 ]
             } ?? [:],
             championProfilesByChampion: profiles,
-            flagsByChampion: flags)
+            flagsByChampion: flags,
+            durationCurvesByChampion: curves)
     }
 
     private func fit(
@@ -152,6 +162,104 @@ struct CompFitTests {
         #expect(result.reasons.isEmpty)
     }
 
+    // MARK: - Power curve
+
+    /// The curve fixtures are 1,000 games, `reliable` under the `champ_role` threshold.
+    private func powerCurve(early: Double, teamEarly: Double) -> Reason {
+        Reason(kind: .powerCurve(early: early, teamEarly: teamEarly), sample: .reliable)
+    }
+
+    /// Strengths to nine decimals, so the hand-computed ±0.06 compare exactly.
+    private func rounded(_ reasons: [Reason]) -> [Reason] {
+        func round(_ value: Double) -> Double { (value * 1e9).rounded() / 1e9 }
+        return reasons.map {
+            guard case .powerCurve(let early, let teamEarly) = $0.kind else { return $0 }
+            return Reason(
+                kind: .powerCurve(early: round(early), teamEarly: round(teamEarly)),
+                sample: $0.sample)
+        }
+    }
+
+    @Test func anEarlyCandidateSharesAnEarlyTeamsCurve() {
+        let result = fit(stats(allyCurve: earlyCurve, candidateCurve: earlyCurve))
+
+        #expect(result.value == CompFit.powerCurveBonus)
+        #expect(rounded(result.reasons) == [powerCurve(early: 0.06, teamEarly: 0.06)])
+    }
+
+    @Test func aLateCandidateSharesALateTeamsCurve() {
+        let result = fit(stats(allyCurve: lateCurve, candidateCurve: lateCurve))
+
+        #expect(result.value == CompFit.powerCurveBonus)
+        #expect(rounded(result.reasons) == [powerCurve(early: -0.06, teamEarly: -0.06)])
+    }
+
+    @Test(arguments: [
+        (lateCurve, earlyCurve), (earlyCurve, lateCurve), (flatCurve, earlyCurve),
+        (flatCurve, lateCurve), (earlyCurve, flatCurve),
+    ])
+    func aMismatchedOrNeutralCurveGetsNoBonus(
+        ally: [DurationBucket: RelationStats], candidate: [DurationBucket: RelationStats]
+    ) {
+        #expect(fit(stats(allyCurve: ally, candidateCurve: candidate)).reasons.isEmpty)
+    }
+
+    @Test func aCandidateWithoutACurveGetsNoPowerCurveBonus() {
+        #expect(fit(stats(allyCurve: earlyCurve)).reasons.isEmpty)
+    }
+
+    @Test func fewerThanThreeAlliesWithACurveGiveNoTeamCurve() {
+        var stats = stats(allyCurve: earlyCurve, candidateCurve: earlyCurve)
+        stats.durationCurvesByChampion[jinx] = nil
+
+        #expect(fit(stats).reasons.isEmpty)
+    }
+
+    @Test func theEarlyRuleFiresFromBothThresholds() {
+        let team = CompFit.teamStrength
+        let candidate = CompFit.candidateStrength
+
+        #expect(CompFit.sharesPowerCurve(early: candidate, late: 0, teamEarly: team, allies: 3))
+        #expect(
+            !CompFit.sharesPowerCurve(
+                early: candidate.nextDown, late: 0, teamEarly: team, allies: 3))
+        #expect(
+            !CompFit.sharesPowerCurve(
+                early: candidate, late: candidate, teamEarly: team.nextDown, allies: 3))
+    }
+
+    @Test func theLateRuleFiresFromBothThresholds() {
+        let team = -CompFit.teamStrength
+        let candidate = CompFit.candidateStrength
+
+        #expect(CompFit.sharesPowerCurve(early: 0, late: candidate, teamEarly: team, allies: 3))
+        #expect(
+            !CompFit.sharesPowerCurve(
+                early: 0, late: candidate.nextDown, teamEarly: team, allies: 3))
+        #expect(
+            !CompFit.sharesPowerCurve(
+                early: candidate, late: candidate, teamEarly: team.nextUp, allies: 3))
+    }
+
+    @Test func thePowerCurveRuleNeedsThreeAlliesWithACurve() {
+        let strength = CompFit.candidateStrength
+
+        #expect(
+            !CompFit.sharesPowerCurve(
+                early: strength, late: 0, teamEarly: CompFit.teamStrength, allies: 2))
+    }
+
+    @Test func thePowerCurveReasonCarriesTheCurvesSample() {
+        // 400 games: usable under the [200, 1,000] `champ_role` threshold.
+        let small = earlyCurve.mapValues {
+            RelationStats(games: $0.games * 2 / 5, wins: $0.wins * 2 / 5)
+        }
+
+        let result = fit(stats(candidateGames: 5_000, allyCurve: earlyCurve, candidateCurve: small))
+
+        #expect(result.reasons.map(\.sample) == [.usable])
+    }
+
     // MARK: - Gates, samples, and order
 
     @Test func anEmptyTeamGivesNoCompFit() {
@@ -204,6 +312,20 @@ struct CompFitTests {
         #expect(middle.reasons == [gap, cc, engage, frontline])
         #expect(isClose(top.value, 0.05))
         #expect(isClose(middle.value, 0.0425))
+    }
+
+    @Test func thePowerCurveBonusIsTheSlightestAndRanksLast() {
+        let gapAlly = championProfile(physical: 0.875, magic: 0.125, tankiness: 0, cc: 0)
+        let allRules = championProfile(physical: 0, magic: 1, tankiness: 1, cc: 1)
+
+        let result = fit(
+            stats(
+                ally: gapAlly, candidate: allRules, flags: [candidate: [.engage]],
+                allyCurve: earlyCurve, candidateCurve: earlyCurve))
+
+        #expect(result.bonuses.map(\.value) == [0.015, 0.015, 0.01, 0.01, 0.005])
+        #expect(rounded(result.reasons).last == powerCurve(early: 0.06, teamEarly: 0.06))
+        #expect(isClose(result.value, 0.055))
     }
 
     @Test func eachReasonCarriesTheBonusOfItsRule() {

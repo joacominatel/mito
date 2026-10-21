@@ -9,6 +9,13 @@ func evenRow(games: Int = 2_000, timelineGames: Int = 1_000) -> ChampionRoleStat
     ChampionRoleStats(games: games, wins: games / 2, timelineGames: timelineGames)
 }
 
+/// The `item_classes` rows of `fixtures/snapshot/emerald_plus.sqlite` (mito-data `fb793ac`)
+/// that the boots and antiheal rules read: every `boots_t2` and every antiheal item.
+let fixtureItemClasses: [ItemID: ItemClass] = Dictionary(
+    uniqueKeysWithValues: [3006, 3020, 3047, 3111, 3158].map { (ItemID(rawValue: $0), .bootsT2) }
+        + [3033, 3075, 3165].map { (ItemID(rawValue: $0), .legendary) })
+let fixtureAntiheal: Set<ItemID> = Set([3033, 3075, 3165].map(ItemID.init(rawValue:)))
+
 func provider(
     champion: ChampionID = ahri,
     role: Role = .middle,
@@ -17,7 +24,9 @@ func provider(
     runes: [RunePageCandidate] = [],
     spells: [SpellPairCandidate] = [],
     items: [ItemBuildCandidate] = [],
-    skills: [SkillOrderCandidate] = []
+    skills: [SkillOrderCandidate] = [],
+    itemClasses: [ItemID: ItemClass] = fixtureItemClasses,
+    antiheal: Set<ItemID> = fixtureAntiheal
 ) -> InMemoryStatsProvider {
     InMemoryStatsProvider(
         meta: meta,
@@ -25,7 +34,9 @@ func provider(
         runePagesByChampion: [champion: [role: runes]],
         spellPairsByChampion: [champion: [role: spells]],
         itemBuildsByChampion: [champion: [role: items]],
-        skillOrdersByChampion: [champion: [role: skills]])
+        skillOrdersByChampion: [champion: [role: skills]],
+        itemClasses: itemClasses,
+        antihealItems: antiheal)
 }
 
 /// A Domination/Sorcery page whose keystone tells pages apart.

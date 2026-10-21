@@ -80,7 +80,7 @@ enum DraftRecommendations {
                 for: draft, role: role, mode: settings.candidates, pool: Set(pool),
                 owned: draft.pickable, stats: stats,
                 weights: PickWeights(metaComfortBalance: settings.metaComfortBalance),
-                personal: personalPoints(personal, stats: stats, now: now)))
+                personal: personalTerms(personal, pool: pool, stats: stats, now: now)))
     }
 
     /// Blind pick's default (§20.3): the role with most of the user's games on the champion
@@ -124,17 +124,19 @@ enum DraftRecommendations {
         return (declared + played).filter { !excluded.contains($0) && seen.insert($0).inserted }
     }
 
-    /// `nil` for every champion without history, so the personal term is 0 (§18.3).
-    static func personalPoints(
-        _ personal: PersonalInputs, stats: some StatsProvider, now: Date
-    ) -> (ChampionID, Role) -> Double? {
+    /// `nil` for every champion without history, so the personal term is 0 (§18.3). `pool` is
+    /// the scored role's, in order: the comfort reason's rank.
+    static func personalTerms(
+        _ personal: PersonalInputs, pool: [ChampionID], stats: some StatsProvider, now: Date
+    ) -> (ChampionID, Role) -> PersonalTerm? {
         guard !personal.matches.isEmpty else { return { _, _ in nil } }
         return { champion, role in
-            PersonalPoints.points(
+            PersonalTerm(
                 PersonalScoring.score(
                     champion: champion, role: role, matches: personal.matches,
                     pool: personal.pool, overrides: personal.overrides,
-                    masteryPoints: personal.masteryPoints, stats: stats, now: now))
+                    masteryPoints: personal.masteryPoints, stats: stats, now: now),
+                poolRank: pool.firstIndex(of: champion).map { $0 + 1 })
         }
     }
 }

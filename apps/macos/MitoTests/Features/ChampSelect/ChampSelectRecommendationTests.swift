@@ -227,11 +227,26 @@ struct ChampSelectRecommendationTests {
     }
 
     @Test func noHistoryPassesNoPersonalScore() {
-        let personal = DraftRecommendations.personalPoints(
+        let personal = DraftRecommendations.personalTerms(
             PersonalInputs(pool: [PoolEntry(role: .middle, champion: Self.lux, priority: 0)]),
-            stats: stats, now: .now)
+            pool: [Self.lux], stats: stats, now: .now)
 
         #expect(personal(Self.lux, .middle) == nil)
+    }
+
+    @Test func thePersonalTermCarriesTheOwnGamesWinsAndPoolRank() {
+        let history = (1...4).map { MyMatch.played(99, role: .middle, win: $0 != 4, id: $0) }
+        let personal = DraftRecommendations.personalTerms(
+            PersonalInputs(matches: history), pool: [Self.ahri, Self.lux], stats: stats, now: .now)
+
+        let lux = personal(Self.lux, .middle)
+        let malzahar = personal(Self.malzahar, .middle)
+
+        #expect(lux?.games == 4)
+        #expect(lux?.wins == 3)
+        #expect(lux?.poolRank == 2)
+        #expect(malzahar?.games == 0)
+        #expect(malzahar?.poolRank == nil)
     }
 
     @Test func myPoolIsThePoolAmongWhatIOwn() throws {

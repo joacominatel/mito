@@ -2814,7 +2814,7 @@ matchup (abajo): `profiles` son las etiquetas activas con fila usable de `champ_
 por perfil ("vs Zed (estimado por perfil: mucho AD)") y no como un matchup directo. `comfort`
 es la comodidad personal: partidas propias con el campeón en ese rol, su winrate crudo y
 `poolRank`, el puesto (desde 1) en el orden del pool del rol, `nil` fuera de él. El motor
-todavía no emite ninguno de los dos (P7-13); la app ya tiene su texto (`ReasonRow`, §22.3).
+emite los dos y la app los muestra con su propio texto (`ReasonRow`, §22.3).
 
 Precisiones (`MitoEngine/Pick/PickScoring`):
 
@@ -2827,9 +2827,11 @@ Precisiones (`MitoEngine/Pick/PickScoring`):
   activa con fila de `champ_vs_profile` desde el mínimo de `profile`, y con varias etiquetas su
   media ponderada por `games`. Entra igual que un matchup, `p(e) · delta` con `w_matchup`. Sin
   perfil rival (menos de `min_champions` perfilados o sin `profile_rules`) o sin filas usables
-  cae a `(champ, role)`, delta 0. La razón es `matchup` contra ese rival con la suma de `games`
-  de las etiquetas y el nivel de muestra más bajo entre ellas (las etiquetas comparten
-  partidas, así que la suma no se toma como muestra). `vs_team` y sinergia no hacen backoff.
+  cae a `(champ, role)`, delta 0. La razón es `profileMatchup` contra ese rival, con las
+  etiquetas que tuvieron fila usable (por valor crudo), la suma de sus `games` y el nivel de
+  muestra más bajo entre ellas (las etiquetas comparten partidas, así que la suma no se toma
+  como muestra); con fila directa de `matchup_stats` es `matchup`. `vs_team` y sinergia no
+  hacen backoff.
 - Rival de lane: un rival lockeado con rol se toma en ese rol; los demás lockeados se infieren
   (§12.3) entre los roles que ningún slot rival tiene. `p(e)` es la probabilidad de que `e`
   juegue tu rol (1 o 0 con rol, `roleProbabilities` si no). `matchup = Σ p(e) · delta(c vs e)`
@@ -2840,8 +2842,10 @@ Precisiones (`MitoEngine/Pick/PickScoring`):
   Un par fuerte (bottom + utility, jungle + middle, en cualquier orden) cuenta ×1,5 dentro de
   la suma.
 - `comp_fit` es el valor de §18.4 antes de `w_comp`; `personal` llega como función
-  `(campeón, rol) → puntos de winrate` que pasa quien llama, armada con
-  `PersonalPoints.points` (§19.3), y sin datos es 0.
+  `(campeón, rol) → PersonalTerm?` que pasa quien llama: los puntos de winrate de
+  `PersonalPoints.points` (§19.3), las partidas y victorias propias con el campeón en ese rol y
+  su `poolRank`. `PersonalTerm(_:poolRank:)` lo arma desde un `PersonalScore`; la app pasa el
+  puesto en el pool del rol que arma para "Mi pool" (arriba). Sin datos es 0.
 - Candidatos: los campeones con fila de `champ_role_stats` en tu rol desde el mínimo de
   `champ_role`; debajo del mínimo no se rankean (como en §18.5), así que `penalties` siempre
   vale 0 y se guarda en el desglose. "Mi pool" es pool ∩ campeones que tenés, "Campeones que
@@ -2850,8 +2854,11 @@ Precisiones (`MitoEngine/Pick/PickScoring`):
 - Razones: una por cada término con fila usable (matchup, vs_team y sinergia por campeón, el
   tier del candidato y las de comp fit), ordenadas por el valor absoluto de su aporte
   ponderado al score; a igual aporte, primero los rivales en orden de draft (matchup y después
-  vs_team), luego los aliados, el tier y el comp fit. Cada una lleva el nivel de muestra de su
-  fila.
+  vs_team), luego los aliados, el tier, el comp fit y la comodidad. Cada una lleva el nivel de
+  muestra de su fila.
+- Comodidad: una razón `comfort` cuando `personal` no es 0 y hay partidas propias con el
+  candidato en ese rol, con su winrate crudo (`wins / games`) y su `poolRank`. Su aporte es
+  `w_personal · personal` y no lleva muestra (no es una fila del snapshot).
 - Orden por score descendente y, a igualdad, por `champion_id`; top 10 por defecto.
 
 ### 18.4 Comp fit
@@ -2865,8 +2872,9 @@ team_magic = Σ(magic_share · dmg_per_min) / Σ dmg_per_min
 team_tank  = suma de tankiness
 team_cc    = suma de cc_score
 team_early = media de early_strength
-early_strength(c, r) = winrate en buckets < 25 min − winrate general   (duration_curves)
-late_strength(c, r)  = winrate en buckets ≥ 35 min − winrate general
+early_strength(c, r) = wr_s de los buckets hasta 25 min (<20, 20-25) − winrate de la curva
+late_strength(c, r)  = wr_s de los buckets desde 35 min (35-40, 40+) − winrate de la curva
+                       (duration_curves)
 ```
 
 **Perfil rival.** Con 3 o más lockeados, el equipo rival se clasifica con `meta.profile_rules`
@@ -2907,12 +2915,23 @@ Decisiones del comp fit (`Composition` en `MitoEngine/Composition/`):
   `< 0,5` (la mediana del rol), es decir `team_cc < 0,5 · perfilados`. `engage` cuenta en
   cualquier lockeado, tenga perfil o no.
 - Bonus iniciales: balance de daño +1,5; frontline +1,5 en top, jungla y support y +0,75 en
-  otro rol; CC +1; `engage` +1. CC y `engage` suman por separado. Por ahora no hay
-  penalidades.
-- Curva de poder: pendiente. `duration_curves` no está en `StatsProvider`, así que no se
-  calcula `team_early` ni la razón `powerCurve`.
-- Las razones de perfil llevan el nivel de muestra `champ_role` del candidato; `addsEngage`
-  no lleva muestra (es un flag). Van de mayor a menor bonus y, a igual bonus, en el orden de
+  otro rol; CC +1; `engage` +1; curva de poder +0,5. CC y `engage` suman por separado. Por
+  ahora no hay penalidades.
+- Curva de poder (`PowerCurve`): el winrate de la curva es Σ `wins` / Σ `games` de todos sus
+  buckets, no `wr_smoothed(champ, role)`, así los segmentos se miden contra las mismas
+  partidas (en el fixture los buckets no suman `champ_role_stats.wins`; mito-data lo corrige).
+  Cada segmento se suaviza con el prior de relaciones (§18.1) centrado en ese total: un
+  segmento sin partidas vale 0 y una curva sin partidas no tiene fuerza. `team_early` es la
+  media de `early_strength` de los aliados con curva, y la regla necesita 3 o más.
+- Regla de la curva: el equipo es early con `team_early ≥ 0,005` y late con
+  `team_early ≤ −0,005` (es una media, así que el corte es la mitad del del candidato); el
+  candidato comparte la curva con `early_strength ≥ 0,01` en un equipo early o
+  `late_strength ≥ 0,01` en uno late. Todos inclusivos. Da el bonus a la coherencia; la
+  advertencia por mala mezcla no está, porque no hay penalidades. La razón es
+  `powerCurve(early:teamEarly:)` con el `early_strength` del candidato y `team_early`.
+- Las razones de perfil llevan el nivel de muestra `champ_role` del candidato; `powerCurve`,
+  el nivel `champ_role` de las partidas de la curva del candidato; `addsEngage` no lleva
+  muestra (es un flag). Van de mayor a menor bonus y, a igual bonus, en el orden de
   las reglas de arriba.
 
 ### 18.5 Score de ban
@@ -3078,9 +3097,9 @@ Los alternativos del core no están todavía.
   `point_click_cc`, Banshee (3102) si el campeón la termina. Si la build ya tiene un ítem de la
   regla, no se agrega nada. Razón `countersFlag` sin muestra.
 - **Sin repetidos.** Ninguna capa, flag ni señal repite un ítem ya elegido.
-- **Clases de ítems.** `StatsProvider` no expone `item_classes` (ni `class` ni `antiheal`).
-  Hasta que lo haga, el motor usa listas mínimas: botas tier 2 3006, 3009, 3020, 3047, 3111,
-  3117 y 3158; antiheal 3033, 3075, 3165 y 6609.
+- **Clases de ítems.** Las botas tier 2 son los ítems con `itemClass(of:) == .bootsT2` y el
+  antiheal los que marca `isAntiheal` (`item_classes`, §16.3); un ítem sin fila no es ni botas
+  ni antiheal. Banshee (3102) para `point_click_cc` es una regla por ítem, no una clase.
 
 ### 18.8 Spells
 

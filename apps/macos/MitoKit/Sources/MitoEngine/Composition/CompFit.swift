@@ -45,8 +45,29 @@ extension CompFit {
     static let offRoleFrontlineBonus = 0.0075
     static let crowdControlBonus = 0.01
     static let engageBonus = 0.01
+    /// "Leve bonus a la coherencia": the low end of §18.4's ±0.5 to ±2 points.
+    static let powerCurveBonus = 0.005
+    /// The candidate's `early_strength` (an early team) or `late_strength` (a late one) from
+    /// which it shares the team's curve.
+    static let candidateStrength = 0.01
+    /// `team_early` from which the team is early, or down to whose negative it is late. A mean
+    /// over four or five allies, so it sits below the candidate's.
+    static let teamStrength = 0.005
 
     static let frontlineRoles: Set<Role> = [.top, .jungle, .utility]
+}
+
+extension CompFit {
+    /// Coherence (§18.4): an early team with an early candidate, or a late team with a late one,
+    /// over `minimumAllies` allies with a curve. The thresholds are inclusive.
+    static func sharesPowerCurve(early: Double, late: Double, teamEarly: Double, allies: Int)
+        -> Bool
+    {
+        guard allies >= minimumAllies else { return false }
+        if teamEarly >= teamStrength { return early >= candidateStrength }
+        if teamEarly <= -teamStrength { return late >= candidateStrength }
+        return false
+    }
 }
 
 extension Composition {
@@ -111,6 +132,22 @@ extension Composition {
         }
         if lacksControl, stats.flags(of: candidate).contains(.engage) {
             bonuses.append((CompFit.engageBonus, Reason(kind: .addsEngage, sample: nil)))
+        }
+        if let meta = stats.meta,
+            let curve = PowerCurve(
+                stats.durationCurves(for: candidate, role: role), priors: meta.priors),
+            let allied = teamEarly(of: allies, stats: stats),
+            CompFit.sharesPowerCurve(
+                early: curve.early, late: curve.late, teamEarly: allied.value,
+                allies: allied.members)
+        {
+            bonuses.append(
+                (
+                    CompFit.powerCurveBonus,
+                    Reason(
+                        kind: .powerCurve(early: curve.early, teamEarly: allied.value),
+                        sample: meta.sampleLevel(.championRole, games: curve.games))
+                ))
         }
 
         let ranked = bonuses.enumerated().sorted {

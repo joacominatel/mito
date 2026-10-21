@@ -84,7 +84,7 @@ struct MetaComfortSliderTests {
                 for: draft, role: .middle, mode: .all, stats: stats,
                 weights: PickWeights(metaComfortBalance: balance),
                 personal: { champion, _ in
-                    champion == ahri ? PersonalPoints.points(comfortable) : nil
+                    champion == ahri ? PersonalTerm(comfortable, poolRank: nil) : nil
                 }
             ).map(\.champion)
         }

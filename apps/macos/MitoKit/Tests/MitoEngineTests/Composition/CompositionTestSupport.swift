@@ -53,3 +53,27 @@ func slot(_ cellId: Int, _ champion: ChampionID?, _ role: Role?) -> DraftSlot {
         cellId: cellId, champion: champion, hover: nil, role: role,
         roleConfidence: role == nil ? 0 : 1)
 }
+
+/// 1,000 games at 0.5: the early buckets at 0.6, the middle at 0.5, and the late at 0.4.
+let earlyCurve: [DurationBucket: RelationStats] = [
+    .under20: RelationStats(games: 150, wins: 90),
+    .from20To25: RelationStats(games: 150, wins: 90),
+    .from25To30: RelationStats(games: 200, wins: 100),
+    .from30To35: RelationStats(games: 200, wins: 100),
+    .from35To40: RelationStats(games: 150, wins: 60),
+    .over40: RelationStats(games: 150, wins: 60),
+]
+
+/// `earlyCurve` mirrored: early −0.06, late +0.06.
+let lateCurve: [DurationBucket: RelationStats] = [
+    .under20: RelationStats(games: 150, wins: 60),
+    .from20To25: RelationStats(games: 150, wins: 60),
+    .from25To30: RelationStats(games: 200, wins: 100),
+    .from30To35: RelationStats(games: 200, wins: 100),
+    .from35To40: RelationStats(games: 150, wins: 90),
+    .over40: RelationStats(games: 150, wins: 90),
+]
+
+/// Every bucket at 0.5: no strength either way.
+let flatCurve: [DurationBucket: RelationStats] = Dictionary(
+    uniqueKeysWithValues: DurationBucket.allCases.map { ($0, RelationStats(games: 100, wins: 50)) })

@@ -10,6 +10,33 @@ public enum PersonalPoints {
     }
 }
 
+/// `personal(c, r)` as the pick score takes it, with the facts of its `comfort` reason (§18.3).
+public struct PersonalTerm: Hashable, Sendable {
+    /// Winrate points, before `w_personal`.
+    public let points: Double
+    /// The user's own games with the champion in the role.
+    public let games: Int
+    public let wins: Int
+    /// The 1-based place in the role's pool order (§18.3); `nil` outside it.
+    public let poolRank: Int?
+
+    public init(points: Double, games: Int, wins: Int, poolRank: Int?) {
+        self.points = points
+        self.games = games
+        self.wins = wins
+        self.poolRank = poolRank
+    }
+
+    public init(
+        _ score: PersonalScore, poolRank: Int?,
+        maxComfortWorth: Double = PersonalScore.defaultMaxComfortWorth
+    ) {
+        self.init(
+            points: PersonalPoints.points(score, maxComfortWorth: maxComfortWorth),
+            games: score.metrics.games, wins: score.metrics.wins, poolRank: poolRank)
+    }
+}
+
 extension PickWeights {
     /// The Meta ↔ Comfort slider of §18.3: `balance` 0 is pure meta, 1 pure comfort, and 0.5
     /// (the `ChampSelectSettings` default) gives the default weights. Outside [0, 1] it clamps.

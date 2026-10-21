@@ -302,6 +302,36 @@ struct AdaptedLoadoutTests {
         #expect(result.loadout.itemSet?.blocks.map(\.items) == [[item(3047)]])
     }
 
+    @Test func bootsAreWhateverItemClassesCallsTierTwoBoots() {
+        let result = adapted(
+            provider(
+                items: [build(.boots, [3020], games: 800, wins: 400)],
+                itemClasses: [ItemID(rawValue: 9001): .bootsT2]
+            )
+            .baseline([final(9001, games: 200, wins: 100)])
+            .against(.heavyAD, finalItems: [final(9001, games: 250, wins: 145)]),
+            opponent: nil, profiles: [.heavyAD])
+
+        #expect(result.loadout.itemSet?.blocks.map(\.items) == [[item(9001)]])
+    }
+
+    @Test(arguments: [nil, ItemClass.bootsT1, .legendary, .unknown("boots_t3")])
+    func risingItemsOutsideTheTierTwoBootsClassAreSituational(itemClass: ItemClass?) {
+        let result = adapted(
+            provider(
+                items: [build(.boots, [3020], games: 800, wins: 400)],
+                itemClasses: itemClass.map { [ItemID(rawValue: 3047): $0] } ?? [:]
+            )
+            .baseline([final(3047, games: 200, wins: 100)])
+            .against(.heavyAD, finalItems: [final(3047, games: 250, wins: 145)]),
+            opponent: nil, profiles: [.heavyAD])
+
+        #expect(
+            result.loadout.itemSet?.blocks == [
+                ItemSet.Block(title: "boots", items: [item(3020)]), situational(item(3047)),
+            ])
+    }
+
     // MARK: Situational items (§18.7)
 
     /// Zhonya's (3157) in 10 % of all 2,000 games at 0.500.
@@ -449,6 +479,34 @@ struct AdaptedLoadoutTests {
         #expect(result.loadout.itemSet == nil)
     }
 
+    @Test func antihealIsWhateverItemClassesMarksAntiheal() {
+        let result = adapted(
+            provider(antiheal: [ItemID(rawValue: 9002)])
+                .baseline([final(3165, games: 300, wins: 150), final(9002, games: 100, wins: 50)])
+                .flagged([soraka: [.highHeal], darius: [.highHeal]]),
+            opponent: nil, enemies: [soraka, darius])
+
+        #expect(result.loadout.itemSet?.blocks == [situational(item(9002))])
+    }
+
+    @Test func anItemNotMarkedAntihealNeverCountersHealers() {
+        let result = adapted(
+            healers(provider(itemClasses: [:], antiheal: [])), opponent: nil,
+            enemies: [soraka, darius])
+
+        #expect(result.loadout.itemSet == nil)
+        #expect(result.loadout.explanation.isEmpty)
+    }
+
+    @Test func anyAntihealItemInTheBuildSatisfiesTheRule() {
+        // Thornmail (3075) is not the one Ahri finishes most, but it is antiheal.
+        let result = adapted(
+            healers(provider(items: [build(.fourth, [3075], games: 500, wins: 250)])),
+            opponent: nil, enemies: [soraka, darius])
+
+        #expect(result.loadout.itemSet?.blocks.map(\.items) == [[item(3075)]])
+    }
+
     @Test func bansheeJoinsTheSetAgainstTwoPointAndClickCCEnemies() {
         let lissandra = ChampionID(rawValue: 127)
         let malzahar = ChampionID(rawValue: 90)
@@ -466,6 +524,35 @@ struct AdaptedLoadoutTests {
                         item: ItemID(rawValue: 3102), flag: .pointClickCC, enemies: 2),
                     sample: nil)
             ])
+    }
+
+    @Test func onlyBansheeCountersPointAndClickCCWhateverItsClass() {
+        let lissandra = ChampionID(rawValue: 127)
+        let malzahar = ChampionID(rawValue: 90)
+
+        // Edge of Night (3814) is unclassified here and Banshee's Veil is a legendary: the rule
+        // names the item, not a class.
+        let result = adapted(
+            provider(itemClasses: [ItemID(rawValue: 3102): .legendary])
+                .baseline([final(3814, games: 300, wins: 150), final(3102, games: 100, wins: 50)])
+                .flagged([lissandra: [.pointClickCC], malzahar: [.pointClickCC]]),
+            opponent: nil, enemies: [lissandra, malzahar])
+
+        #expect(result.loadout.itemSet?.blocks == [situational(item(3102))])
+    }
+
+    @Test func aBansheeAlreadyInTheBuildAddsNothing() {
+        let lissandra = ChampionID(rawValue: 127)
+        let malzahar = ChampionID(rawValue: 90)
+
+        let result = adapted(
+            provider(items: [build(.fourth, [3102], games: 500, wins: 250)])
+                .baseline([final(3102, games: 100, wins: 50)])
+                .flagged([lissandra: [.pointClickCC], malzahar: [.pointClickCC]]),
+            opponent: nil, enemies: [lissandra, malzahar])
+
+        #expect(result.loadout.itemSet?.blocks.map(\.items) == [[item(3102)]])
+        #expect(result.loadout.explanation.isEmpty)
     }
 
     // MARK: Explanation and samples

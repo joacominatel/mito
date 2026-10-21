@@ -71,12 +71,13 @@ struct PickScoringTests {
         mode: ChampSelectSettings.Candidates = .all,
         pool: Set<ChampionID> = [],
         owned: Set<ChampionID> = [],
-        personal: (ChampionID, Role) -> Double? = { _, _ in nil },
+        weights: PickWeights = PickWeights(),
+        personal: (ChampionID, Role) -> PersonalTerm? = { _, _ in nil },
         limit: Int = PickScoring.defaultLimit
     ) -> [PickRecommendation] {
         PickScoring.recommendations(
             for: context ?? self.context(role: role), role: role, mode: mode, pool: pool,
-            owned: owned, stats: stats, personal: personal, limit: limit)
+            owned: owned, stats: stats, weights: weights, personal: personal, limit: limit)
     }
 
     private func ahriIn(_ ranked: [PickRecommendation]) -> PickRecommendation? {
@@ -91,6 +92,9 @@ struct PickScoringTests {
                 switch reason.kind {
                 case .matchup(let opponent, let delta, let games):
                     .matchup(opponent: opponent, delta: round(delta), games: games)
+                case .profileMatchup(let opponent, let profiles, let delta, let games):
+                    .profileMatchup(
+                        opponent: opponent, profiles: profiles, delta: round(delta), games: games)
                 case .versusEnemy(let enemy, let delta, let games):
                     .versusEnemy(enemy: enemy, delta: round(delta), games: games)
                 case .synergy(let ally, let allyRole, let delta, let games):
@@ -304,12 +308,15 @@ struct PickScoringTests {
         #expect(isClose(component(.matchup, ranked), 0.12))
     }
 
-    @Test func theBackoffReasonIsAMatchupWithTheProfileGamesAndSample() {
+    @Test func theBackoffReasonIsAProfileMatchupWithTheProfileGamesAndSample() {
         let ranked = recommend(backoffProvider(), context: backoffDraft())
 
         #expect(
             rounded(ahriIn(ranked)?.reasons ?? []) == [
-                Reason(kind: .matchup(opponent: zed, delta: 0.1, games: 300), sample: .usable),
+                Reason(
+                    kind: .profileMatchup(
+                        opponent: zed, profiles: [.heavyAD], delta: 0.1, games: 300),
+                    sample: .usable),
                 neutralMeta,
             ])
     }
@@ -359,7 +366,9 @@ struct PickScoringTests {
             rounded(ahriIn(ranked)?.reasons ?? [])
                 == rounded([
                     Reason(
-                        kind: .matchup(opponent: zed, delta: 43.0 / 420.0, games: 700),
+                        kind: .profileMatchup(
+                            opponent: zed, profiles: [.heavyAD, .heavyCC], delta: 43.0 / 420.0,
+                            games: 700),
                         sample: .usable),
                     neutralMeta,
                 ]))
@@ -389,10 +398,109 @@ struct PickScoringTests {
 
     @Test func personalIsTheClosureValueForTheCandidateInTheRole() {
         let ranked = recommend(provider()) { champion, role in
-            champion == ahri && role == .middle ? 0.02 : nil
+            champion == ahri && role == .middle
+                ? PersonalTerm(points: 0.02, games: 0, wins: 0, poolRank: nil) : nil
         }
 
         #expect(isClose(component(.personal, ranked), 0.02))
+    }
+
+    // MARK: - comfort
+
+    private func comfort(_ term: PersonalTerm, weights: PickWeights = PickWeights()) -> [Reason] {
+        let ranked = recommend(provider(), weights: weights) { champion, _ in
+            champion == ahri ? term : nil
+        }
+        return ahriIn(ranked)?.reasons ?? []
+    }
+
+    @Test func aComfortReasonCarriesThePoolRankTheGamesAndTheRawWinrate() {
+        let reasons = comfort(PersonalTerm(points: 0.02, games: 12, wins: 9, poolRank: 2))
+
+        #expect(
+            reasons == [
+                Reason(kind: .comfort(poolRank: 2, games: 12, winrate: 0.75), sample: nil),
+                neutralMeta,
+            ])
+    }
+
+    @Test func aChampionOutsideThePoolHasAComfortReasonWithoutRank() {
+        let reasons = comfort(PersonalTerm(points: 0.02, games: 4, wins: 1, poolRank: nil))
+
+        #expect(
+            reasons.first
+                == Reason(
+                    kind: .comfort(poolRank: nil, games: 4, winrate: 0.25), sample: nil))
+    }
+
+    @Test func withoutOwnGamesThereIsNoComfortReason() {
+        // In the pool with no games: points, but nothing to show.
+        #expect(
+            comfort(PersonalTerm(points: 0.02, games: 0, wins: 0, poolRank: 1)) == [neutralMeta])
+    }
+
+    @Test func aZeroPersonalTermHasNoComfortReason() {
+        #expect(
+            comfort(PersonalTerm(points: 0, games: 12, wins: 6, poolRank: 1)) == [neutralMeta])
+    }
+
+    @Test func theComfortReasonRanksByTheWeightedPersonalContribution() {
+        // Lane 1.2 · 0.1 = 0.12 against comfort 0.05 · w_personal: 0.05 at 1.0, 0.125 at 2.5.
+        let term = PersonalTerm(points: 0.05, games: 30, wins: 18, poolRank: 1)
+        let stats = provider(matchups: [zed: lane(games: 300, wins: 200)])
+        let draft = context(enemies: [slot(5, zed, .middle)])
+        func kinds(_ personalWeight: Double) -> [Reason.Kind] {
+            let ranked = recommend(
+                stats, context: draft, weights: PickWeights(personal: personalWeight)
+            ) { champion, _ in champion == ahri ? term : nil }
+            return rounded(ahriIn(ranked)?.reasons ?? []).map(\.kind)
+        }
+        let matchup = Reason.Kind.matchup(opponent: zed, delta: 0.1, games: 300)
+        let comfortKind = Reason.Kind.comfort(poolRank: 1, games: 30, winrate: 0.6)
+
+        #expect(kinds(1.0) == [matchup, comfortKind, neutralMeta.kind])
+        #expect(kinds(2.5) == [comfortKind, matchup, neutralMeta.kind])
+    }
+
+    @Test func aPersonalTermFromAScoreCarriesItsGamesWinsAndPoints() {
+        let score = PersonalScore(
+            champion: ahri, role: .middle,
+            metrics: PersonalMetrics(
+                games: 10, wins: 7, globalWinrate: 0.5, smoothedWinrate: 0.55, recency: 1,
+                masteryNorm: 0, kdaVsAverage: 1, csVsAverage: 1),
+            winrateEdge: 0.05, comfort: 0.5, inPool: true, relativePerformance: 0, total: 0)
+
+        let term = PersonalTerm(score, poolRank: 3)
+
+        #expect(term.games == 10)
+        #expect(term.wins == 7)
+        #expect(term.poolRank == 3)
+        #expect(term.points == PersonalPoints.points(score))
+    }
+
+    // MARK: - Power curve
+
+    @Test func thePowerCurveBonusReachesThePickScoreThroughCompFit() {
+        // Three early allies and an early Ahri: 0.8 · 0.005.
+        var stats = provider(profiles: [
+            jarvan: [.jungle: championProfile()], garen: [.top: championProfile()],
+            jinx: [.bottom: championProfile()],
+        ])
+        stats.durationCurvesByChampion = [
+            ahri: [.middle: earlyCurve], jarvan: [.jungle: earlyCurve], garen: [.top: earlyCurve],
+            jinx: [.bottom: earlyCurve],
+        ]
+        let draft = context(allies: [
+            slot(1, jarvan, .jungle), slot(2, garen, .top), slot(3, jinx, .bottom),
+        ])
+
+        let ranked = recommend(stats, context: draft)
+
+        #expect(isClose(component(.composition, ranked), 0.004))
+        #expect(
+            ahriIn(ranked)?.reasons.contains {
+                if case .powerCurve = $0.kind { true } else { false }
+            } == true)
     }
 
     // MARK: - Full score
@@ -425,7 +533,9 @@ struct PickScoringTests {
 
     @Test func scoreIsTheSumOfTheWeightedComponents() {
         // 0.05 + 1.2 · 0.07 + 0.3 · 1/60 + 0.6 · 1.5 · 2/15 + 0.8 · 0.015 + 0.02.
-        let ranked = recommend(fullProvider(), context: fullDraft()) { _, _ in 0.02 }
+        let ranked = recommend(fullProvider(), context: fullDraft()) { _, _ in
+            PersonalTerm(points: 0.02, games: 0, wins: 0, poolRank: nil)
+        }
 
         let recommendation = ahriIn(ranked)
         #expect(isClose(recommendation?.score ?? 0, 0.291))

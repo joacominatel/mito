@@ -29,7 +29,7 @@ public enum PickScoring {
     /// The synergy of a strong pair (bot + support, jungle + mid) counts this many times.
     public static let strongPairMultiplier = 1.5
 
-    /// `personal` returns `personal(c, r)` in winrate points, `nil` without personal data.
+    /// `personal` returns `personal(c, r)` with its comfort facts, `nil` without personal data.
     public static func recommendations(
         for context: DraftContext,
         role: Role,
@@ -38,7 +38,7 @@ public enum PickScoring {
         owned: Set<ChampionID> = [],
         stats: some StatsProvider,
         weights: PickWeights = PickWeights(),
-        personal: (ChampionID, Role) -> Double? = { _, _ in nil },
+        personal: (ChampionID, Role) -> PersonalTerm? = { _, _ in nil },
         limit: Int = defaultLimit
     ) -> [PickRecommendation] {
         guard let meta = stats.meta, limit > 0 else { return [] }
@@ -64,11 +64,12 @@ public enum PickScoring {
                 }
             }
             let profileBackoff = profileDelta(
-                of: enemyProfile.compactMap {
+                of: enemyProfile.compactMap { profile in
                     delta(
-                        stats.profileStats(for: champion, role: role, against: $0).map {
+                        stats.profileStats(for: champion, role: role, against: profile).map {
                             ($0.wins, $0.games)
-                        }, .profile)
+                        }, .profile
+                    ).map { (profile, $0) }
                 })
 
             var reasons: [(impact: Double, reason: Reason)] = []
@@ -78,17 +79,23 @@ public enum PickScoring {
                 let laneRow = stats.matchup(for: champion, role: role, against: enemy.champion)
                 if enemy.lane > 0,
                     let lane = delta(laneRow.map { ($0.wins, $0.games) }, .matchup).map({
-                        LaneTerm(delta: $0.delta, games: $0.games, sample: $0.sample)
+                        LaneTerm(delta: $0.delta, games: $0.games, sample: $0.sample, profiles: nil)
                     }) ?? profileBackoff
                 {
                     matchup += enemy.lane * lane.delta
+                    let kind: Reason.Kind =
+                        if let profiles = lane.profiles {
+                            .profileMatchup(
+                                opponent: enemy.champion, profiles: profiles, delta: lane.delta,
+                                games: lane.games)
+                        } else {
+                            .matchup(
+                                opponent: enemy.champion, delta: lane.delta, games: lane.games)
+                        }
                     reasons.append(
                         (
                             weights.matchup * enemy.lane * lane.delta,
-                            Reason(
-                                kind: .matchup(
-                                    opponent: enemy.champion, delta: lane.delta, games: lane.games),
-                                sample: lane.sample)
+                            Reason(kind: kind, sample: lane.sample)
                         ))
                 }
                 let teamRow = stats.versusTeam(for: champion, role: role, against: enemy.champion)
@@ -138,13 +145,26 @@ public enum PickScoring {
                 candidate: champion, role: role, allies: allies, stats: stats)
             reasons += compFit.bonuses.map { (weights.composition * $0.value, $0.reason) }
 
+            let personalTerm = personal(champion, role)
+            if let personalTerm, personalTerm.points != 0, personalTerm.games > 0 {
+                reasons.append(
+                    (
+                        weights.personal * personalTerm.points,
+                        Reason(
+                            kind: .comfort(
+                                poolRank: personalTerm.poolRank, games: personalTerm.games,
+                                winrate: Double(personalTerm.wins) / Double(personalTerm.games)),
+                            sample: nil)
+                    ))
+            }
+
             let components: [PickComponent: Double] = [
                 .meta: weights.meta * metaValue,
                 .matchup: weights.matchup * matchup,
                 .counter: weights.counter * counter,
                 .synergy: weights.synergy * synergy,
                 .composition: weights.composition * compFit.value,
-                .personal: weights.personal * (personal(champion, role) ?? 0),
+                .personal: weights.personal * (personalTerm?.points ?? 0),
                 .penalties: 0,
             ]
             let ordered = reasons.enumerated().sorted {
@@ -213,15 +233,19 @@ public enum PickScoring {
         let delta: Double
         let games: Int
         let sample: SampleLevel
+        /// The labels behind a backoff; `nil` for a `matchup_stats` row.
+        let profiles: [EnemyProfile]?
     }
 
     /// The §18.1 backoff to the enemy profile: the usable `champ_vs_profile` deltas of its
     /// labels, mixed by games. The labels share matches, so the sample is the weakest one.
-    private static func profileDelta(of rows: [MatchupDelta]) -> LaneTerm? {
-        let games = rows.reduce(0) { $0 + $1.games }
-        guard games > 0, let sample = rows.map(\.sample).min() else { return nil }
+    private static func profileDelta(of rows: [(profile: EnemyProfile, delta: MatchupDelta)])
+        -> LaneTerm?
+    {
+        let games = rows.reduce(0) { $0 + $1.delta.games }
+        guard games > 0, let sample = rows.map(\.delta.sample).min() else { return nil }
         return LaneTerm(
-            delta: rows.reduce(0) { $0 + Double($1.games) * $1.delta } / Double(games),
-            games: games, sample: sample)
+            delta: rows.reduce(0) { $0 + Double($1.delta.games) * $1.delta.delta } / Double(games),
+            games: games, sample: sample, profiles: rows.map(\.profile))
     }
 }
