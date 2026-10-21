@@ -277,7 +277,7 @@ Can overlap Stage 6.
 | P9-01 | Matchup tab | analysis | `Mito/Features/Analysis/Matchup/**`, `MitoKit/Sources/MitoEngine/Analysis/Matchup/**`, their tests | §20.2 (Matchup entry only) | P9-00 | in progress |
 | P9-02 | Composition tab | analysis | `Mito/Features/Analysis/Composition/**`, `MitoKit/Sources/MitoEngine/Analysis/Composition/**`, their tests | §20.2 (Composición entry only) | P9-00 | merged |
 | P9-03 | Build tab | analysis | `Mito/Features/Analysis/Build/**`, `MitoKit/Sources/MitoEngine/Analysis/Build/**`, their tests | §20.2 (Build entry only) | P9-00 | in progress |
-| P9-04 | "Mi historial" tab | analysis | `Mito/Features/Analysis/History/**`, `MitoKit/Sources/MitoEngine/Analysis/History/**`, their tests | §20.2 (Mi historial entry only) | P9-00 | todo |
+| P9-04 | "Mi historial" tab | analysis | `Mito/Features/Analysis/History/**`, `MitoKit/Sources/MitoEngine/Analysis/History/**`, their tests | §20.2 (Mi historial entry only) | P9-00 | in progress |
 | P9-05 | Tips download and reader | store | `MitoKit/Sources/MitoStore/Tips/**` | — | MD-tips | todo |
 | P9-06 | Special states: blind, Flex/Normal, ARAM degraded, no snapshot, unknown rival | cross-lane (serial) | per card | §20.3 | P9-01, P9-02, P9-03, P9-04, P9-05 | todo |
 | P9-07 | Visual polish, animations, accessibility | cross-lane (serial) | per card | §22.1 | P9-06 | todo |
