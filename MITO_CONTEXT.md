@@ -3386,6 +3386,49 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
    del archivo de tips del locale (§14.12) para (campeón, rol, rival); si el tip se revisó en
    un parche anterior se muestra "revisado en 16.20". Sin tip curado, plantillas generadas por
    datos.
+
+   **Implementado (P9-01).** Los números salen de `MatchupAnalysis`
+   (`MitoEngine/Analysis/Matchup/`); `MatchupPresentation` (en la carpeta de la pestaña) solo
+   los redacta en es-AR con los formatos del locale.
+
+   - **Estados:** sin rol (ARAM), "Sin datos de matchup en ARAM"; sin campeón, "Todavía no hay
+     campeón"; sin snapshot, "Sin estadísticas todavía" (el panel ya lo cubre antes).
+   - **Encabezado:** "Ahri vs Zed" y debajo "Rival de línea: Zed (MID? 82 %)"; un rol asignado va
+     sin "?" y uno adivinado dice "(MID?, sin datos)". Con el campeón que solo es la primera
+     recomendación, "Si elegís Ahri, contra Zed" (o "Si elegís Ahri" sin rival). Sin rival,
+     "Rival de línea desconocido": se muestran el winrate general y la curva propia; las
+     recomendaciones "seguras" de §20.3 no van acá.
+   - **Winrate:** contra el rival, `wr_smoothed(A vs B)` (§18.1) con su intervalo de Wilson al
+     90 % sobre los conteos crudos ("IC 90 %: 51,4 % – 53,2 %"), el `matchup_delta` como
+     `DeltaBadge` ("respecto del promedio de Ahri"), las partidas y el `ConfidenceIndicator` del
+     umbral `matchup`. Sin rival, `wr_smoothed(champ, role)` con el umbral `champ_role` y sin
+     delta. Debajo del mínimo no hay número: "Pocas partidas para dar un número", con las
+     partidas y "sin muestra". Si el cruce no tiene número (sin fila o debajo del mínimo) se
+     agrega el winrate general como referencia.
+   - **Diffs @15:** oro y CS medios contra el rival, con signo (− es U+2212), flecha y color, y
+     las partidas con timeline. Solo con `tl_games` desde el mínimo de `matchup`.
+   - **Curva por duración** (Swift Charts): una línea por campeón (el tuyo y, si tiene filas, el
+     rival en el mismo rol), distinguidas por color y por símbolo, con el winrate de cada bucket
+     suavizado hacia el total de su curva con el prior de relaciones, como `PowerCurve`. Los
+     buckets sin partidas no se dibujan. Una curva debajo del mínimo de `champ_role` no se
+     dibuja; si alguna no llega a "confiable", va la marca de muestra baja. Una línea de
+     resumen sale de `early_strength` y `late_strength` (§18.4): con rival, la mayor diferencia
+     entre segmentos ("Ahri escala mejor que Zed desde el minuto 35", "… es más fuerte que … hasta
+     el minuto 25"); sola, el segmento más fuerte ("Ahri rinde más en partidas de 35 minutos o
+     más"). Hace falta al menos 1 punto de winrate (el corte del comp fit); si no, no hay
+     línea. Cada punto tiene etiqueta y valor de VoiceOver.
+   - **Power spikes:** nivel 6 y 1.º–3.º legendario de `champion_profiles`, primero el rival:
+     "Zed llega a 6 a los 7:10, vos a los 7:40" ("Ahri" en vez de "vos" si es recomendación); con
+     un solo lado, "Ahri llega a 6 a los 7:40". Un perfil con `tl_games` debajo del mínimo de
+     `build_layer` (el denominador de esas medianas) no cuenta. Llegar primero exige 20 s de
+     diferencia; menos es ruido.
+   - **Claves:** `Clave` es `.curated(CuratedTip)` o `.generated(ClaveTemplate, sample:)`; con
+     tips curados (P9-05) reemplazan a los generados y se muestra "revisado en 16.20" si el
+     parche no es el del snapshot. Hoy no llegan tips, así que van las plantillas, solo con
+     rival y en este orden: el matchup (|delta| ≥ 1 punto), el oro @15 (|diff| ≥ 100), el primer
+     power spike con alguien primero y la curva contra el rival. Cada una lleva la muestra de su
+     dato y la marca de muestra baja si no es "confiable".
+   - VoiceOver: el encabezado, cada bloque de números y cada línea son un solo elemento.
 2. **Composición:** perfil de daño de ambos equipos (ponderado por `dmg_per_min`), perfiles
    del rival (`heavy_ad`, `heavy_cc`…), frontline, CC, early vs late (de `duration_curves`),
    power spikes de cada equipo y "condiciones de victoria" textuales derivadas (por ejemplo,

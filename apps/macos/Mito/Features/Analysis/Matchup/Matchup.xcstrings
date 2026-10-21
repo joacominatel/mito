@@ -1,11 +1,191 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "El cruce con tu rival de línea: muy pronto." : {
-      "comment" : "Says the Matchup tab of the analysis panel is not built yet."
+    "%@ completa el 1.er legendario a los %@" : {
+      "comment" : "Power spike. Champion, then the median game time (7:10) it completes its first legendary item."
     },
-    "Matchup" : {
-      "comment" : "Title of the empty Matchup tab of the analysis panel."
+    "%@ completa el 1.er legendario a los %@, %@ a los %@" : {
+      "comment" : "Power spike compared. Lane opponent, its time, then 'vos' or your champion's name, and your time."
+    },
+    "%@ completa el 2.º legendario a los %@" : {
+      "comment" : "Power spike. Champion, then the median game time it completes its second legendary item."
+    },
+    "%@ completa el 2.º legendario a los %@, %@ a los %@" : {
+      "comment" : "Power spike compared. Lane opponent, its time, then 'vos' or your champion's name, and your time."
+    },
+    "%@ completa el 3.er legendario a los %@" : {
+      "comment" : "Power spike. Champion, then the median game time it completes its third legendary item."
+    },
+    "%@ completa el 3.er legendario a los %@, %@ a los %@" : {
+      "comment" : "Power spike compared. Lane opponent, its time, then 'vos' or your champion's name, and your time."
+    },
+    "%@ es más fuerte hasta el minuto %lld: aguantá y escalá" : {
+      "comment" : "Generated matchup tip: the lane opponent does better in short games, up to the given minute."
+    },
+    "%@ es más fuerte que %@ hasta el minuto %lld" : {
+      "comment" : "Duration curve summary: the first champion does better than the second in games up to the given minute."
+    },
+    "%@ escala mejor desde el minuto %lld: buscá cerrar antes" : {
+      "comment" : "Generated matchup tip: the lane opponent does better in long games, from the given minute."
+    },
+    "%@ escala mejor que %@ desde el minuto %lld" : {
+      "comment" : "Duration curve summary: the first champion does better than the second in games from the given minute."
+    },
+    "%@ llega a 6 a los %@" : {
+      "comment" : "Power spike. Champion, then the median game time (7:10) it reaches level 6."
+    },
+    "%@ llega a 6 a los %@, %@ a los %@" : {
+      "comment" : "Power spike compared. Lane opponent, its level-6 time, then 'vos' or your champion's name, and your time."
+    },
+    "%@ llega antes al %@ (%@): jugá seguro hasta entonces" : {
+      "comment" : "Generated matchup tip. Lane opponent, a power spike ('nivel 6', '1.er legendario'), and its time."
+    },
+    "%@ partidas" : {
+      "comment" : "Games behind a winrate, with thousands separators."
+    },
+    "%@ partidas con timeline" : {
+      "comment" : "Games with a timeline behind the gold and CS diffs at 15 minutes."
+    },
+    "%@ rinde más en partidas de %lld minutos o más" : {
+      "comment" : "Duration curve summary for one champion: it does better in games of at least the given minutes."
+    },
+    "%@ rinde más en partidas de hasta %lld minutos" : {
+      "comment" : "Duration curve summary for one champion: it does better in games of up to the given minutes."
+    },
+    "%@ suele sacar %@ de oro de ventaja al minuto 15: evitá los intercambios largos temprano" : {
+      "comment" : "Generated matchup tip. Lane opponent, then the mean gold lead it has at 15 minutes."
+    },
+    "%@ vs %@" : {
+      "comment" : "Matchup tab title: your champion against the lane opponent."
+    },
+    "%lld minutos o más" : {
+      "comment" : "VoiceOver name of the last duration bucket (40+)."
+    },
+    "1.er legendario" : {
+      "comment" : "Power spike name inside a tip: the first legendary item."
+    },
+    "2.º legendario" : {
+      "comment" : "Power spike name inside a tip: the second legendary item."
+    },
+    "3.er legendario" : {
+      "comment" : "Power spike name inside a tip: the third legendary item."
+    },
+    "CS @15" : {
+      "comment" : "Lane diff label: mean CS difference against the lane opponent at 15 minutes."
+    },
+    "Campeón" : {
+      "comment" : "Swift Charts series name of the duration curve: which champion a line belongs to."
+    },
+    "Claves" : {
+      "comment" : "Section of the Matchup tab with tips for the lane."
+    },
+    "Curva por duración" : {
+      "comment" : "Section of the Matchup tab with winrate by game length."
+    },
+    "Duración de la partida (minutos)" : {
+      "comment" : "X-axis title of the duration curve chart."
+    },
+    "El cruce es difícil (%@ puntos de winrate): priorizá farmear seguro" : {
+      "comment" : "Generated matchup tip for an unfavorable matchup; the signed winrate points."
+    },
+    "El cruce te favorece (%@ puntos de winrate): podés tomar la iniciativa en la línea" : {
+      "comment" : "Generated matchup tip for a favorable matchup; the signed winrate points."
+    },
+    "El matchup aparece cuando lockeás, hacés hover o hay una recomendación." : {
+      "comment" : "Explains the Matchup tab is empty until there is a champion."
+    },
+    "En la línea" : {
+      "comment" : "Title of the gold and CS diffs at 15 minutes."
+    },
+    "Escalás mejor que %@ desde el minuto %lld: no hace falta forzar temprano" : {
+      "comment" : "Generated matchup tip: you do better than the lane opponent in long games, from the given minute."
+    },
+    "IC 90 %%: %@ – %@" : {
+      "comment" : "The 90 % Wilson confidence interval of a winrate: lower and upper percentages."
+    },
+    "Llegás antes que %@ al %@ (%@): es tu momento para pelear" : {
+      "comment" : "Generated matchup tip. Lane opponent, a power spike ('nivel 6', '1.er legendario'), and your time."
+    },
+    "Minutos" : {
+      "comment" : "Swift Charts x value name of the duration curve: game length bucket."
+    },
+    "Oro @15" : {
+      "comment" : "Lane diff label: mean gold difference against the lane opponent at 15 minutes."
+    },
+    "Pocas partidas para dar un número" : {
+      "comment" : "Shown instead of a winrate whose sample is under the snapshot's minimum."
+    },
+    "Power spikes" : {
+      "comment" : "Section of the Matchup tab comparing level 6 and legendary item times."
+    },
+    "Rival de línea desconocido" : {
+      "comment" : "No enemy is known or inferred in your role."
+    },
+    "Rival de línea: %@ (%@)" : {
+      "comment" : "Lane opponent with an assigned role: champion and role abbreviation."
+    },
+    "Rival de línea: %@ (%@? %@)" : {
+      "comment" : "Inferred lane opponent: champion, role abbreviation, and the inference probability. Never a fact."
+    },
+    "Rival de línea: %@ (%@?, sin datos)" : {
+      "comment" : "Lane opponent whose role is a guess without data: champion and role abbreviation."
+    },
+    "Se suele llegar al minuto 15 con %@ de oro a favor: hacé valer la ventaja" : {
+      "comment" : "Generated matchup tip: your mean gold lead at 15 minutes against this opponent."
+    },
+    "Si elegís %@" : {
+      "comment" : "Matchup tab title when the champion is only the top recommendation and there is no lane opponent."
+    },
+    "Si elegís %@, contra %@" : {
+      "comment" : "Matchup tab title when the champion is only the top recommendation: champion, then lane opponent."
+    },
+    "Sin datos de matchup en ARAM" : {
+      "comment" : "The Matchup tab in ARAM, which has no roles or matchup stats."
+    },
+    "Sin estadísticas todavía" : {
+      "comment" : "The Matchup tab without a stats snapshot."
+    },
+    "Sin partidas de %@ en %@ este parche" : {
+      "comment" : "No general stats for the champion in the role (abbreviation) this patch."
+    },
+    "Sin partidas de este cruce en el parche" : {
+      "comment" : "No matchup stats against this lane opponent this patch."
+    },
+    "Sos más fuerte que %@ hasta el minuto %lld: aprovechá el arranque" : {
+      "comment" : "Generated matchup tip: you do better than the lane opponent in short games, up to the given minute."
+    },
+    "Todavía no hay campeón" : {
+      "comment" : "The Matchup tab before you lock, hover, or get recommended a champion."
+    },
+    "Winrate" : {
+      "comment" : "Swift Charts y value name of the duration curve."
+    },
+    "Winrate contra %@" : {
+      "comment" : "Title of the matchup winrate block: against the lane opponent."
+    },
+    "Winrate general en %@" : {
+      "comment" : "Title of the general winrate block: in the role (abbreviation)."
+    },
+    "Winrate por duración de la partida" : {
+      "comment" : "VoiceOver label of the duration curve chart."
+    },
+    "de %lld a %lld minutos" : {
+      "comment" : "VoiceOver name of a duration bucket (20-25)."
+    },
+    "menos de %lld minutos" : {
+      "comment" : "VoiceOver name of the first duration bucket (<20)."
+    },
+    "nivel 6" : {
+      "comment" : "Power spike name inside a tip: reaching level 6."
+    },
+    "respecto del promedio de %@" : {
+      "comment" : "Caption of the matchup winrate delta: against the champion's general winrate."
+    },
+    "revisado en %@" : {
+      "comment" : "A curated tip last checked on an older patch (16.20)."
+    },
+    "vos" : {
+      "comment" : "You, as the second subject of a compared power spike ('Zed llega a 6 a los 7:10, vos a los 7:40')."
     }
   },
   "version" : "1.0"

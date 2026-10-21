@@ -276,7 +276,7 @@ Can overlap Stage 6.
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | P9-00 | Analysis panel: tab container under the draft, the analysis subject (champion, role, lane opponent, teams) derived from champ select, a placeholder per tab | analysis + shell (serial) | `Mito/Features/Analysis/*`, `Mito/Features/ChampSelect/ChampSelectView.swift`, `Mito/App/**`, their tests | §20.1, §20.2 (intro only) | P7-07, P8-06 | merged |
-| P9-01 | Matchup tab | analysis | `Mito/Features/Analysis/Matchup/**`, `MitoKit/Sources/MitoEngine/Analysis/Matchup/**`, their tests | §20.2 (Matchup entry only) | P9-00 | in progress |
+| P9-01 | Matchup tab | analysis | `Mito/Features/Analysis/Matchup/**`, `MitoKit/Sources/MitoEngine/Analysis/Matchup/**`, their tests | §20.2 (Matchup entry only) | P9-00 | merged |
 | P9-02 | Composition tab | analysis | `Mito/Features/Analysis/Composition/**`, `MitoKit/Sources/MitoEngine/Analysis/Composition/**`, their tests | §20.2 (Composición entry only) | P9-00 | merged |
 | P9-03 | Build tab | analysis | `Mito/Features/Analysis/Build/**`, `MitoKit/Sources/MitoEngine/Analysis/Build/**`, their tests | §20.2 (Build entry only) | P9-00 | merged |
 | P9-04 | "Mi historial" tab | analysis | `Mito/Features/Analysis/History/**`, `MitoKit/Sources/MitoEngine/Analysis/History/**`, their tests | §20.2 (Mi historial entry only) | P9-00 | in progress |
