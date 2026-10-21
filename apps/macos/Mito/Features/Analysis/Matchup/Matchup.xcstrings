@@ -1,0 +1,12 @@
+{
+  "sourceLanguage" : "es",
+  "strings" : {
+    "El cruce con tu rival de línea: muy pronto." : {
+      "comment" : "Says the Matchup tab of the analysis panel is not built yet."
+    },
+    "Matchup" : {
+      "comment" : "Title of the empty Matchup tab of the analysis panel."
+    }
+  },
+  "version" : "1.0"
+}

@@ -1,7 +1,30 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-
+    "Análisis" : {
+      "comment" : "Title of the analysis panel under the champ-select draft."
+    },
+    "Build" : {
+      "comment" : "Analysis tab: runes, items, spells, and skills."
+    },
+    "Composición" : {
+      "comment" : "Analysis tab: both teams' composition."
+    },
+    "El análisis llega con los datos del parche." : {
+      "comment" : "Explains the analysis tab is empty because no stats snapshot is downloaded yet."
+    },
+    "Matchup" : {
+      "comment" : "Analysis tab: your champion against your lane opponent."
+    },
+    "Mi historial" : {
+      "comment" : "Analysis tab: your own games."
+    },
+    "Pestaña del análisis" : {
+      "comment" : "VoiceOver label of the analysis panel's tab picker."
+    },
+    "Sin estadísticas todavía" : {
+      "comment" : "Title of an analysis tab without a stats snapshot."
+    }
   },
   "version" : "1.0"
 }

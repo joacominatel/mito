@@ -17,4 +17,19 @@ struct StringCatalogTests {
             Text("…", tableName: "<Feature>") or String(localized:table:).
             """)
     }
+
+    /// Nested catalogs (`Features/Analysis/Matchup/Matchup.xcstrings`) flatten into one bundle
+    /// directory, so a table name used twice would collide.
+    @Test func everyCatalogNamesItsOwnTable() throws {
+        let tree = try SourceTree()
+        let enumerator = FileManager.default.enumerator(
+            at: tree.appRoot, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+        let catalogs = (enumerator?.allObjects ?? []).compactMap { $0 as? URL }
+            .filter { $0.pathExtension == "xcstrings" }
+        let tables = Dictionary(grouping: catalogs) { $0.deletingPathExtension().lastPathComponent }
+
+        #expect(catalogs.count > 1)
+        let duplicated = tables.filter { $0.value.count > 1 }.keys.sorted()
+        #expect(duplicated.isEmpty, "Catalogs share a table name: \(duplicated)")
+    }
 }

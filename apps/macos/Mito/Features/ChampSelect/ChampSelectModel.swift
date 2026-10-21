@@ -69,6 +69,17 @@ final class ChampSelectModel {
     /// Bans while anyone is banning, picks otherwise; `nil` outside champ select. Derived on
     /// read, so the draft, the settings, and a snapshot that opens mid-draft all apply at once.
     var recommendations: RecommendationList? {
+        recommendations(isBanPhase: isBanPhase)
+    }
+
+    /// The first pick recommendation, even while the column shows bans: the analysis's champion
+    /// before you lock or hover one (§20.1).
+    var topPick: ChampionID? {
+        guard case .picks(let picks) = recommendations(isBanPhase: false) else { return nil }
+        return picks.first?.champion
+    }
+
+    private func recommendations(isBanPhase: Bool) -> RecommendationList? {
         guard let draft else { return nil }
         return DraftRecommendations.list(
             for: draft, role: scoringRole, isBanPhase: isBanPhase, settings: settings(),

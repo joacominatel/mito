@@ -1,0 +1,12 @@
+{
+  "sourceLanguage" : "es",
+  "strings" : {
+    "Build" : {
+      "comment" : "Title of the empty Build tab of the analysis panel."
+    },
+    "Runas, ítems, spells y habilidades: muy pronto." : {
+      "comment" : "Says the Build tab of the analysis panel is not built yet."
+    }
+  },
+  "version" : "1.0"
+}

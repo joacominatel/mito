@@ -62,7 +62,7 @@ final class AppModel {
                 }
             }, poster: poster, appIsActive: appIsActive)
         champions = ChampionsModel(stats: { snapshots.provider }, gameData: clientData.gameData)
-        analysis = AnalysisModel()
+        analysis = AnalysisModel(champSelect: champSelect, stats: { snapshots.provider })
         self.personal = personal
         // Re-detecting after each sync keeps the import's Flash slot current (§21.4).
         profile = ProfileModel(
@@ -135,7 +135,6 @@ final class AppModel {
             group.addTask { await self.champSelect.run() }
             group.addTask { await self.importing.run() }
             group.addTask { await self.champions.run() }
-            group.addTask { await self.analysis.run() }
             group.addTask { await self.profile.run() }
             group.addTask { await self.onboarding.run() }
             group.addTask { await self.overrides.run() }

@@ -4,9 +4,11 @@ import MitoAssets
 import MitoCore
 import SwiftUI
 
-/// The §20.1 draft: header, the two teams around the recommendations column, and the bans.
-/// Renders nothing outside champ select.
+/// The §20.1 draft: header, the two teams around the recommendations column, the bans, and the
+/// analysis panel. Renders nothing outside champ select.
 struct ChampSelectView: View {
+    @Environment(AppModel.self) private var app
+
     let model: ChampSelectModel
 
     var body: some View {
@@ -28,7 +30,10 @@ struct ChampSelectView: View {
                         title: Text("Equipo rival", tableName: "ChampSelect"), rows: model.enemyRows
                     )
                 }
+                // The draft takes what it needs first; the panel gets the rest, down to its minimum.
+                .layoutPriority(1)
                 BansRow(names: model.bannedNames)
+                AnalysisPanel(model: app.analysis)
             }
             .padding()
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

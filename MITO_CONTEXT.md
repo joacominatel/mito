@@ -3296,8 +3296,8 @@ Es el corazón de la v1. Se abre al entrar en champ select y se actualiza en viv
 
 **Estado actual (Fase 7).** Durante champ select el destino "Ahora" muestra `ChampSelectView`
 (el shell le pasa la vista a `NowView`, así Gameflow no depende de ChampSelect); fuera de champ
-select, "Ahora" muestra la fase. `ChampSelectView` muestra el draft y las recomendaciones, todavía
-sin el panel de análisis:
+select, "Ahora" muestra la fase. `ChampSelectView` muestra el draft, las recomendaciones y, debajo,
+el panel de análisis:
 
 - Encabezado: cola, fase (Planificación, Bans y picks, Finalización), cuenta regresiva del timer
   y, si te toca, "Tu turno: elegir" o "Tu turno: banear". Todavía no muestra el parche de los
@@ -3337,6 +3337,14 @@ sin el panel de análisis:
   asignado" en ARAM, "Recomendaciones apagadas" si el setting de picks o de bans
   está off, y "Ningún candidato" si el modo no deja pasar a nadie.
 - Abajo, los bans por nombre.
+- Debajo de los bans, el panel "Análisis" (`AnalysisPanel`): un selector segmentado con
+  Matchup, Composición, Build y Mi historial, y la pestaña elegida (§20.2). El draft toma primero
+  la altura que necesita y el panel se queda con el resto, con un mínimo; la pestaña scrollea
+  adentro del panel. La pestaña elegida dura mientras la app está abierta (vive en
+  `AnalysisModel`) y no se guarda en settings. Sin snapshot (`meta == nil`), Matchup,
+  Composición y Build muestran "Sin estadísticas todavía"; Mi historial no depende del snapshot
+  y se muestra igual. Fuera de champ select no hay panel. Hoy las cuatro pestañas son un estado
+  vacío: las llenan P9-01 a P9-04.
 - Solo campeones, roles y celdas: ningún nombre de jugador (§5). Cada fila es un solo elemento
   de VoiceOver con su rol, campeón, estado y turno.
 - Fuera de champ select la vista no muestra nada. En la barra de menú,
@@ -3352,6 +3360,23 @@ sin el panel de análisis:
   ventana: no llama a `NSApp.activate`.
 
 ### 20.2 Pestañas del análisis
+
+Cada pestaña es una vista en su carpeta (`Features/Analysis/<Pestaña>/`, con su catálogo
+`<Pestaña>.xcstrings`) que recibe un `AnalysisSubject`. `AnalysisModel.subject` lo deriva al
+leerse del draft de `ChampSelectModel`, síncrono, como las recomendaciones:
+
+- **Tu campeón:** el lockeado; si no, el del hover; si no, el primer pick recomendado (aunque la
+  columna esté mostrando bans), marcado como recomendación para que la pestaña diga "si elegís
+  Ahri…". Sin ninguno de los tres, no hay campeón.
+- **Tu rol:** el asignado, o el de blind pick (§20.3). ARAM no tiene: cada pestaña decide.
+- **Rival de línea:** el rival lockeado con rol asignado o inferido igual al tuyo, con la
+  probabilidad de la inferencia (§12.3); nunca se presenta como un hecho. Si no hay, no hay rival.
+- **Los dos equipos:** campeón, hover y rol por celda; los roles rivales inferidos llevan su
+  probabilidad, o quedan como adivinanza si no hay partidas detrás.
+- **Los datos:** el `StatsProvider` del snapshot abierto, su `meta` y los datos personales que
+  `ChampSelectModel` ya leyó para este champ select (no se leen dos veces).
+
+Solo campeones, roles y celdas: ningún nombre de jugador (§5).
 
 1. **Matchup:** winrate suavizado con intervalo, diffs @15, curva por duración (Swift
    Charts), power spikes comparados (nivel 6 y 1.º–3.º legendario de `champion_profiles`:

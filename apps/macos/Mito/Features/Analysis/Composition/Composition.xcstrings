@@ -1,0 +1,12 @@
+{
+  "sourceLanguage" : "es",
+  "strings" : {
+    "Composición" : {
+      "comment" : "Title of the empty Composición tab of the analysis panel."
+    },
+    "Los dos equipos, cara a cara: muy pronto." : {
+      "comment" : "Says the Composición tab of the analysis panel is not built yet."
+    }
+  },
+  "version" : "1.0"
+}

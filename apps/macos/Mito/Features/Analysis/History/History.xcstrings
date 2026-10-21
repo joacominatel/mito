@@ -1,0 +1,12 @@
+{
+  "sourceLanguage" : "es",
+  "strings" : {
+    "Mi historial" : {
+      "comment" : "Title of the empty Mi historial tab of the analysis panel."
+    },
+    "Tu rendimiento con este campeón: muy pronto." : {
+      "comment" : "Says the Mi historial tab of the analysis panel is not built yet."
+    }
+  },
+  "version" : "1.0"
+}
