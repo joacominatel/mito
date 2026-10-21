@@ -293,11 +293,14 @@ struct PersonalScoreTests {
         #expect(isClose(comfortOnly.winratePoints(), 0.03))
     }
 
-    @Test func winratePointsScaleLinearlyWithTheMaxComfortWorth() {
+    @Test func winratePointsScaleOnlyTheUnitlessTerms() {
         let result = score(
             matches: [game()], pool: [PoolEntry(role: .middle, champion: ahri, priority: 0)])
 
-        #expect(isClose(result.winratePoints(maxComfortWorth: 0.06), 2 * result.winratePoints()))
-        #expect(isClose(result.winratePoints(), result.total * 0.1))
+        // Only the unitless part scales; the winrate edge is already in points.
+        let edge = 0.4 * result.winrateEdge
+        let unitless = result.total - edge
+        #expect(isClose(result.winratePoints(maxComfortWorth: 0.06), edge + unitless * 0.2))
+        #expect(isClose(result.winratePoints(), edge + unitless * 0.1))
     }
 }

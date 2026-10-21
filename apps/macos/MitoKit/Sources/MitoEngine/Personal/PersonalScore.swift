@@ -34,9 +34,14 @@ public struct PersonalScore: Hashable, Sendable {
     /// What a maximum comfort adds, in winrate points: "unos +3 puntos" (§19.3).
     public static let defaultMaxComfortWorth = 0.03
 
-    /// `total` scaled so the comfort term at its maximum is worth `maxComfortWorth`.
+    /// The score in winrate points (§19.3): the edge as is, the unitless terms scaled so a
+    /// maximum comfort is worth `maxComfortWorth`.
     public func winratePoints(maxComfortWorth: Double = defaultMaxComfortWorth) -> Double {
-        total * maxComfortWorth / Self.comfortWeight
+        let unitless =
+            Self.comfortWeight * comfort + Self.poolWeight * (inPool ? 1 : 0)
+            + Self.performanceWeight * relativePerformance
+        return Self.winrateEdgeWeight * winrateEdge + unitless * maxComfortWorth
+            / Self.comfortWeight
     }
 }
 

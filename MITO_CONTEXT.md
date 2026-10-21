@@ -3021,8 +3021,8 @@ Decisiones del score personal (`PersonalScoring` en `MitoEngine/Personal/`):
 
   El edge ya está en puntos de winrate y no se escala; el comfort al máximo (0,3 · 1) vale
   `maxComfortWorth`, por defecto 0,03. Sin datos personales vale 0.
-  `PersonalScore.winratePoints(maxComfortWorth:)` todavía escala el total entero (el edge
-  incluido) y no debe usarse para el score.
+  `PersonalScore.winratePoints(maxComfortWorth:)` implementa esta fórmula; la usan el pick
+  score (vía `PersonalPoints`) y "Mi perfil".
 
 ### 19.4 Insights personales (para la UI)
 

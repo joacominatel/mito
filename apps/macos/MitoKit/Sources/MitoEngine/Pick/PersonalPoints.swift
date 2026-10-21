@@ -6,12 +6,7 @@ public enum PersonalPoints {
         _ score: PersonalScore,
         maxComfortWorth: Double = PersonalScore.defaultMaxComfortWorth
     ) -> Double {
-        let unitless =
-            PersonalScore.comfortWeight * score.comfort
-            + PersonalScore.poolWeight * (score.inPool ? 1 : 0)
-            + PersonalScore.performanceWeight * score.relativePerformance
-        return PersonalScore.winrateEdgeWeight * score.winrateEdge
-            + unitless * maxComfortWorth / PersonalScore.comfortWeight
+        score.winratePoints(maxComfortWorth: maxComfortWorth)
     }
 }
 
