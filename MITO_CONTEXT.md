@@ -3502,7 +3502,37 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
      "Sin datos de Ahri"; ARAM, la página fija del campeón si algún override la tiene (el primer
      rol en orden), si no "Sin build de ARAM".
    - No tiene "Importar ahora" ni "Editar": la acción vive en Import (P9-06/P9-07).
-4. **Mi historial:** tu rendimiento con ese campeón, vs ese rival y en ese rol.
+4. **Mi historial:** tu rendimiento con ese campeón, vs ese rival y en ese rol. Implementado
+   (`PersonalHistory.read` en `MitoEngine/Analysis/History/`, sobre `PersonalMetrics`;
+   `HistorySummary` en la app). Lee solo las partidas propias que `ChampSelectModel` ya leyó y
+   la maestría de la LCU; no depende del snapshot, así que se muestra aunque no haya uno (§20.3):
+   - **Qué partidas cuentan:** las remakes (menos de 5 minutos) no cuentan, como en los insights
+     (§19.4). En la Grieta cuentan las partidas con rol, de cualquier cola; en ARAM, solo las de
+     ARAM (cola 450).
+   - **Tres bloques**, cada uno un elemento de VoiceOver:
+     - **"Con Ahri"** (cualquier rol): victorias, KDA y CS/min agregados como en §19.3
+       (`(Σkills + Σassists) / max(1, Σdeaths)` y `Σcs / Σminutos`), la última partida en fecha
+       relativa ("hace 3 días") y la maestría ("182.340 puntos") si tiene puntos. Sin partidas,
+       "Nunca jugaste Ahri", con la maestría igual.
+     - **"vs Zed"**: tus partidas con el campeón contra el rival de línea, según el rival propio
+       guardado en cada partida (`MyMatch.opponent`). Si el rol del rival es inferido, "vs Zed
+       (rival probable)": nunca como hecho. Sin partidas, "Nunca jugaste Ahri contra Zed"; sin
+       rival lockeado en tu rol, "Todavía no hay un rival lockeado en tu rol."
+     - **"De Mid"**: tus partidas con el campeón en tu rol ("Con Ahri") y con todos tus campeones
+       en ese rol ("Todos tus campeones"); "Sin partidas" si no hay. Solo el campeón en el rol se
+       compara con el promedio, porque el promedio del snapshot es por (campeón, rol): con
+       snapshot abierto y fila de `champ_role_stats`, "3,2 (+12 % vs. promedio)" desde
+       `kda_vs_avg` y `cs_vs_avg` (§19.2); sin snapshot, sin comparación.
+   - **Muestra chica:** con menos de 5 partidas las victorias van como "2 de 3", sin porcentaje,
+     y no hay comparación con el promedio; desde 5, "6 de 10 · 60 %" (porcentaje entero). Los
+     porcentajes nunca llevan decimales.
+   - **Estados:** sin ninguna partida guardada, "Todavía no hay partidas tuyas" ("Mito las lee
+     del historial del cliente al abrirse y se suman al terminar cada partida", §19.1); sin
+     campeón, "Sin campeón todavía". Si tu campeón es el pick recomendado, una nota dice "Si
+     elegís Ahri (el pick recomendado): tu historial con ese campeón." En ARAM no hay bloques de
+     rival ni de rol, y una nota lo dice.
+   - **Privacidad:** solo tus partidas, y de ellas solo campeones y roles; nada de los otros
+     nueve jugadores más allá del campeón rival (§5, §19.1).
 
 En inicio de parche, el encabezado muestra "Datos 16.21 + 16.20" desde `meta.blend_patches`
 (§14.13).

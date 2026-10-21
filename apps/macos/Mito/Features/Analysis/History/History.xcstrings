@@ -1,11 +1,86 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Mi historial" : {
-      "comment" : "Title of the empty Mi historial tab of the analysis panel."
+    "%@ (%@ vs. promedio)" : {
+      "comment" : "A KDA or CS/min next to how it compares with the patch average. Arguments: the value (3,2) and the signed difference (+12 %)."
     },
-    "Tu rendimiento con este campeón: muy pronto." : {
-      "comment" : "Says the Mi historial tab of the analysis panel is not built yet."
+    "%@ de %@" : {
+      "comment" : "Wins over games in a record below the small-sample threshold. Arguments: wins and games (2 de 3)."
+    },
+    "%@ de %@ · %@" : {
+      "comment" : "Wins over games with the win rate, from 5 games. Arguments: wins, games, and the rate (6 de 10 · 60 %)."
+    },
+    "%@ puntos" : {
+      "comment" : "Mastery points of your champion. The argument is the grouped number (182.340)."
+    },
+    "ARAM no tiene roles: cuentan solo tus partidas de ARAM." : {
+      "comment" : "Note in ARAM: there is no rival or role block, and only ARAM games count."
+    },
+    "Aparece cuando lockeás o hacés hover sobre un campeón." : {
+      "comment" : "Empty Mi historial tab: what brings it up."
+    },
+    "CS/min" : {
+      "comment" : "Row label: creep score per minute."
+    },
+    "Con %@" : {
+      "comment" : "Title of a Mi historial block, or a row label: your games with the champion. The argument is the champion name."
+    },
+    "Con %@ en ARAM" : {
+      "comment" : "Title of the champion block in ARAM: your ARAM games with the champion. The argument is the champion name."
+    },
+    "De %@" : {
+      "comment" : "Title of the block with your games in your role. The argument is the role (Mid, Jungla)."
+    },
+    "KDA" : {
+      "comment" : "Row label: kills plus assists over deaths."
+    },
+    "Maestría" : {
+      "comment" : "Row label: your mastery points with the champion."
+    },
+    "Mito las lee del historial del cliente al abrirse y se suman al terminar cada partida." : {
+      "comment" : "Empty Mi historial tab: where your games come from and when they arrive."
+    },
+    "Nunca jugaste %@" : {
+      "comment" : "You have no games with the champion. The argument is the champion name."
+    },
+    "Nunca jugaste %@ contra %@" : {
+      "comment" : "You never played your champion against your lane rival. Arguments: your champion and the rival champion."
+    },
+    "Nunca jugaste %@ en ARAM" : {
+      "comment" : "You have no ARAM games with the champion. The argument is the champion name."
+    },
+    "Si elegís %@ (el pick recomendado): tu historial con ese campeón." : {
+      "comment" : "Note above the blocks when the champion is only the top pick recommendation. The argument is the champion name."
+    },
+    "Sin campeón todavía" : {
+      "comment" : "Title of the empty Mi historial tab: you have no champion locked, hovered, or recommended."
+    },
+    "Sin partidas" : {
+      "comment" : "Row value: no games in that slice."
+    },
+    "Todavía no hay partidas tuyas" : {
+      "comment" : "Title of the empty Mi historial tab: no games of yours are stored yet."
+    },
+    "Todavía no hay un rival lockeado en tu rol." : {
+      "comment" : "The rival block while no enemy is locked in your role."
+    },
+    "Todos tus campeones" : {
+      "comment" : "Row label: your games in the role with any champion."
+    },
+    "Victorias" : {
+      "comment" : "Row label: your wins over your games."
+    },
+    "vs %@" : {
+      "comment" : "Title of the block with your games against your lane rival. The argument is the rival champion."
+    },
+    "vs %@ (rival probable)" : {
+      "comment" : "Title of the block with your games against your lane rival, whose role is only inferred. The argument is the rival champion."
+    },
+    "vs tu rival de línea" : {
+      "comment" : "Title of the rival block while no enemy is locked in your role."
+    },
+    "Última partida" : {
+      "comment" : "Row label: when you last played, as a relative date (hace 3 días)."
     }
   },
   "version" : "1.0"
