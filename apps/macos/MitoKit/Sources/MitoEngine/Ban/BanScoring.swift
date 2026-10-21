@@ -86,9 +86,11 @@ public enum BanScoring {
     private struct PickThreat {
         let pick: ChampionID
         /// `matchup_delta(pick, role, enemy)`; negative when the enemy wins the lane.
-        let delta: Double
-        let games: Int
-        let sample: SampleLevel
+        let matchup: MatchupDelta
+
+        var delta: Double { matchup.delta }
+        var games: Int { matchup.games }
+        var sample: SampleLevel { matchup.sample }
     }
 
     /// `nil` when the matchup row is missing or below the `matchup` minimum.
@@ -96,17 +98,11 @@ public enum BanScoring {
         of enemy: ChampionID, to pick: ChampionID, role: Role,
         roleStats: [ChampionID: ChampionRoleStats], stats: some StatsProvider, meta: SnapshotMeta
     ) -> PickThreat? {
-        guard let matchup = stats.matchup(for: pick, role: role, against: enemy),
-            let sample = meta.sampleLevel(.matchup, games: matchup.games),
-            sample != .belowMinimum
+        guard let row = stats.matchup(for: pick, role: role, against: enemy),
+            let matchup = MatchupDelta(
+                wins: row.wins, games: row.games, kind: .matchup, championStats: roleStats[pick],
+                meta: meta)
         else { return nil }
-        let pickRow = roleStats[pick]
-        let baseline = meta.priors.championRoleWinrate(
-            wins: pickRow?.wins ?? 0, games: pickRow?.games ?? 0)
-        let delta =
-            meta.priors.relationWinrate(
-                wins: matchup.wins, games: matchup.games, baseline: baseline)
-            - baseline
-        return PickThreat(pick: pick, delta: delta, games: matchup.games, sample: sample)
+        return PickThreat(pick: pick, matchup: matchup)
     }
 }

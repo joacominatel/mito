@@ -2692,6 +2692,34 @@ struct Reason: Sendable {          // MitoCore/Recommendation/Reason.swift
 Los deltas y shares van como fracción; la UI los formatea. La razón de comodidad personal
 llega con el slider Meta ↔ Comfort (Fase 8, P8-07).
 
+Precisiones (`MitoEngine/Pick/PickScoring`):
+
+- Cada delta es `matchup_delta` de §18.1 contra el `wr_smoothed(c, r)` del candidato, con la
+  fila de `matchup_stats`, `vs_team_stats` o `synergy_stats` desde su mínimo (§18.2); debajo
+  del mínimo o sin fila ese término vale 0. El backoff al perfil rival todavía no se aplica.
+- Rival de lane: un rival lockeado con rol se toma en ese rol; los demás lockeados se infieren
+  (§12.3) entre los roles que ningún slot rival tiene. `p(e)` es la probabilidad de que `e`
+  juegue tu rol (1 o 0 con rol, `roleProbabilities` si no). `matchup = Σ p(e) · delta(c vs e)`
+  y `vs_team = Σ (1 − p(e)) · delta_vs_team(c, e)` sobre los rivales lockeados: cada rival
+  cuenta como lane o como resto del equipo según su probabilidad. Sin ningún rival con
+  probabilidad en tu rol, el matchup vale 0.
+- Sinergia: los aliados lockeados sin tu slot, en su rol asignado o inferido (como en §18.4).
+  Un par fuerte (bottom + utility, jungle + middle, en cualquier orden) cuenta ×1,5 dentro de
+  la suma.
+- `comp_fit` es el valor de §18.4 antes de `w_comp`; `personal` llega como función
+  `(campeón, rol) → puntos de winrate` que pasa quien llama (P8-03, P8-07), y sin datos es 0.
+- Candidatos: los campeones con fila de `champ_role_stats` en tu rol desde el mínimo de
+  `champ_role`; debajo del mínimo no se rankean (como en §18.5), así que `penalties` siempre
+  vale 0 y se guarda en el desglose. "Mi pool" es pool ∩ campeones que tenés, "Campeones que
+  tengo" es lo que tenés y "Todos" no filtra; el pool y lo que tenés son entradas. Nunca se
+  rankea lo baneado ni lo lockeado por cualquier equipo; los hovers sí.
+- Razones: una por cada término con fila usable (matchup, vs_team y sinergia por campeón, el
+  tier del candidato y las de comp fit), ordenadas por el valor absoluto de su aporte
+  ponderado al score; a igual aporte, primero los rivales en orden de draft (matchup y después
+  vs_team), luego los aliados, el tier y el comp fit. Cada una lleva el nivel de muestra de su
+  fila.
+- Orden por score descendente y, a igualdad, por `champion_id`; top 10 por defecto.
+
 ### 18.4 Comp fit
 
 Perfil de cada equipo a partir de `champion_profiles` de los lockeados, con el daño
