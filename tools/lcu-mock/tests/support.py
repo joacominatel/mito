@@ -12,6 +12,7 @@ from lcu_mock.server import MockLCU, serve
 from lcu_mock.tls import self_signed_context
 
 SCENARIOS = Path(__file__).parent / "scenarios"
+RECORDINGS = Path(__file__).parents[3] / "fixtures" / "lcu"
 PASSWORD = "test-password"
 TLS = self_signed_context()
 

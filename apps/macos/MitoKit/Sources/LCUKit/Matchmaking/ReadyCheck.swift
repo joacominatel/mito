@@ -1,4 +1,4 @@
-/// `MITO_CONTEXT.md` §11.3; values not yet verified against a recording.
+/// `MITO_CONTEXT.md` §11.3.
 public struct ReadyCheck: Hashable, Sendable {
     public enum State: Hashable, Sendable {
         case inProgress

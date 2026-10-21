@@ -974,6 +974,12 @@ feature lo decodifica después. `eventType` desconocido queda como `.unknown`. T
 JSON roto) se clasifica como ignorable, sin error que corte el stream. Claves y elementos
 extra se toleran. El codec no loguea payloads: pueden traer datos del jugador.
 
+Una suscripción recibe también los sub-recursos de su path: `OnJsonApiEvent_lol-lobby_v2_lobby`
+trae `/lol-lobby/v2/lobby/members`, `/countdown` y `/matchmaking/search-state`, y
+`OnJsonApiEvent_lol-summoner_v1_current-summoner` trae solo `/summoner-profile` y
+`/account-and-summoner-ids`, nunca el recurso mismo (grabaciones de 16.21,
+`docs/lcu-endpoints.md`).
+
 Recomendación: suscribirse a eventos específicos y no al firehose. El firehose manda muchos
 eventos irrelevantes y cuesta CPU.
 
@@ -1028,8 +1034,8 @@ final class LCUEventStream: Sendable {
 
 | Método | Path | Uso |
 |---|---|---|
-| GET | `/lol-summoner/v1/current-summoner` | `LCUEndpoint.currentSummoner` → `CurrentSummoner`: `puuid`, `summonerId`, `gameName`, `tagLine`, `summonerLevel`, todos opcionales; `riotID` da `gameName#tagLine` solo si ambos vienen no vacíos. Campos sin verificar todavía |
-| GET | `/lol-patch/v1/game-version` | `LCUEndpoint.gameVersion` → `GameVersion`: el body es un string JSON pelado (`"16.21.723.1234"`); `rawValue` es la versión completa recortada (clave del caché de íconos, solo letras ASCII, dígitos y `._-`) y `patch` son los dos primeros componentes (`16.21`), la misma numeración que `clientPatch` de los fixtures y el snapshot. Un body que no es string, con menos de dos componentes numéricos o con otros caracteres es `LCUError.decoding` |
+| GET | `/lol-summoner/v1/current-summoner` | `LCUEndpoint.currentSummoner` → `CurrentSummoner`: `puuid`, `summonerId`, `gameName`, `tagLine`, `summonerLevel`, todos opcionales; `riotID` da `gameName#tagLine` solo si ambos vienen no vacíos. Campos verificados contra las grabaciones de 16.21 (`docs/lcu-endpoints.md`) |
+| GET | `/lol-patch/v1/game-version` | `LCUEndpoint.gameVersion` → `GameVersion`: el body es un string JSON pelado; el cliente real manda `"16.21.8298620+branch.releases-16-21.code.public…"`. Desde el `+` (metadata de build) se descarta; `rawValue` es lo que queda, recortado (`16.21.8298620`, clave del caché de íconos, solo letras ASCII, dígitos y `._-`) y `patch` son los dos primeros componentes (`16.21`), la misma numeración que `clientPatch` de los fixtures y el snapshot. Un body que no es string, con menos de dos componentes numéricos o con otros caracteres es `LCUError.decoding` |
 | GET | `/lol-ranked/v1/current-ranked-stats` | Tier y división por cola (bracket del usuario) |
 | GET | `/lol-champion-mastery/v1/local-player/champion-mastery` | `LCUEndpoint.championMastery` → `ChampionMasteryList.masteries: [ChampionMastery]` (MitoCore): campeón, `championPoints` y `championLevel` por entrada; una entrada sin campeón (o con `0`), sin puntos o sin nivel se descarta; un body que no es array es `LCUError.decoding`. La `puuid` del payload nunca se lee. Se lee en vivo, no se guarda (§17). Campos según el schema comunitario, sin verificar todavía |
 | GET | `/lol-champions/v1/inventories/{summonerId}/champions-minimal` | Campeones que tenés |
@@ -1045,7 +1051,7 @@ final class LCUEventStream: Sendable {
 | PUT | `/lol-lobby/v2/lobby/members/localMember/position-preferences` | Roles `{ "firstPreference": "MIDDLE", "secondPreference": "TOP" }` |
 | POST | `/lol-lobby/v2/lobby/matchmaking/search` | Buscar partida |
 | DELETE | `/lol-lobby/v2/lobby/matchmaking/search` | Cancelar búsqueda |
-| GET | `/lol-matchmaking/v1/ready-check` | Estado del ready check |
+| GET | `/lol-matchmaking/v1/ready-check` | Estado del ready check. 404 antes de buscar partida; mientras se busca y después del ready check responde 200 con `state: "Invalid"` |
 | POST | `/lol-matchmaking/v1/ready-check/accept` | Aceptar |
 | POST | `/lol-matchmaking/v1/ready-check/decline` | Rechazar |
 
@@ -1057,8 +1063,8 @@ final class LCUEventStream: Sendable {
 | PATCH | `/lol-champ-select/v1/session/actions/{actionId}` | Hover o pick/ban `{ "championId": 103 }` |
 | POST | `/lol-champ-select/v1/session/actions/{actionId}/complete` | Lockear la acción |
 | PATCH | `/lol-champ-select/v1/session/my-selection` | `{ "spell1Id": 4, "spell2Id": 14 }` |
-| GET | `/lol-champ-select/v1/pickable-champion-ids` | `LCUEndpoint.pickableChampionIDs` → `Set<ChampionID>`: campeones que se pueden elegir. El body es un array de ids; los `0` y todo lo que no sea entero se descartan; un body que no es array es `LCUError.decoding` |
-| GET | `/lol-champ-select/v1/bannable-champion-ids` | `LCUEndpoint.bannableChampionIDs` → `Set<ChampionID>`: campeones que se pueden banear, con la misma decodificación |
+| GET | `/lol-champ-select/v1/pickable-champion-ids` | `LCUEndpoint.pickableChampionIDs` → `Set<ChampionID>`: campeones que se pueden elegir. El body es un array de ids; los `0`, los negativos y todo lo que no sea entero se descartan; un body que no es array es `LCUError.decoding` |
+| GET | `/lol-champ-select/v1/bannable-champion-ids` | `LCUEndpoint.bannableChampionIDs` → `Set<ChampionID>`: campeones que se pueden banear, con la misma decodificación. En planning el cliente manda `[-1]` (queda vacío) y en los demás casos agrega un `-1` a la lista |
 
 **Runas**
 
@@ -4253,7 +4259,12 @@ uv run lcu-mock --scenario ../../fixtures/lcu/ready-check --speed 4x
 ```
 
 `--scenario` es un directorio en formato v0 (`fixtures/lcu/README.md`), grabado o sintético.
-La reproducción arranca con la primera suscripción WAMP. La app de Debug lo encuentra con
+La reproducción arranca con la primera suscripción WAMP; `--skip-lead-in` manda el primer
+evento en ese momento en vez de esperar su `t_ms` (las grabaciones arrancan mucho antes:
+el ready check de `fixtures/lcu/ready-check` salta a los 110 s). Las grabaciones
+`ready-check`, `champ-select` y `lobby-to-game` se reproducen tal cual; como lcu-recorder
+0.1.0 anonimizó `lol-champ-select` también en paths y topics (`/anon-14/v1/session`), el
+loader del mock lo restaura hasta que se vuelvan a grabar. La app de Debug lo encuentra con
 `-MitoLCULockfilePath <ruta absoluta del lockfile>` (§9.3, §10.2) y lee solo ese lockfile; no
 hace falta aceptar otra CA porque la app ya acepta el certificado solo para `127.0.0.1`
 (§10.3). El certificado del mock se genera en cada arranque

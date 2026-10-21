@@ -2,7 +2,7 @@ import json
 import re
 
 import pytest
-from support import SCENARIOS
+from support import RECORDINGS, SCENARIOS
 
 from lcu_mock.scenario import ScenarioError, load
 
@@ -63,3 +63,25 @@ def test_synthetic_scenarios_load_and_carry_only_fake_identifiers(name):
     assert json.loads((directory / "scenario.json").read_text())["anonymized"] is True
     text = "".join(path.read_text() for path in directory.iterdir())
     assert all(FAKE_UUID.fullmatch(uuid) for uuid in ANY_UUID.findall(text))
+
+
+@pytest.mark.parametrize("name", ["ready-check", "champ-select", "lobby-to-game"])
+def test_recordings_load_with_only_fake_identifiers_and_no_scrubbed_paths(name):
+    directory = RECORDINGS / name
+    loaded = load(directory)
+    assert loaded.rest and loaded.events
+    assert json.loads((directory / "scenario.json").read_text())["anonymized"] is True
+    names = [*loaded.rest, *(e.uri for e in loaded.events), *(e.topic for e in loaded.events)]
+    assert [name for name in names if "anon-" in name] == []
+    text = "".join(path.read_text() for path in directory.iterdir())
+    assert all(FAKE_UUID.fullmatch(uuid) for uuid in ANY_UUID.findall(text))
+
+
+@pytest.mark.parametrize("name", ["ready-check", "champ-select"])
+def test_recorded_champ_select_paths_and_topics_are_restored(name):
+    loaded = load(RECORDINGS / name)
+    assert loaded.rest["/lol-champ-select/v1/session"][0] == 404
+    assert "/lol-champ-select/v1/pickable-champion-ids" in loaded.rest
+    sessions = [e for e in loaded.events if e.uri == "/lol-champ-select/v1/session"]
+    assert sessions[0].event_type == "Create"
+    assert {e.topic for e in sessions} == {"OnJsonApiEvent_lol-champ-select_v1_session"}

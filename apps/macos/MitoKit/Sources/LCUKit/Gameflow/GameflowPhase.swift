@@ -1,5 +1,4 @@
-/// The client's `gameflow-phase` (`MITO_CONTEXT.md` §11.1). Values are not yet verified
-/// against a recording.
+/// The client's `gameflow-phase` (`MITO_CONTEXT.md` §11.1).
 public enum GameflowPhase: Hashable, Sendable {
     case none
     case lobby

@@ -70,6 +70,7 @@ class MockLCU:
         password: str,
         speed: float = 1.0,
         sleep: Sleep = asyncio.sleep,
+        skip_lead_in: bool = False,
     ) -> None:
         if speed <= 0:
             raise ValueError("speed must be positive")
@@ -79,6 +80,7 @@ class MockLCU:
         self.password = password
         self._auth = "Basic " + base64.b64encode(f"riot:{password}".encode()).decode()
         self._speed = speed
+        self._skip_lead_in = skip_lead_in
         self._sleep = sleep
         self._sockets: dict[web.WebSocketResponse, set[str]] = {}
         self._replay: asyncio.Task[None] | None = None
@@ -258,7 +260,7 @@ class MockLCU:
             self._sockets[socket].discard(topic)
 
     async def _run_replay(self) -> None:
-        previous_ms = 0
+        previous_ms = self._events[0].t_ms if self._skip_lead_in and self._events else 0
         for event in self._events:
             await self._sleep(max(0, event.t_ms - previous_ms) / 1000 / self._speed)
             previous_ms = event.t_ms

@@ -10,6 +10,7 @@ From `tools/lcu-mock/`:
 
 ```sh
 uv run lcu-mock --scenario tests/scenarios/ready-check --speed 4x
+uv run lcu-mock --scenario ../../fixtures/lcu/ready-check --skip-lead-in
 uv run lcu-mock --scenario ../../fixtures/lcu/<scenario> --lockfile /tmp/lcu/lockfile --port 54321
 ```
 
@@ -21,7 +22,9 @@ uv run lcu-mock --scenario ../../fixtures/lcu/<scenario> --lockfile /tmp/lcu/loc
   `uri` to the event's `data` (`Delete` makes it 404). Unknown paths are 404.
 - **Events:** replay starts at the first WAMP subscribe (`[5, topic]`), follows `events.jsonl`
   order with `t_ms` gaps divided by `--speed`, and reaches only sockets subscribed to that
-  topic (`[6, topic]` stops it).
+  topic (`[6, topic]` stops it). `--skip-lead-in` sends the first event right away instead of
+  after its `t_ms`; the recordings start long before anything happens (the ready check of
+  `fixtures/lcu/ready-check` pops at 110 s).
 - **Writes:** ready-check accept/decline, `PATCH …/session/my-selection`, perk pages
   (`POST`, `PUT`/`DELETE …/pages/{id}`), and `PUT /lol-item-sets/v1/item-sets/{id}/sets`.
   Each checks the payload shape (400 if wrong), updates the state, and publishes an `Update`.
@@ -47,10 +50,26 @@ the mock removes the lockfile, which the app sees as the client going away.
 `--speed 4x` the scenario's own accept lands as Mito's default 2 s auto-accept delay ends, so
 Mito usually withdraws; use `--speed 1x` to see its `POST …/ready-check/accept` arrive.
 
+## Recorded scenarios
+
+`fixtures/lcu/ready-check`, `champ-select`, and `lobby-to-game` replay as recorded:
+
+- **ready-check** starts queued (`Matchmaking`, ready check `Invalid`), pops the ready check,
+  accepts it by hand at 2.7 s, and opens champ select.
+- **champ-select** runs the same pop, then a normal draft through bans and most picks, and ends
+  back at `None` with the session deleted.
+- **lobby-to-game** goes from `None` to a lobby and into `Matchmaking`, and stops there.
+
+lcu-recorder 0.1.0 anonymized the champ-select chat domain, which is the plugin's own name, in
+every path and topic as well (`/anon-14/v1/session`). The loader restores
+`/lol-champ-select/` and its topic until the scenarios are re-recorded.
+
 ## Limits
 
 v0 REST lines carry no time: later lines for a path are ignored, and a path changes only
-through events or writes. Error bodies only approximate the client's.
+through events or writes. So in the recorded champ-select replay, `pickable-champion-ids` and
+`bannable-champion-ids` stay 404, and a later recorded event overwrites an accept. Error bodies
+only approximate the client's.
 
 ## Develop
 

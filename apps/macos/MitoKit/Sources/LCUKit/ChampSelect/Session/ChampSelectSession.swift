@@ -193,8 +193,8 @@ extension ChampSelectSession.Timer: Decodable {
 }
 
 extension KeyedDecodingContainer {
-    // 0 is "no champion" here too.
+    // 0 and -1 are "no champion" here too.
     fileprivate func decodeBans(forKey key: Key) -> [ChampionID] {
-        decodeLossyArray(Int.self, forKey: key).filter { $0 != 0 }.map(ChampionID.init)
+        decodeLossyArray(Int.self, forKey: key).filter { $0 > 0 }.map(ChampionID.init)
     }
 }

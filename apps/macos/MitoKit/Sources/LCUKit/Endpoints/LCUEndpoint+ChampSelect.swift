@@ -24,12 +24,13 @@ private struct MySelectionBody: Encodable {
 }
 
 extension LCUEndpoint where Response == Set<ChampionID> {
-    /// Drops `0` and every element that is not an integer.
+    /// Drops `0`, negatives, and every element that is not an integer.
     public static var pickableChampionIDs: Self {
         Self(method: .get, path: "/lol-champ-select/v1/pickable-champion-ids", decode: championIDs)
     }
 
-    /// Drops `0` and every element that is not an integer.
+    /// Drops `0`, negatives, and every element that is not an integer. During planning the
+    /// client answers `[-1]`.
     public static var bannableChampionIDs: Self {
         Self(method: .get, path: "/lol-champ-select/v1/bannable-champion-ids", decode: championIDs)
     }
@@ -37,5 +38,5 @@ extension LCUEndpoint where Response == Set<ChampionID> {
 
 @Sendable private func championIDs(_ data: Data) throws -> Set<ChampionID> {
     let ids = try JSONDecoder().decode(LossyArray<Int>.self, from: data).elements
-    return Set(ids.filter { $0 != 0 }.map(ChampionID.init(rawValue:)))
+    return Set(ids.filter { $0 > 0 }.map(ChampionID.init(rawValue:)))
 }

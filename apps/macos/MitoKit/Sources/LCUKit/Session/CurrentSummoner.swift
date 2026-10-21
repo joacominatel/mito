@@ -1,6 +1,4 @@
 /// The signed-in account, from `GET /lol-summoner/v1/current-summoner`.
-///
-/// Field names follow `MITO_CONTEXT.md` §10.6 and are not yet verified against a recording.
 public struct CurrentSummoner: Decodable, Hashable, Sendable {
     public let puuid: String?
     public let summonerId: Int?

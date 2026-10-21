@@ -69,9 +69,19 @@ struct GameVersionEndpointTests {
     }
 
     // Mirrors IconRequest's game-version rule, which LCUKitTests cannot import.
-    @Test(arguments: [#""16.21.723/../x""#, #""16.21.723+branch""#, #""16.21 723""#])
+    @Test(arguments: [#""16.21.723/../x""#, #""16.21 723""#, #""16.21.723-a/b+branch""#])
     func aVersionThatIsNotADirectoryNameIsADecodingError(_ json: String) {
         #expect(isDecodingError(json))
+    }
+
+    @Test func dropsTheBuildMetadataAfterAPlus() throws {
+        let version = try decode(#""16.21.8298620+branch.releases-16-21.code.public/x""#)
+        #expect(version.rawValue == "16.21.8298620")
+        #expect(version.patch == Patch(rawValue: "16.21"))
+    }
+
+    @Test func aVersionThatIsOnlyBuildMetadataIsADecodingError() {
+        #expect(isDecodingError(#""+branch.releases-16-21""#))
     }
 
     @Test func toleratesABuildSuffixOfSafeCharacters() throws {

@@ -27,6 +27,17 @@ class Scenario:
     events: list[Event] = field(default_factory=list)
 
 
+# lcu-recorder 0.1.0 anonymized the champ-select chat domain, which is the plugin's own name, in
+# every path and topic too. Undo it until the scenarios are re-recorded.
+_SCRUBBED_PLUGIN, _PLUGIN = "anon-14", "lol-champ-select"
+
+
+def _restored(text: str) -> str:
+    return text.replace(f"/{_SCRUBBED_PLUGIN}/", f"/{_PLUGIN}/").replace(
+        f"OnJsonApiEvent_{_SCRUBBED_PLUGIN}_", f"OnJsonApiEvent_{_PLUGIN}_"
+    )
+
+
 def _lines(path: Path) -> list[tuple[int, dict[str, Any]]]:
     if not path.exists():
         return []
@@ -64,7 +75,7 @@ def load(directory: Path) -> Scenario:
     scenario = Scenario()
     for number, line in _lines(directory / "rest.jsonl"):
         where = f"rest.jsonl:{number}"
-        path = _require(line, "path", str, where)
+        path = _restored(_require(line, "path", str, where))
         status = _require(line, "status", int, where)
         # v0 rest lines carry no time, so only the first one per path is placed (at the start).
         if line.get("method", "GET") == "GET" and path not in scenario.rest:
@@ -74,8 +85,8 @@ def load(directory: Path) -> Scenario:
         scenario.events.append(
             Event(
                 t_ms=_require(line, "t_ms", int, where),
-                topic=_require(line, "topic", str, where),
-                uri=_require(line, "uri", str, where),
+                topic=_restored(_require(line, "topic", str, where)),
+                uri=_restored(_require(line, "uri", str, where)),
                 event_type=_require(line, "eventType", str, where),
                 data=line.get("data"),
             )

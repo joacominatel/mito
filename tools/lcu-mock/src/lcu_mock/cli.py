@@ -28,6 +28,11 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="lcu-mock")
     parser.add_argument("--scenario", type=Path, required=True, help="format v0 directory")
     parser.add_argument("--speed", type=parse_speed, default=1.0, help="replay speed, e.g. 4x")
+    parser.add_argument(
+        "--skip-lead-in",
+        action="store_true",
+        help="send the first event on subscribe instead of after its t_ms",
+    )
     parser.add_argument("--lockfile", type=Path, default=DEFAULT_LOCKFILE)
     parser.add_argument("--port", type=int, default=0, help="default: any free port")
     return parser.parse_args(argv)
@@ -35,7 +40,12 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 async def run(args: argparse.Namespace, stop: asyncio.Event) -> None:
     """Serves until `stop` is set; the lockfile exists only while serving, like the client's."""
-    mock = MockLCU(load(args.scenario), password=secrets.token_urlsafe(16), speed=args.speed)
+    mock = MockLCU(
+        load(args.scenario),
+        password=secrets.token_urlsafe(16),
+        speed=args.speed,
+        skip_lead_in=args.skip_lead_in,
+    )
     async with serve(mock, self_signed_context(), port=args.port) as port:
         write_lockfile(args.lockfile, port, mock.password)
         try:

@@ -27,10 +27,10 @@ extension KeyedDecodingContainer {
         (try? decodeIfPresent(LossyArray<Element>.self, forKey: key))?.elements ?? []
     }
 
-    /// The LCU sends `0` for "none".
+    /// The LCU sends `0` for "none", and `-1` for a skipped ban.
     func decodeID<ID: RawRepresentable>(_ type: ID.Type, forKey key: Key) throws -> ID?
     where ID.RawValue == Int {
-        guard let rawValue = try decodeIfPresent(Int.self, forKey: key), rawValue != 0 else {
+        guard let rawValue = try decodeIfPresent(Int.self, forKey: key), rawValue > 0 else {
             return nil
         }
         return ID(rawValue: rawValue)

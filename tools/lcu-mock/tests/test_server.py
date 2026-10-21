@@ -5,6 +5,7 @@ import aiohttp
 import pytest
 from support import (
     PASSWORD,
+    RECORDINGS,
     TLS,
     GatedSleep,
     RecordingSleep,
@@ -15,7 +16,7 @@ from support import (
     until,
 )
 
-from lcu_mock.scenario import Scenario
+from lcu_mock.scenario import Scenario, load
 from lcu_mock.server import HOST, MockLCU, serve
 
 PHASE = "/lol-gameflow/v1/gameflow-phase"
@@ -23,6 +24,7 @@ READY_CHECK = "/lol-matchmaking/v1/ready-check"
 CHAMP_SELECT = "/lol-champ-select/v1/session"
 PHASE_TOPIC = "OnJsonApiEvent_lol-gameflow_v1_gameflow-phase"
 READY_TOPIC = "OnJsonApiEvent_lol-matchmaking_v1_ready-check"
+CHAMP_TOPIC = "OnJsonApiEvent_lol-champ-select_v1_session"
 PAGE = {
     "name": "Mito · Test",
     "primaryStyleId": 8100,
@@ -161,6 +163,22 @@ def test_replay_starts_on_first_subscribe_and_follows_file_order_scaled_by_speed
     asyncio.run(scenario())
 
 
+def test_skipping_the_lead_in_sends_the_first_event_on_subscribe_and_keeps_later_gaps():
+    loaded = Scenario(events=[event(110_000, PHASE, "ReadyCheck"), event(111_000, PHASE, "None")])
+    sleep = RecordingSleep()
+
+    async def scenario():
+        server = mock(loaded, sleep=sleep, skip_lead_in=True)
+        async with running(server) as running_server:
+            socket = await running_server.wamp()
+            await socket.send_json([5, PHASE_TOPIC])
+            phases = [(await next_event(socket))[2]["data"] for _ in range(2)]
+            assert phases == ["ReadyCheck", "None"]
+            assert sleep.delays == [0.0, 1.0]
+
+    asyncio.run(scenario())
+
+
 def test_frames_use_the_wamp_event_shape():
     loaded = Scenario(events=[event(0, PHASE, "Matchmaking")])
 
@@ -249,6 +267,51 @@ def test_replayed_events_update_rest_state():
             gate.release()
             await server.replayed()
             assert (await running_server.http.get(READY_CHECK)).status == 404
+
+    asyncio.run(scenario())
+
+
+def test_the_recorded_ready_check_replays_into_champ_select_and_takes_an_accept():
+    gate = GatedSleep()
+
+    async def scenario():
+        server = MockLCU(load(RECORDINGS / "ready-check"), PASSWORD, sleep=gate)
+        async with running(server) as running_server:
+            http = running_server.http
+            assert await (await http.get(PHASE)).json() == "Matchmaking"
+            assert (await (await http.get(READY_CHECK)).json())["state"] == "Invalid"
+            assert (await http.get(CHAMP_SELECT)).status == 404
+            socket = await running_server.wamp()
+            for topic in (PHASE_TOPIC, READY_TOPIC, CHAMP_TOPIC):
+                await socket.send_json([5, topic])
+            await until(lambda: server.subscriptions() == {PHASE_TOPIC, READY_TOPIC, CHAMP_TOPIC})
+            gate.release()
+            gate.release()
+            assert (await next_event(socket))[2]["data"] == "ReadyCheck"
+            assert (await next_event(socket))[2]["data"]["state"] == "InProgress"
+            assert (await http.post(f"{READY_CHECK}/accept")).status == 204
+            for _ in range(len(server._events) - 2):
+                gate.release()
+            await server.replayed()
+            assert await (await http.get(PHASE)).json() == "ChampSelect"
+            assert (await http.get(READY_CHECK)).status == 404
+            session = await (await http.get(CHAMP_SELECT)).json()
+            assert (session["localPlayerCellId"], session["timer"]["phase"]) == (2, "PLANNING")
+
+    asyncio.run(scenario())
+
+
+def test_the_recorded_champ_select_replays_to_its_end_on_the_real_topic():
+    async def scenario():
+        server = MockLCU(load(RECORDINGS / "champ-select"), PASSWORD, sleep=RecordingSleep())
+        async with running(server) as running_server:
+            socket = await running_server.wamp()
+            await socket.send_json([5, CHAMP_TOPIC])
+            first = await next_event(socket)
+            assert (first[1], first[2]["eventType"]) == (CHAMP_TOPIC, "Create")
+            await server.replayed()
+            assert await (await running_server.http.get(PHASE)).json() == "None"
+            assert (await running_server.http.get(CHAMP_SELECT)).status == 404
 
     asyncio.run(scenario())
 

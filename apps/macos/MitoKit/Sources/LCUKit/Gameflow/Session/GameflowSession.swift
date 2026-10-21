@@ -2,8 +2,7 @@ public import MitoCore
 
 /// The queue and map of `GET /lol-gameflow/v1/session` (`MITO_CONTEXT.md` §11.1).
 ///
-/// Rosters and player identity are never decoded (§5). Field paths follow the community LCU
-/// schema and are not yet verified against a recording.
+/// Rosters and player identity are never decoded (§5).
 public struct GameflowSession: Hashable, Sendable {
     /// `gameData.queue.id`.
     public let queueID: QueueID?

@@ -80,6 +80,18 @@ struct ChampSelectSessionTests {
         #expect(session.actions[1][0].championId == nil)
     }
 
+    @Test func minusOneMeansNoChampionInActionsMembersAndBans() throws {
+        let json = #"""
+            {"myTeam":[{"cellId":3,"championId":-1,"championPickIntent":-1,"spell1Id":-1}],
+             "actions":[[{"id":3,"actorCellId":3,"championId":-1,"type":"ban","completed":true}]],
+             "bans":{"myTeamBans":[-1,157],"theirTeamBans":[-1]}}
+            """#
+        let session = try LCUEndpoint.champSelectSession.decode(Data(json.utf8))
+        #expect(session.myTeam == [Member(cellId: 3)])
+        #expect(session.actions[0][0].championId == nil)
+        #expect(session.bans == Session.Bans(myTeamBans: [champion(157)]))
+    }
+
     @Test func blindPickHasNoRolesAndSpellZeroMeansNone() throws {
         let session = try decodeCase("blind-pick")
         #expect(session.myTeam.map(\.assignedPosition) == [.unassigned, .unassigned])

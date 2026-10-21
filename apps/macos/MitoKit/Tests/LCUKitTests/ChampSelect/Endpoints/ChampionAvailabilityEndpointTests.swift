@@ -31,6 +31,12 @@ struct ChampionAvailabilityEndpointTests {
     }
 
     @Test(arguments: endpoints.map(\.endpoint))
+    func dropsNegativeIDs(_ endpoint: LCUEndpoint<Set<ChampionID>>) throws {
+        #expect(try endpoint.decode(Data("[-1]".utf8)).isEmpty)
+        #expect(try endpoint.decode(Data("[-1, 103]".utf8)) == champions(103))
+    }
+
+    @Test(arguments: endpoints.map(\.endpoint))
     func anEmptyArrayIsAnEmptySet(_ endpoint: LCUEndpoint<Set<ChampionID>>) throws {
         #expect(try endpoint.decode(Data("[]".utf8)).isEmpty)
     }

@@ -26,7 +26,7 @@ def test_parse_speed_rejects_anything_else(text):
 
 def test_cli_defaults_to_real_time_on_a_free_port():
     args = parse_args(["--scenario", "s"])
-    assert (args.speed, args.port) == (1.0, 0)
+    assert (args.speed, args.port, args.skip_lead_in) == (1.0, 0, False)
 
 
 def test_ready_check_scenario_end_to_end_from_the_lockfile(tmp_path):
