@@ -6,11 +6,14 @@ struct ImportBoundaryTests {
     /// A fence, not a headcount: widening an entry is a documented decision. Each module gets
     /// Foundation and its Package.swift dependencies; the extras are the planned system ones
     /// (`os` for logging, `Synchronization` for `Mutex`, `Security` for the LCU trust check,
-    /// GRDB for the store). Nothing may import the app target.
+    /// GRDB for the store, `Compression` and `CryptoKit` for the snapshot's xz and sha256).
+    /// Nothing may import the app target.
     private static let allowedImports: [String: Set<String>] = [
         "MitoCore": ["Foundation"],
         "LCUKit": ["Foundation", "MitoCore", "os", "Security", "Synchronization"],
-        "MitoStore": ["Foundation", "MitoCore", "os", "Synchronization", "GRDB"],
+        "MitoStore": [
+            "Foundation", "MitoCore", "os", "Synchronization", "GRDB", "Compression", "CryptoKit",
+        ],
         "MitoEngine": ["Foundation", "MitoCore"],
         "MitoAssets": ["Foundation", "MitoCore", "LCUKit", "os", "Synchronization"],
         "MitoImport": ["Foundation", "MitoCore", "LCUKit"],

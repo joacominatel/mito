@@ -3,7 +3,7 @@ import Testing
 
 /// LCUKit talks only to the League client on `127.0.0.1` (charter security dimension,
 /// `MITO_CONTEXT.md` §5 and §10.3). ArchitectureTests does not link LCUKit, so this is a source
-/// scan; the runtime loopback check lives in `LCUKitTests/Client`.
+/// scan; the runtime loopback check lives in `LCUKitTests/Client`. MitoStore gets a host fence.
 struct NetworkSentinelTests {
     private static let loopback = "127.0.0.1"
     /// The one file allowed to accept a server trust.
@@ -30,6 +30,49 @@ struct NetworkSentinelTests {
             }
         }
         #expect(!hosts.isEmpty, "no URL literal found in LCUKit; the scan proved nothing")
+    }
+
+    /// Data Dragon (P4-08) and the snapshot bucket. The bucket host is injected at init, so this
+    /// pins the literals a reviewer must approve; add the real R2 host here when it exists.
+    private static let mitoStoreHosts: Set<String> = [
+        "ddragon.leagueoflegends.com", "snapshots.mito.invalid",
+    ]
+
+    @Test func mitoStoreURLsNameOnlyDataDragonAndTheSnapshotHost() throws {
+        let urlLiteral = #/\b(?:https?|wss?)://([^/:"\s]*)/#
+        let tree = try SourceTree()
+        var hosts: [String] = []
+
+        for file in try tree.swiftFiles(in: tree.target("MitoStore")) {
+            for (index, line) in file.lines.enumerated() {
+                for match in line.matches(of: urlLiteral) {
+                    let host = String(match.1)
+                    hosts.append(host)
+                    if !Self.mitoStoreHosts.contains(host) {
+                        Issue.record(
+                            """
+                            \(file.path):\(index + 1) builds a URL for "\(host)"; MitoStore talks \
+                            only to \(Self.mitoStoreHosts.sorted()) (MITO_CONTEXT.md §5, §14.12).
+                            """)
+                    }
+                }
+            }
+        }
+        #expect(!hosts.isEmpty, "no URL literal found in MitoStore; the scan proved nothing")
+    }
+
+    @Test func mitoStoreNeverUsesTheSharedSession() throws {
+        let tree = try SourceTree()
+        for file in try tree.swiftFiles(in: tree.target("MitoStore")) {
+            for (index, line) in file.lines.enumerated()
+            where line.contains(#/\bURLSession\.shared\b/#) {
+                Issue.record(
+                    """
+                    \(file.path):\(index + 1) uses URLSession.shared; MitoStore sessions take an \
+                    injected configuration so tests and the sentinel can see every request.
+                    """)
+            }
+        }
     }
 
     @Test func lcuKitHasNoNetworkingEscapeHatch() throws {
