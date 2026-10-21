@@ -2248,8 +2248,14 @@ En inicio de parche, el encabezado muestra "Datos 16.21 + 16.20" desde `meta.ble
 
 ## 21. Configuración y toggles
 
-Todo vive en `MitoSettings` (Codable, persistido en Application Support) más las tablas de
-overrides en la base personal.
+Todo vive en `MitoSettings` (Codable) más las tablas de overrides en la base personal.
+`SettingsStore` (actor en `MitoStore`) lo guarda como JSON legible (pretty-printed, claves
+ordenadas) en `~/Library/Application Support/<bundle id>/settings.json`, así Debug y Release
+no comparten datos (§24). Cada guardado es atómico y no se intercalan: gana el último. Al
+cargar, un archivo ausente da los defaults y una clave faltante o desconocida se tolera; un
+archivo corrupto o ilegible también da los defaults, pero antes se mueve a
+`settings.corrupt-<timestamp>.json` en la misma carpeta, nunca se borra. El contenido nunca se
+loguea.
 
 ### 21.1 General
 
