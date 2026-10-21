@@ -2061,6 +2061,18 @@ y a las listas estáticas.
 
 `opp_id = 0` es un tip general del campeón en ese rol.
 
+**Implementado en la app (P9-05, `MitoStore/Tips/`).** `SnapshotDownloader.installCurrentTips(locale:)`
+lee la entrada de `tips` del manifest para el locale (la de `format_version` soportado más alto;
+hoy solo 1, las demás se ignoran) y guarda el archivo tal cual en
+`<caches>/<bundle id>/tips/<locale>.json`, al lado de `snapshots/`. Se baja solo si el `sha256`
+del manifest difiere del archivo guardado, se verifica contra `bytes` y `sha256` (límite duro de
+2 MB) y tiene que decodificar con su mismo `format_version` y `locale` antes de reemplazar al
+anterior; cualquier falla deja el archivo previo. Sin entrada para el locale no hay tips ni
+error, y el archivo guardado se borra. `installedTips(locale:)` lee solo el disco.
+`CuratedTips.tips(for:role:against:)` devuelve primero los tips contra el rival y después los
+generales; sin rival, solo los generales. Un tip mal formado, con rol desconocido, sin texto o
+con `reviewed_patch` que no es `X.Y` se salta. El texto nunca se loguea.
+
 - **Fixture:** `mito-data fixture` genera un snapshot chico y su schema en
   `fixtures/snapshot/` de este repo. Se regenera con cada cambio de `schema_version`.
 - `manifest.json`. `sha256` y `bytes` son del archivo comprimido; `raw_bytes`, del SQLite

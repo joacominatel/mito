@@ -11,6 +11,9 @@ enum SnapshotFixture {
     /// `emerald_plus.sqlite.xz`: Python `lzma` defaults (single stream, LZMA2, CRC64).
     static let compressed = read("snapshot/emerald_plus.sqlite.xz")
 
+    /// `tips/es-AR.json`, listed in the manifest's `tips`.
+    static let tips = read("snapshot/tips/es-AR.json")
+
     /// `emerald_plus.sqlite`, the decompressed file, by digest and size.
     static let sqliteSHA256 = SnapshotArchive.sha256Hex(sqlite)
     static let sqliteBytes = sqlite.count

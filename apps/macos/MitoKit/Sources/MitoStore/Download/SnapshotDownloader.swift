@@ -7,7 +7,7 @@ public actor SnapshotDownloader {
     /// The R2 bucket does not exist yet; `.invalid` never resolves.
     public static let placeholderBaseURL = "https://snapshots.mito.invalid/"
 
-    private static let logger = Logger(
+    static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? SettingsStore.fallbackBundleIdentifier,
         category: "MitoStore")
     private static let manifestSizeLimit = 1024 * 1024
@@ -70,15 +70,7 @@ public actor SnapshotDownloader {
     public func installCurrent(queue: QueueID, bracket: Bracket)
         async throws(SnapshotDownloadError) -> InstalledSnapshot
     {
-        let manifestData: Data
-        do {
-            manifestData = try await fetch(manifestURL, limit: Self.manifestSizeLimit)
-        } catch .tooLarge {
-            throw .manifestInvalid
-        } catch {
-            throw .manifestUnreachable(error.description)
-        }
-        let manifest = try SnapshotManifest.decode(manifestData)
+        let manifest = try await currentManifest()
         guard
             let entry = manifest.entry(
                 queue: queue, bracket: bracket, supportedSchemaVersions: supportedSchemaVersions)
@@ -121,7 +113,19 @@ public actor SnapshotDownloader {
         return installed
     }
 
-    private enum FetchFailure: Error, CustomStringConvertible {
+    func currentManifest() async throws(SnapshotDownloadError) -> SnapshotManifest {
+        let manifestData: Data
+        do {
+            manifestData = try await fetch(manifestURL, limit: Self.manifestSizeLimit)
+        } catch .tooLarge {
+            throw .manifestInvalid
+        } catch {
+            throw .manifestUnreachable(error.description)
+        }
+        return try SnapshotManifest.decode(manifestData)
+    }
+
+    enum FetchFailure: Error, CustomStringConvertible {
         case transport(String)
         case http(status: Int)
         /// How many bytes had arrived when the limit was passed.
@@ -137,7 +141,7 @@ public actor SnapshotDownloader {
     }
 
     /// Stops reading one byte past `limit`, so an oversized body is cut off instead of buffered.
-    private func fetch(_ url: URL, limit: Int) async throws(FetchFailure) -> Data {
+    func fetch(_ url: URL, limit: Int) async throws(FetchFailure) -> Data {
         var request = URLRequest(
             url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: Self.timeout)
         request.httpMethod = "GET"
@@ -162,7 +166,7 @@ public actor SnapshotDownloader {
         }
     }
 
-    private static func isHTTPS(_ url: URL) -> Bool {
+    static func isHTTPS(_ url: URL) -> Bool {
         url.scheme?.lowercased() == "https" && url.host(percentEncoded: true)?.isEmpty == false
     }
 

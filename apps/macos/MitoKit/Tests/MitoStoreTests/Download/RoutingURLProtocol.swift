@@ -3,7 +3,7 @@ import Synchronization
 
 /// Answers each URL with its canned reply (404 otherwise) and records every request. The state is
 /// static because URL loading instantiates the protocol; only the serialized
-/// `SnapshotDownloaderTests` uses it.
+/// `SnapshotDownloaderTests` and its nested suites use it.
 final class RoutingURLProtocol: URLProtocol {
     enum Reply: Sendable {
         case response(status: Int, body: Data)
