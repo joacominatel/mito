@@ -16,10 +16,12 @@ fixtures/lcu/<scenario>/
 └── events.jsonl
 ```
 
-- **`scenario.json`** — one object describing the recording:
+- **`scenario.json`** — one object describing the recording. `clientPatch` is the first two
+  components of `/lol-patch/v1/game-version`, the same numbering as Data Dragon and the
+  snapshot (`16.21`):
 
   ```json
-  { "format": 0, "clientPatch": "25.20", "queueId": 420, "recorderVersion": "0.1.0", "anonymized": true }
+  { "format": 0, "clientPatch": "16.21", "queueId": 420, "recorderVersion": "0.1.0", "anonymized": true }
   ```
 
 - **`rest.jsonl`** — one REST exchange per line, in recording order:
@@ -28,7 +30,8 @@ fixtures/lcu/<scenario>/
   { "method": "GET", "path": "/lol-gameflow/v1/gameflow-phase", "status": 200, "body": "ChampSelect" }
   ```
 
-  `body` is the decoded JSON response (any JSON value), or `null` for an empty body.
+  `body` is the decoded JSON response (any JSON value), or `null` for an empty or non-JSON body.
+  A line is written only when a path's status or body changes since its previous snapshot.
 
 - **`events.jsonl`** — one WAMP event per line, in arrival order:
 
