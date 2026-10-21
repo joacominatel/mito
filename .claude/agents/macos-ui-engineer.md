@@ -54,7 +54,7 @@ When you are dispatched for a unit in `docs/roadmap.md` (ADR 0006):
 ## Before you report
 
 Run `swift format lint --strict -r apps/macos` and
-`xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' test`,
+`xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' -derivedDataPath build/DerivedData test`,
 and self-review the full diff against the charter's review dimensions. Outside a unit, do not
 commit unless your prompt says to.
 

@@ -98,11 +98,14 @@ Run all of these before committing (from the worktree for a unit):
 ```sh
 swift format lint --strict -r apps/macos
 swift test --package-path apps/macos/MitoKit --enable-code-coverage
-xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' build
-xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' test
+xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' -derivedDataPath build/DerivedData build
+xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' -derivedDataPath build/DerivedData test
 ```
 
 The last command applies once the `MitoTests` target exists (Phase 0 block B).
+
+`-derivedDataPath build/DerivedData` keeps each checkout's build cache inside it (`build/` is
+git-ignored), so removing a worktree removes its cache and a launched app is unambiguous.
 
 CI (`.github/workflows/tests.yml`) runs two jobs on pushes to `main`/`dev` and pull requests
 targeting them: `mitokit` runs the MitoKit tests with warnings as errors, and `app` builds the

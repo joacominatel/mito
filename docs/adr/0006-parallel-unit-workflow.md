@@ -29,7 +29,9 @@ still overhead before the beta, and nothing outside this Mac needs to see work i
   `git push origin dev`. The first unit to land wins a conflict; the later one catches up.
 - **Cleanup** after a squash: `git worktree remove .worktrees/<id>-<slug>`,
   `git branch -D unit/<id>-<slug>`, `git worktree prune`, and confirm the main checkout is
-  still on `dev`. `git branch -D` is pre-authorized for squashed unit branches only, never
+  still on `dev`. Builds use `-derivedDataPath build/DerivedData` inside the worktree, so its
+  cache goes with it; any stray `~/Library/Developer/Xcode/DerivedData/Mito-*` whose project
+  path no longer exists is deleted. `git branch -D` is pre-authorized for squashed unit branches only, never
   for `main` or `dev`.
 - **Concurrency**: at most 3 units in flight; the cap rises to 4 once three-way parallel
   work has landed cleanly.
