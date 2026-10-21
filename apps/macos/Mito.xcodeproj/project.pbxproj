@@ -12,20 +12,38 @@
 		B10000000000000000000003 /* MitoStore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000003 /* MitoStore */; };
 		B10000000000000000000004 /* MitoEngine in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000004 /* MitoEngine */; };
 		B10000000000000000000005 /* MitoAssets in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000005 /* MitoAssets */; };
+		B10000000000000000000006 /* MitoImport in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000006 /* MitoImport */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA0000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A70000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A50000000000000000000001;
+			remoteInfo = Mito;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000001 /* Mito.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mito.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000002 /* MitoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MitoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10000000000000000000001 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		C10000000000000000000002 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		C10000000000000000000003 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		C10000000000000000000004 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
+		C10000000000000000000005 /* Tests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Tests.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A20000000000000000000001 /* Mito */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Mito;
+			sourceTree = "<group>";
+		};
+		A20000000000000000000002 /* MitoTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MitoTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -40,6 +58,14 @@
 				B10000000000000000000003 /* MitoStore in Frameworks */,
 				B10000000000000000000004 /* MitoEngine in Frameworks */,
 				B10000000000000000000005 /* MitoAssets in Frameworks */,
+				B10000000000000000000006 /* MitoImport in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A30000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -50,6 +76,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000001 /* Mito */,
+				A20000000000000000000002 /* MitoTests */,
 				A40000000000000000000003 /* Config */,
 				A40000000000000000000002 /* Products */,
 			);
@@ -59,6 +86,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000001 /* Mito.app */,
+				A10000000000000000000002 /* MitoTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +98,7 @@
 				C10000000000000000000002 /* Debug.xcconfig */,
 				C10000000000000000000003 /* Release.xcconfig */,
 				C10000000000000000000004 /* Version.xcconfig */,
+				C10000000000000000000005 /* Tests.xcconfig */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -99,10 +128,34 @@
 				D10000000000000000000003 /* MitoStore */,
 				D10000000000000000000004 /* MitoEngine */,
 				D10000000000000000000005 /* MitoAssets */,
+				D10000000000000000000006 /* MitoImport */,
 			);
 			productName = Mito;
 			productReference = A10000000000000000000001 /* Mito.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A50000000000000000000002 /* MitoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A80000000000000000000003 /* Build configuration list for PBXNativeTarget "MitoTests" */;
+			buildPhases = (
+				A60000000000000000000003 /* Sources */,
+				A30000000000000000000002 /* Frameworks */,
+				A60000000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB0000000000000000000001 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A20000000000000000000002 /* MitoTests */,
+			);
+			name = MitoTests;
+			packageProductDependencies = (
+			);
+			productName = MitoTests;
+			productReference = A10000000000000000000002 /* MitoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -116,6 +169,10 @@
 				TargetAttributes = {
 					A50000000000000000000001 = {
 						CreatedOnToolsVersion = 27.1;
+					};
+					A50000000000000000000002 = {
+						CreatedOnToolsVersion = 27.1;
+						TestTargetID = A50000000000000000000001;
 					};
 				};
 			};
@@ -138,12 +195,20 @@
 			projectRoot = "";
 			targets = (
 				A50000000000000000000001 /* Mito */,
+				A50000000000000000000002 /* MitoTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A60000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A60000000000000000000004 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -160,7 +225,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A60000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AB0000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A50000000000000000000001 /* Mito */;
+			targetProxy = AA0000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A90000000000000000000001 /* Debug */ = {
@@ -189,6 +269,20 @@
 			};
 			name = Release;
 		};
+		A90000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C10000000000000000000005 /* Tests.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A90000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C10000000000000000000005 /* Tests.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -206,6 +300,15 @@
 			buildConfigurations = (
 				A90000000000000000000003 /* Debug */,
 				A90000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A80000000000000000000003 /* Build configuration list for PBXNativeTarget "MitoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A90000000000000000000005 /* Debug */,
+				A90000000000000000000006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -239,6 +342,10 @@
 		D10000000000000000000005 /* MitoAssets */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MitoAssets;
+		};
+		D10000000000000000000006 /* MitoImport */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MitoImport;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

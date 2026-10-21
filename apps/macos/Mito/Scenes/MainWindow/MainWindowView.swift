@@ -1,16 +1,38 @@
 import SwiftUI
 
 struct MainWindowView: View {
+    @State private var selection: SidebarDestination? = .now
+
     var body: some View {
         NavigationSplitView {
-            List {
-                Label("Ahora", systemImage: "bolt")
-                Label("Campeones", systemImage: "person.3")
-                Label("Mi perfil", systemImage: "person.crop.circle")
-                Label("Overrides", systemImage: "slider.horizontal.3")
+            List(SidebarDestination.allCases, id: \.self, selection: $selection) { destination in
+                Label {
+                    Text(destination.title)
+                } icon: {
+                    Image(systemName: destination.systemImage)
+                }
             }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
         } detail: {
-            ContentUnavailableView("Esperando al cliente", systemImage: "circle.dashed")
+            if let selection {
+                detail(for: selection)
+                    .navigationTitle(Text(selection.title))
+            }
         }
     }
+
+    @ViewBuilder
+    private func detail(for destination: SidebarDestination) -> some View {
+        switch destination {
+        case .now: NowView()
+        case .champions: ChampionsView()
+        case .profile: ProfileView()
+        case .overrides: OverridesView()
+        }
+    }
+}
+
+#Preview {
+    MainWindowView()
+        .environment(AppModel(connection: DisconnectedLCUConnection()))
 }
