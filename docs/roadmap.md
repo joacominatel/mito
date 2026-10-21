@@ -245,7 +245,7 @@ Can overlap Stage 6.
 | P8-01 | Personal database and migrations | store | `MitoKit/Sources/MitoStore/Personal/**` | — | P8-00 | merged |
 | P8-02 | LCU match history and mastery models | lcu | `MitoKit/Sources/LCUKit/History/**` | lcu-endpoints: History, Session | P8-00 | merged |
 | P8-03 | Personal score | engine | `MitoKit/Sources/MitoEngine/Personal/**` | §19.2, §19.3 | P8-00 | merged |
-| P8-04 | History sync | profile | `Mito/Features/Profile/**` | — | P8-01, P8-02 | todo |
+| P8-04 | History sync: `PersonalDatabase` slot in `AppModel`, sync on connect and after `EndOfGame` (list + per-game detail), into `PersonalStore` | profile + shell (serial) | `Mito/Features/Profile/**`, `MitoTests/Features/Profile/**`, `Mito/App/**`, `Mito/MitoApp.swift`, `MitoTests/App/**` | §19.1, §9.3 | P8-01, P8-02 | in progress |
 | P8-05 | Onboarding: pool by role, Flash position, Diamond+ layer | onboarding | `Mito/Features/Onboarding/**` | — | P8-01 | todo |
 | P8-06 | "Mi perfil" and insights | profile | `Mito/Features/Profile/**` | §19.4 | P8-04, P8-03 | todo |
 | P8-07 | Meta ↔ Comfort slider; decide whether the §19.3 points scaling applies to the whole personal total or only to comfort/pool/performance (the winrate edge is already in points) | engine | `MitoKit/Sources/MitoEngine/Pick/**` | §18.3 | P7-04, P8-03 | todo |
