@@ -378,33 +378,51 @@ mito/
 ```swift
 @main
 struct MitoApp: App {
+    static let mainWindowID = "main"
+
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var app: AppModel
 
     init() {
-        // En Debug, -MitoLCULockfilePath apunta al mock (§23.1).
-        let client = AppModel.liveClient()
-        // Bajo XCTest no hay cliente en vivo ni archivo de settings real.
+        // Bajo XCTest no hay cliente en vivo, ni settings, snapshot, base personal, íconos,
+        // feed de updates, login item ni activation policy reales.
         let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let settings = SettingsModel(persistence: underTest ? nil : SettingsStore())
+        // En Debug, -MitoLCULockfilePath apunta al mock (§23.1).
+        let client = AppModel.liveClient(installPath: {
+            await settings.value.general.leagueInstallPath
+        })
         let app = AppModel(
             connection: client,
             lifecycle: AppModel.lifecycle(running: client, underTest: underTest),
-            settings: SettingsModel(persistence: underTest ? nil : SettingsStore()))
+            settings: settings,
+            snapshots: SnapshotModel(origin: .live(underTest: underTest)),
+            personal: UnavailablePersonalStore.live(underTest: underTest),
+            iconLoader: IconSource.liveLoader(connection: client, underTest: underTest),
+            updates: { UpdaterModel.live(settings: $0, underTest: underTest) },
+            loginItem: { LoginItemModel.live(settings: $0, underTest: underTest) },
+            setActivationPolicy: AppPresenceModel.livePolicySetter(underTest: underTest))
         _app = State(initialValue: app)
+        AppDelegate.reopen = { app.presence.openMainWindow() }
         Task { await app.start() }
+        Task { await app.react() }
     }
 
     var body: some Scene {
-        MenuBarExtra {
-            MenuBarView().environment(app)
+        MenuBarExtra(isInserted: Bindable(app.presence).isMenuBarExtraInserted) {
+            MenuBarView().environment(app).environment(\.iconSource, app.icons)
         } label: {
-            MenuBarLabel().environment(app)  // además abre la ventana al entrar a champ select
+            MenuBarLabel().environment(app)
         }
         .menuBarExtraStyle(.window)
 
-        Window(Text(verbatim: "Mito"), id: "main") {
-            MainWindowView().environment(app)
+        Window(Text(verbatim: "Mito"), id: Self.mainWindowID) {
+            MainWindowView().environment(app).environment(\.iconSource, app.icons)
         }
         .defaultSize(width: 1100, height: 720)
+        .commands {
+            CommandGroup(after: .appInfo) { CheckForUpdatesButton(updates: app.updates) }
+        }
 
         Settings {
             SettingsView().environment(app)
@@ -413,13 +431,21 @@ struct MitoApp: App {
 }
 ```
 
-`start()` arranca en el `init` porque la app vive en la barra de menú y no hay ninguna vista
-que esté siempre abierta para colgarle un `.task`.
+`start()` y `react()` arrancan en el `init` porque la app puede correr sin ventana abierta y sin
+ícono en la barra de menú, así que ninguna vista puede colgarles un `.task`. `AppDelegate`
+(`App/`) existe solo para un gancho de AppKit: `applicationShouldHandleReopen`, que al hacer
+clic en el ícono del Dock sin ventanas abiertas llama a `AppDelegate.reopen`, y `MitoApp` lo
+apunta a `app.presence.openMainWindow()` (§24).
 
 - **MenuBarExtra:** estado de conexión, fase actual, toggles rápidos (auto-accept, auto-runas)
-  y el pick recomendado durante champ select.
-- **Ventana principal:** se abre sola (configurable) al entrar en champ select. Muestra el
-  draft, las recomendaciones y el análisis.
+  y el pick recomendado durante champ select. Se inserta según
+  `app.presence.isMenuBarExtraInserted` (§21.1: ícono de barra de menú configurable). La
+  etiqueta (`MenuBarLabel`) no abre la ventana: solo le entrega a `AppPresenceModel` la acción
+  que lo hace (`setMainWindowOpener`, en `onAppear`).
+- **Ventana principal:** se abre sola (configurable) al entrar en champ select, desde
+  `AppModel.react()` (§9.3), y al hacer clic en el Dock. Muestra el draft, las recomendaciones y
+  el análisis. El comando "Buscar actualizaciones…" (`CheckForUpdatesButton`, §24) cuelga del
+  menú de la app.
 - **Settings:** escena estándar de macOS (⌘,).
 
 ### 9.2 Módulos y responsabilidades
@@ -514,8 +540,12 @@ final class AppModel {
     let onboarding: OnboardingModel
     let overrides: OverridesModel
     let settingsModel: SettingsModel
+    let updates: UpdaterModel
+    let loginItem: LoginItemModel
+    let presence: AppPresenceModel
     let personal: any PersonalStore
     var settings: MitoSettings { get set }  // reenvía a settingsModel.value
+    var leagueInstallPath: String? { get set }  // §21.1; reinicia la búsqueda si no hay cliente
 
     init(
         connection: any LCUConnection,
@@ -525,19 +555,33 @@ final class AppModel {
         personal: any PersonalStore = UnavailablePersonalStore(),
         iconLoader: (any IconLoading)? = nil,
         poster: any NotificationPosting = SystemNotificationPoster(),
-        appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
+        appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive },
+        updates: (SettingsModel) -> UpdaterModel = { UpdaterModel(settings: $0) },
+        loginItem: (SettingsModel) -> LoginItemModel = { LoginItemModel(settings: $0) },
+        setActivationPolicy: @escaping (NSApplication.ActivationPolicy) -> Void = { _ in }
     )
 
     var menuBarSymbol: String { gameflow.menuBarSymbol ?? connection.menuBarSymbol }
 
     func start() async {
         await settingsModel.load()
+        updates.start()
+        loginItem.refresh()
+        presence.applyPolicy()
         await withDiscardingTaskGroup { group in
-            group.addTask { await self.lifecycle() }
+            group.addTask { await self.runLifecycle() }
             group.addTask { await self.connection.run() }
             group.addTask { await self.clientData.run() }
             group.addTask { await self.gameflow.run() }
             // … un addTask por slot
+        }
+    }
+
+    /// Reacciones que corren sin ventana ni ícono de barra de menú; hasta que se cancela.
+    func react() async {
+        await withDiscardingTaskGroup { group in
+            group.addTask { await self.openWindowForChampSelect() }
+            group.addTask { await self.followGameForUpdates() }
         }
     }
 }
@@ -553,11 +597,15 @@ final class AppModel {
   los tests. `DisconnectedLCUConnection` (siempre `.searching`, `send` tira `.notConnected`)
   queda solo para las previews.
 - **Ciclo de vida inyectado** como `lifecycle`: `MitoApp` crea el cliente con
-  `AppModel.liveClient()` (ruta de instalación por defecto, §10.1, o el override de Debug de
-  abajo) y pasa `AppModel.lifecycle(running:underTest:)`, que corre `client.run()` salvo bajo
-  XCTest, donde termina al instante y nada se conecta. `start()` lo corre en el mismo task group
-  que los slots, así que vive lo que vive `start()` y cancelarlo desarma la conexión (§10.2). En
-  tests y previews el default `{}` termina al instante.
+  `AppModel.liveClient(installPath:)`, que lee la ruta configurada (`leagueInstallPath`, §21.1)
+  en cada descubrimiento y, sin ella, usa las rutas por defecto (§10.1), o el override de Debug
+  de abajo, y pasa `AppModel.lifecycle(running:underTest:)`, que corre `client.run()` salvo bajo
+  XCTest, donde termina al instante y nada se conecta. `start()` lo corre (`runLifecycle()`) en
+  el mismo task group que los slots, así que vive lo que vive `start()` y cancelarlo desarma la
+  conexión (§10.2). Si `leagueInstallPath` cambia sin cliente conectado, `runLifecycle()`
+  cancela la corrida y arranca otra, que busca de inmediato; con un cliente conectado se
+  conserva y la próxima búsqueda usa la ruta nueva. En tests y previews el default `{}` termina
+  al instante.
 - **Notificaciones inyectadas:** `poster` (§22.5) y `appIsActive` (si Mito está en primer
   plano) van a `GameflowModel` e `ImportModel`; los dos comparten un solo poster. Los defaults
   son los reales y `MitoApp` los usa; los tests de `AppModel` pasan un poster que graba, así
@@ -613,11 +661,35 @@ final class AppModel {
   cliente, sin Data Dragon, sin caché en disco), que es también el default de `AppModel` para
   tests y previews.
 - **Ventana principal:** `MainWindowModel` (en `App/`) tiene la selección del sidebar y decide
-  cuándo champ select abre la ventana (§20.1). La etiqueta de la barra de menú
-  (`MenuBarLabel`) es la única vista que vive siempre, con o sin ventana abierta: en cada cambio
-  de `champSelectPresence` (draft presente y fase de gameflow) pregunta
-  `shouldOpenWindowForChampSelect()` y, si da `true`, llama a
-  `openWindow(id: MitoApp.mainWindowID)`.
+  cuándo champ select abre la ventana (§20.1). Ninguna vista vive siempre (el ícono de la barra
+  de menú puede estar apagado), así que `AppModel.react()` lo hace: `observeChanges`
+  (`ObservedChanges.swift`) llama al closure `apply` con el valor actual y de nuevo en cada
+  cambio de `champSelectPresence` (draft presente y fase de gameflow), y si
+  `shouldOpenWindowForChampSelect()` da `true` llama a `presence.openMainWindow()`. `react()`
+  corre otra reacción en el mismo task group: `followGameForUpdates` copia
+  `gameflow.state == .inGame` a `updates.isInGame`, para que una actualización retenida se
+  muestre al terminar la partida (§24).
+- **Presencia:** `AppPresenceModel` (en `App/`) es dueño del ícono de la barra de menú, del ícono
+  del Dock y de la activation policy (§21.1, §24). Siempre queda un acceso: con el ícono de la
+  barra apagado, el del Dock se fuerza encendido. La policy es `.regular` si el Dock está
+  encendido o hay una ventana abierta (principal o Settings; las vistas avisan con
+  `windowOpened`/`windowClosed`) y `.accessory` si no; se la entrega a AppKit solo cuando cambia
+  (`applyPolicy()`, también al final de la carga en `start()`). `MenuBarLabel` le entrega la
+  acción que abre la ventana (`setMainWindowOpener`, la primera vez gana); hasta entonces
+  `isMenuBarExtraInserted` es `true` aunque el ajuste esté apagado, así un arranque sin ícono
+  igual puede abrir la ventana. `MitoApp` pasa `AppPresenceModel.livePolicySetter(underTest:)`;
+  bajo XCTest nunca toca la policy real, y es también el default de `AppModel`.
+- **Inicio de sesión:** `LoginItemModel` (en `App/`) es "Abrir Mito al iniciar sesión" (§21.1).
+  El sistema es dueño del estado real (el usuario puede cambiarlo en Ajustes del Sistema), así
+  que el toggle muestra lo último que leyó `refresh()` (al arrancar y en cada cambio), que
+  además lo copia a `settings.general.launchAtLogin`. Usa `SMAppService.mainApp` detrás de
+  `LoginItemService`; `LoginItemModel.live(settings:underTest:)` no registra nada bajo XCTest
+  ni en builds Debug (su bundle ID propio agregaría un login item de desarrollo) y deja
+  `note = .unavailable`. Los otros avisos son `requiresApproval` y `failed`.
+- **Actualizaciones:** `UpdaterModel` (en `App/`, Sparkle, §24) lo crea `AppModel` con el
+  closure `updates` y `MitoApp` pasa `UpdaterModel.live(settings:underTest:)`; `start()` lo
+  arranca después de cargar los settings. `CheckForUpdatesButton` (`Scenes/Updates/`) lo usa
+  desde el menú de la app.
 - **Snapshot compartido:** `SnapshotModel` (en `App/`) tiene el `StatsProvider` abierto (un
   `SnapshotReader`, §17), su `meta` y un `status`: `none`, `downloading`, `ready` o
   `failed(.download(SnapshotDownloadError) | .unreadable(SnapshotReadError))`; el status es
