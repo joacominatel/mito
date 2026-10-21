@@ -155,6 +155,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | FX-10 | The analysis subject carries the client's `GameData`, so the tabs can name and draw runes, items and spells | analysis (serial) | `Mito/Features/Analysis/AnalysisSubject.swift`, `AnalysisModel.swift`, their tests | §20.2 (intro only) | P9-00 | merged |
 | FX-11 | One import target (role, lane opponent, enemy profile, override, plan) shared by Import and the Build tab; the import follows the champ-select role selector in blind pick; ARAM imports only the fixed per-champion page (§20.3), never a Summoner's Rift build | import + analysis | `Mito/Features/Import/**`, `Mito/Features/Analysis/Build/**`, `Mito/Features/ChampSelect/ChampSelectModel.swift` (accessor only), their tests | §13.1, §20.2 (Build entry), §20.3 | P9-03 | merged |
 | FX-12 | ID fallback names ("Ítem 3020", "Campeón 103") render without thousands separators | design-system + champselect + champions | the fallback call sites, their tests | — | P9-03 | merged |
+| FX-13 | A blind lock in the first session the app sees (connecting mid-champ-select) imports before the selector has a role and falls back to the most played role | import-ui + champselect | `Mito/Features/Import/**`, `Mito/Features/ChampSelect/**`, their tests | §13.1 | P9-06 | todo |
 
 ## P1 — Connection
 
@@ -282,7 +283,7 @@ Can overlap Stage 6.
 | P9-04 | "Mi historial" tab | analysis | `Mito/Features/Analysis/History/**`, `MitoKit/Sources/MitoEngine/Analysis/History/**`, their tests | §20.2 (Mi historial entry only) | P9-00 | merged |
 | P9-05 | Tips download and reader, built on the format in the contract fixture (`fixtures/snapshot/tips/`); the curated content still comes with MD-tips | store | `MitoKit/Sources/MitoStore/Tips/**`, `MitoKit/Sources/MitoStore/Download/SnapshotManifest.swift` (additive), their tests | §14.12 (tips paragraph only) | P5-04 | merged |
 | P9-06 | Special states and wiring: import follows the blind-pick selector (AppModel), curated tips load with the snapshot and reach the Matchup tab, fixed per-champion choices import and show without a snapshot (§20.3), Flex/Normal on the 420 snapshot, §20.1 brought current | cross-lane (serial, shell) | `Mito/App/**`, `Mito/Features/Analysis/*` (top level), `Mito/Features/Analysis/Matchup/**`, `Mito/Features/Analysis/Build/**`, `Mito/Features/Import/**`, their tests | §13.1, §20.1, §20.3 | P9-01..05, FX-11 | merged |
-| P9-08 | Unknown lane rival: "safe" pick recommendations, the expected matchup over the role's likeliest opponents weighted by pick rate (§20.3), with its own reason | engine + design-system | `MitoEngine/Pick/**`, `MitoCore` reason kind (contract), `Mito/DesignSystem/ReasonText.swift`, their tests | §18.3, §20.3, §22.3 | P9-06 | todo |
+| P9-08 | Unknown lane rival: "safe" pick recommendations, the expected matchup over the role's likeliest opponents weighted by pick rate (§20.3), with its own reason | engine + design-system | `MitoEngine/Pick/**`, `MitoCore` reason kind (contract), `Mito/DesignSystem/ReasonText.swift`, their tests | §18.3, §20.2 (Matchup and Build drift), §20.3, §22.3 | P9-06 | in progress |
 | P9-07 | Visual polish, animations, accessibility | cross-lane (serial) | per card | §22.1 | P9-08 | todo |
 
 ## P10 — Beta release
