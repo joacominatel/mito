@@ -1137,14 +1137,24 @@ veces). La fuente de verdad es `perkstyles.json` del parche actual.
 
 ### 13.3 Summoner spells
 
-- `PATCH /lol-champ-select/v1/session/my-selection` con `spell1Id` y `spell2Id`.
-- **Respetar la posición de Flash del usuario** (D o F). Se detecta de sus últimas
-  partidas o se configura. Si el usuario usa Flash en F, Flash siempre va en `spell2Id`.
-- Override por campeón y por rol (por ejemplo, "en jungla siempre Smite + Flash").
-- Modos: recomendado por datos, fijo por rol o desactivado.
+- `PATCH /lol-champ-select/v1/session/my-selection` con `spell1Id` y `spell2Id`
+  (`LCUEndpoint.updateMySelection(spells:)`). Lo hace `SpellImporter` en `MitoImport`, que
+  devuelve `SpellImportResult`: `.applied(par enviado)`, `.skipped(.disabled |
+  .alreadySelected)` o `.failed(LCUError)`, sin reintentos.
+- **Respetar la posición de Flash del usuario** (`ImportSettings.flashPosition`). Con `f`,
+  Flash siempre va en `spell2Id`; con `d`, siempre en `spell1Id`. Con `auto`, Flash queda en
+  el slot donde el jugador local ya lo tiene en la sesión de champ select; si su selección
+  actual no tiene Flash (o no aparece en la sesión), se respeta el orden recomendado.
+  Detectarlo de sus últimas partidas queda para más adelante. Un par sin Flash se envía en
+  su propio orden.
+- No se envía nada si `importSpells` está apagado o si el par resultante ya es la selección
+  actual.
+- Pendiente: override por campeón y por rol (por ejemplo, "en jungla siempre Smite +
+  Flash") y el modo "fijo por rol". Modos: recomendado por datos, fijo por rol o
+  desactivado.
 
-IDs comunes (verificar con `summoner.json`): Flash 4, Ignite 14, Teleport 12, Smite 11,
-Exhaust 3, Heal 7, Barrier 21, Cleanse 1, Ghost 6.
+IDs comunes (verificar con `summoner.json`; hasta entonces el importador fija Flash en 4):
+Flash 4, Ignite 14, Teleport 12, Smite 11, Exhaust 3, Heal 7, Barrier 21, Cleanse 1, Ghost 6.
 
 ### 13.4 Item sets
 
