@@ -109,9 +109,9 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P0-A | Parallel-unit docs and harness: ADRs 0006–0007, charter, agents, roadmap, CI app job | docs | `docs/**`, `.claude/**`, `AGENTS.md`, `.github/workflows/**`, `fixtures/*/README.md` | §8, §9.2, §13.5, §23.2, §23.3, §26 | — | todo |
-| P0-B | MitoKit package graph, MitoCore/LCUKit contracts, `MitoTestSupport` fakes, `ArchitectureTests` fitness functions | core + lcu contracts + arch (serial) | `MitoKit/**`, `fixtures/lcu/cases/**` | — | — | todo |
-| P0-C | App shell: `AppModel` slots, sidebar, menu-bar sections, Settings tabs, per-feature string tables, `MitoImport` link, `MitoTests` target | shell (serial) | `Mito/**`, `MitoTests/**`, `Mito.xcodeproj/**` | §9.1, §9.3 | P0-B | todo |
+| P0-A | Parallel-unit docs and harness: ADRs 0006–0007, charter, agents, roadmap, CI app job | docs | `docs/**`, `.claude/**`, `AGENTS.md`, `.github/workflows/**`, `fixtures/*/README.md` | §8, §9.2, §13.5, §23.2, §23.3, §26 | — | merged 4e8f1fb..25245cb |
+| P0-B | MitoKit package graph, MitoCore/LCUKit contracts, `MitoTestSupport` fakes, `ArchitectureTests` fitness functions | core + lcu contracts + arch (serial) | `MitoKit/**`, `fixtures/lcu/cases/**` | — | — | merged 9127d73, 16d429f |
+| P0-C | App shell: `AppModel` slots, sidebar, menu-bar sections, Settings tabs, per-feature string tables, `MitoImport` link, `MitoTests` target | shell (serial) | `Mito/**`, `MitoTests/**`, `Mito.xcodeproj/**` | §9.1, §9.3 | P0-B | merged 3da7fd6 |
 
 ## External deliveries
 
@@ -127,22 +127,22 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P1-01 | LCU discovery: process arguments and lockfile | lcu | `MitoKit/Sources/LCUKit/Discovery/**` | §10.1, §10.2 | P0-C | todo |
-| P1-02 | REST client, TLS accepted only for 127.0.0.1, network-sentinel fitness test | lcu | `MitoKit/Sources/LCUKit/Client/**`, `MitoKit/Tests/ArchitectureTests/NetworkSentinelTests.swift` | §10.3, §10.4 | P0-C | todo |
-| P1-03 | WAMP message codec | lcu | `MitoKit/Sources/LCUKit/Events/Codec/**` | §10.5 | P0-C | todo |
+| P1-01 | LCU discovery: process arguments and lockfile | lcu | `MitoKit/Sources/LCUKit/Discovery/**` | §10.1, §10.2 | P0-C | ready |
+| P1-02 | REST client, TLS accepted only for 127.0.0.1, network-sentinel fitness test | lcu | `MitoKit/Sources/LCUKit/Client/**`, `MitoKit/Tests/ArchitectureTests/NetworkSentinelTests.swift` | §10.3, §10.4 | P0-C | ready |
+| P1-03 | WAMP message codec | lcu | `MitoKit/Sources/LCUKit/Events/Codec/**` | §10.5 | P0-C | ready |
 | P1-04 | Event stream over WebSocket, one stream per subscriber | lcu | `MitoKit/Sources/LCUKit/Events/Stream/**` | §10.5 | P1-02, P1-03 | todo |
 | P1-05 | Connection lifecycle; `LCUClient` conforms to `LCUConnection` | lcu | `MitoKit/Sources/LCUKit/Connection/**` | §10.2 | P1-01, P1-04 | todo |
-| P1-06 | Connection menu section and `ConnectionModel` against the fake | connection | `Mito/Features/Connection/**` | §22.4 | P0-C | todo |
-| P1-07 | `tools/lcu-recorder` with anonymization (the CEO runs it against the real client) | tools-lcu-recorder | `tools/lcu-recorder/**` | §23.2 | P0-C | todo |
+| P1-06 | Connection menu section and `ConnectionModel` against the fake | connection | `Mito/Features/Connection/**` | §22.4 | P0-C | ready |
+| P1-07 | `tools/lcu-recorder` with anonymization (the CEO runs it against the real client) | tools-lcu-recorder | `tools/lcu-recorder/**` | §23.2 | P0-C | ready |
 | P1-08 | Wire the live `LCUClient` into `AppModel` | shell (serial) | `Mito/App/**`, `Mito/MitoApp.swift` | §9.3 | P1-05, P1-06 | todo |
 
 ## P2 — Gameflow and auto-accept
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P2-01 | Tolerant `GameflowPhase` and pure Mito state machine | lcu | `MitoKit/Sources/LCUKit/Gameflow/**` | §11.1, §11.2, lcu-endpoints: Gameflow/lobby | P0-C | todo |
+| P2-01 | Tolerant `GameflowPhase` and pure Mito state machine | lcu | `MitoKit/Sources/LCUKit/Gameflow/**` | §11.1, §11.2, lcu-endpoints: Gameflow/lobby | P0-C | ready |
 | P2-02 | Ready check and auto-accept policy | lcu | `MitoKit/Sources/LCUKit/Matchmaking/**` | §11.3 | P2-01 | todo |
-| P2-03 | Settings persistence in Application Support, named from the bundle id | store | `MitoKit/Sources/MitoStore/Settings/**` | §21 (intro) | P0-C | todo |
+| P2-03 | Settings persistence in Application Support, named from the bundle id | store | `MitoKit/Sources/MitoStore/Settings/**` | §21 (intro) | P0-C | ready |
 | P2-04 | Gameflow feature: menu section, notification, "Partida" settings tab | gameflow | `Mito/Features/Gameflow/**` | §21.2, §22.5 | P2-01, P2-02, P2-03 | todo |
 | P2-05 | `tools/lcu-mock` and the ready-check scenario | tools-lcu-mock + fixtures-ready-check | `tools/lcu-mock/**`, `fixtures/lcu/ready-check/**` | §23.1 | P1-07 | todo |
 
@@ -150,21 +150,21 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P3-01 | Tolerant champ-select session decoding | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Session/**` | §12.1, lcu-endpoints: Champ select | P0-C | todo |
+| P3-01 | Tolerant champ-select session decoding | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Session/**` | §12.1, lcu-endpoints: Champ select | P0-C | ready |
 | P3-02 | Session → `DraftContext` mapping | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Mapping/**` | §12.2 | P3-01 | todo |
-| P3-03 | Enemy role inference (§12.3) | engine | `MitoKit/Sources/MitoEngine/RoleInference/**` | §12.3 | P0-C | todo |
+| P3-03 | Enemy role inference (§12.3) | engine | `MitoKit/Sources/MitoEngine/RoleInference/**` | §12.3 | P0-C | ready |
 | P3-04 | Champ-select view and model with 150 ms debounce | champ-select | `Mito/Features/ChampSelect/**` | §12.4, §20.1 | P3-02 | todo |
 
 ## P4 — Importer with fixed data
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P4-00 | CONTRACT: static game-data types | core (serial) | `MitoKit/Sources/MitoCore/GameData/**` | §16.2 | P0-C | todo |
+| P4-00 | CONTRACT: static game-data types | core (serial) | `MitoKit/Sources/MitoCore/GameData/**` | §16.2 | P0-C | ready |
 | P4-01 | Static data catalog from `/lol-game-data` | assets | `MitoKit/Sources/MitoAssets/GameData/**` | §16.1, §16.3, lcu-endpoints: Assets | P4-00 | todo |
-| P4-02 | Icon loading and disk cache | assets | `MitoKit/Sources/MitoAssets/Icons/**` | — | P0-C | todo |
+| P4-02 | Icon loading and disk cache | assets | `MitoKit/Sources/MitoAssets/Icons/**` | — | P0-C | ready |
 | P4-03 | Rune page importer | import | `MitoKit/Sources/MitoImport/Runes/**` | §13.2, lcu-endpoints: Runes | P4-00 | todo |
 | P4-04 | Item set importer that keeps the user's sets | import | `MitoKit/Sources/MitoImport/ItemSets/**` | §13.4, lcu-endpoints: Item sets | P4-00 | todo |
-| P4-05 | Summoner spell importer | import | `MitoKit/Sources/MitoImport/Spells/**` | §13.3 | P0-C | todo |
+| P4-05 | Summoner spell importer | import | `MitoKit/Sources/MitoImport/Spells/**` | §13.3 | P0-C | ready |
 | P4-06 | `LoadoutImporter` and `ImportReport` | import | `MitoKit/Sources/MitoImport/*.swift` | §13.5 | P4-03, P4-04, P4-05 | todo |
 | P4-07 | Import feature: trigger on lock, toast, "Importación" tab, hand-written builds for 5 champions | import-ui | `Mito/Features/Import/**` | §13.1, §21.4 | P4-06, P3-02 | todo |
 
