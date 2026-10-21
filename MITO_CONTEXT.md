@@ -857,13 +857,59 @@ es esperar en un lobby. Una fase desconocida cae en `idle`, el estado que no hac
 
 ### 11.3 Auto-accept
 
+El auto-accept solo contesta el ready check, antes de la partida: nunca elige, banea ni actúa
+dentro de una partida (§5). Con `off` no se manda nada nunca.
+
 - Al llegar `ReadyCheck` con `state == "InProgress"` y `playerResponse == "None"`:
-  - Esperar `settings.autoAccept.delay` (default 2 s, rango 0–8 s), para que parezca humano
-    y te dé tiempo de cancelar.
-  - Si en ese lapso el usuario rechazó desde el cliente, no hacer nada.
-  - `POST /lol-matchmaking/v1/ready-check/accept`.
+  - Esperar `GameSettings.autoAcceptDelaySeconds` (default 2 s, acotado a 0–8 s), para que
+    parezca humano y te dé tiempo de cancelar.
+  - Si en ese lapso el usuario respondió desde el cliente (aceptó o rechazó), o el ready check
+    terminó o desapareció, no hacer nada.
+  - Volver a leer el ready check y los settings; si sigue calificando,
+    `POST /lol-matchmaking/v1/ready-check/accept`. Una sola vez por ready check.
 - Notificación del sistema: "Partida encontrada, aceptada".
-- Opciones: aceptar siempre, aceptar solo en ciertas colas, o solo notificar.
+- Opciones (`GameSettings.autoAccept`): `always` (aceptar siempre), `selectedQueues` (solo
+  las colas de `autoAcceptQueues`) u `off` (solo notificar).
+
+**Modelo.** `LCUKit/Matchmaking/ReadyCheck` se decodifica del body de
+`GET /lol-matchmaking/v1/ready-check` (`LCUEndpoint.readyCheck`, 404 si no hay ready check) y
+del `data` de un evento `LCUTopic.readyCheck` (`ReadyCheck(event)`). Lee solo `state` y
+`playerResponse`, ambos obligatorios (si falta uno es `LCUError.decoding`); el resto de los
+campos se ignora. `state`: `InProgress`, `EveryoneReady`, `StrangerNotReady`,
+`PartyNotReady`, `Invalid`, `Error`; `playerResponse`: `None`, `Accepted`, `Declined`. Ambos
+tienen `.unknown(String)` y distinguen mayúsculas. Un evento `Delete`, o con `data` `null` o
+vacío, es `nil`: el ready check ya no existe. Aceptar es `LCUEndpoint.acceptReadyCheck`, un
+POST sin body que responde `LCUNoContent`. Valores sin verificar todavía contra una grabación.
+
+**Política.** `AutoAcceptPolicy.decide(settings:queue:readyCheck:)` es pura y devuelve
+`.accept(after:)` o `.skip(razón)`. Mira primero el ready check y después los settings:
+
+| Condición | Decisión |
+|---|---|
+| `state != InProgress` | `skip(.notInProgress(state))` |
+| `playerResponse != None` | `skip(.alreadyAnswered(respuesta))` |
+| `off` | `skip(.disabled)` |
+| `selectedQueues` sin cola conocida | `skip(.unknownQueue)` (nunca adivina) |
+| `selectedQueues` con una cola no elegida | `skip(.queueNotSelected(cola))` |
+| `always`, o `selectedQueues` con la cola elegida | `accept(after: delay)` |
+
+**Ejecución.** `AutoAccepter(connection:clock:)` con `run(context:report:)` escucha
+`LCUTopic.readyCheck` de una conexión hasta que el stream termina (o la tarea se cancela).
+`context` da los `GameSettings` y la cola actual (`QueueID?`) y se lee en cada decisión, así
+que apagarlo durante el delay cancela el accept. El reloj se inyecta (default
+`ContinuousClock`).
+
+- Un ready check no trae id: es una racha de observaciones `InProgress`. Termina cuando llega
+  un estado distinto de `InProgress` o un `Delete`; lo siguiente que llegue es uno nuevo.
+- Se decide una vez por ready check. Si la política dice `skip`, se reporta y no se espera.
+- Durante el delay, una observación que lo descarta (respuesta del usuario, fin del ready
+  check) retira el accept y reporta el motivo. Un evento ilegible se ignora: lo cubre la
+  relectura.
+- Después del delay relee el ready check (404 es `.readyCheckEnded`) y los settings, y vuelve a
+  aplicar la política. Recién ahí manda el POST; desde ese momento nada lo retira.
+- Un POST fallido se reporta y no se reintenta.
+- Cada decisión produce un `AutoAcceptReport`: `.accepted`, `.skipped(razón)` o
+  `.failed(LCUError)`. La notificación sale de ese reporte (P2-04), no del accepter.
 
 ---
 
