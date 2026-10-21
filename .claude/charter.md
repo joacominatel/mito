@@ -6,7 +6,8 @@
 - **Owned by the CEO**: yes
 - **What it is**: a native macOS companion app for League of Legends (pre-game: auto-accept,
   champ select recommendations, rune/spell/item import) plus the Python pipeline that builds
-  its per-patch stats snapshot.
+  its per-patch stats snapshot. The pipeline lives in the private repo `mito-data`; this repo
+  only consumes the published snapshot.
 - **Source of truth for domain and decisions**: `MITO_CONTEXT.md` (Spanish), then `docs/adr/`.
 
 ## Branches
@@ -33,10 +34,9 @@
 
 | Lane | May write | Must not touch |
 | --- | --- | --- |
-| app | `apps/macos/**` | `data/**`, `tools/**` |
-| data | `data/**` | `apps/**`, `tools/**` |
-| tools | `tools/**` | `apps/**`, `data/**` |
-| tests | `apps/macos/MitoKit/Tests/**`, `apps/macos/MitoTests/**`, `data/tests/**`, `tools/*/tests/**` | all non-test code |
+| app | `apps/macos/**` | `tools/**`, `fixtures/**` |
+| tools | `tools/**` | `apps/**` |
+| tests | `apps/macos/MitoKit/Tests/**`, `apps/macos/MitoTests/**`, `tools/*/tests/**`, `fixtures/**` | all non-test code |
 | docs | `docs/**`, `*.md` | all application code |
 
 Cross-lane edits require explicit authorization in the dispatch prompt, and the commit message
@@ -51,9 +51,9 @@ A unit touching any of these forces serial execution.
 - `apps/macos/MitoKit/Package.swift`
 - `apps/macos/Config/*.xcconfig`
 - `.github/workflows/**`
-- The snapshot schema: the exporter in `data/src/mito_data/export/` and its reader in
-  `apps/macos/MitoKit/Sources/MitoStore/` (contract test in `MITO_CONTEXT.md` §23.3)
-- `data/pyproject.toml`, `data/uv.lock`
+- The snapshot contract: `MITO_CONTEXT.md` §17, `fixtures/snapshot/**`, and its reader in
+  `apps/macos/MitoKit/Sources/MitoStore/`. A change here is coordinated with `mito-data`
+  (`docs/adr/0005-data-pipeline-and-snapshot-distribution.md`).
 
 ## Validation
 
@@ -68,7 +68,7 @@ xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platfor
 CI (`.github/workflows/tests.yml`) runs only the MitoKit tests, with warnings as errors, on
 pushes to `main`/`dev` and pull requests targeting them.
 
-Pending until the `data/` and `tools/` projects exist: `uv run pytest`, `uv run ruff check`.
+Pending until the `tools/` projects exist: `uv run pytest`, `uv run ruff check` per tool.
 
 Not run locally: a real League client. Integration runs against `tools/lcu-mock`.
 
