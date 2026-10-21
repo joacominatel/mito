@@ -1,8 +1,14 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Buscando el cliente…" : {
-
+    "Mito — Buscando el cliente…" : {
+      "comment" : "Menu bar connection line while no League client is running."
+    },
+    "Mito — Conectado" : {
+      "comment" : "Menu bar connection line once the client connection is up."
+    },
+    "Mito — Conectando…" : {
+      "comment" : "Menu bar connection line while authenticating with a client that was found."
     }
   },
   "version" : "1.0"

@@ -2306,7 +2306,7 @@ Pantalla con buscador de campeones. Por cada (campeón, rol):
 ### 22.4 Barra de menú
 
 ```
-● Mito — Conectado como Joaco#LAS
+● Mito — Conectado
 ──────────────────────────────
 Fase: Champ select (tu turno)
 Recomendado: Ahri (+3,8)
@@ -2319,6 +2319,18 @@ Abrir Mito                ⌘O
 Settings…                 ⌘,
 Salir                     ⌘Q
 ```
+
+La primera línea es el estado de `connection.states()` (§11.2), una sola línea sin acciones:
+
+| Estado | Texto | Símbolo |
+|---|---|---|
+| `searching` | Mito — Buscando el cliente… | `circle.dashed`, gris |
+| `connecting` | Mito — Conectando… | `circle.dashed`, gris, con pulso |
+| `connected` | Mito — Conectado | `circle.fill`, verde |
+
+El color siempre va con el cambio de símbolo y de texto; VoiceOver lee solo el texto. El
+Riot ID ("Conectado como Joaco#LAS") se suma cuando exista un endpoint tipado de
+`current-summoner`: `states()` no lo trae.
 
 Ícono de la barra según el estado (SF Symbols): desconectado `circle.dashed`, conectado
 `circle.fill`, buscando partida `magnifyingglass`, champ select `person.3.fill`, en partida
