@@ -1002,6 +1002,38 @@ struct DraftSlot: Sendable {
 }
 ```
 
+**Mapeo desde la sesión.** `ChampSelectSession.draftContext(queue:patch:pickable:)` en LCUKit
+es una función pura. `queue`, `patch` y `pickable` no vienen en la sesión: se pasan desde
+afuera (sesión de gameflow, parche activo y `pickable-champion-ids`). El resto sale de la
+sesión:
+
+- `myCellId` es `localPlayerCellId`; `myRole` es el `assignedPosition` del miembro de
+  `myTeam` con esa celda (`nil` en blind, ARAM o con un valor desconocido).
+- `allies` es `myTeam` (incluye al jugador local) y `enemies` es `theirTeam`, en el orden de
+  la sesión. Un miembro sin `cellId` se descarta.
+- **Lock y hover van por separado.** Durante su propio turno, el cliente pone en el
+  `championId` del miembro el campeón que está hovereando, antes de lockear. Por eso un
+  campeón cuenta como lockeado solo si hay una acción `pick` con `completed` en `true` para
+  esa celda; el campeón sale de esa acción, o del `championId` del miembro si la acción no
+  trae uno. Aliados y rivales se tratan igual.
+- **Fallback sin acciones visibles:** si una celda no tiene ninguna acción `pick` (acciones
+  ocultas, colas sin acciones de pick por celda), su `championId` se toma como lockeado.
+- El hover es el `championId` del miembro mientras no esté lockeado y, si no hay, su
+  `championPickIntent`. Si vienen los dos, gana `championId`: es el hover actual del turno y
+  el intent es la intención previa al turno.
+- El rol de un slot es el `assignedPosition` del cliente con confianza 1.0; sin posición,
+  `role` es `nil` y `roleConfidence` 0. Los rivales quedan así: LCUKit no importa MitoEngine,
+  y la inferencia de 12.3 completa sus roles después.
+- `bans` es la unión de `myTeamBans`, `theirTeamBans` y el campeón de cada acción `ban`
+  completada. El hover de un ban en curso no cuenta.
+- `phase` sale de `timer.phase`. `isMyTurnToPick` e `isMyTurnToBan` son verdaderos cuando hay
+  una acción de ese tipo con `isInProgress` en `true`, `completed` distinto de `true` y
+  `actorCellId` igual a `myCellId`.
+- Devuelve `nil`, porque no hay contexto útil, cuando falta `localPlayerCellId`, cuando ningún
+  miembro de `myTeam` tiene esa celda, o cuando `timer` o `timer.phase` faltan o la fase es
+  desconocida.
+- Solo usa campeones, celdas y roles (§5). No loguea nada.
+
 ### 12.3 Inferencia de roles rivales
 
 Los rivales no traen rol. Se infieren con las distribuciones de rol del snapshot
