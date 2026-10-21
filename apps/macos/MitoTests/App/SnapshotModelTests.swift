@@ -191,6 +191,58 @@ struct SnapshotModelTests {
         #expect(snapshots.tips == .empty)
     }
 
+    @Test func theLiveSourceDownloadsFromTheInfoPlistBaseURL() throws {
+        let suite = "MitoTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        // Only built, never run: building a downloader touches neither the network nor the disk.
+        let origin = SnapshotModel.Origin.live(
+            underTest: false, defaults: defaults,
+            info: [SnapshotModel.Origin.baseURLKey: "https://data.example.dev/"])
+
+        guard case .source(let source) = origin, let live = source as? DownloadedSnapshots else {
+            Issue.record("A valid base URL must download, not \(origin)")
+            return
+        }
+        #expect(
+            live.downloader.manifestURL.absoluteString == "https://data.example.dev/manifest.json")
+    }
+
+    @Test(arguments: [
+        nil, "", "not a url", "http://data.example.dev/", "https:///manifest.json",
+        "https://snapshots.mito.invalid/", "https://invalid/", "$(MITO_DATA_BASE_URL)",
+    ])
+    func noUsableBaseURLMeansNoDownload(value: String?) throws {
+        let suite = "MitoTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let info: [String: Any] = value.map { [SnapshotModel.Origin.baseURLKey: $0] } ?? [:]
+
+        let origin = SnapshotModel.Origin.live(underTest: false, defaults: defaults, info: info)
+
+        guard case .none = origin else {
+            Issue.record("\(value ?? "nil") must not download, got \(origin)")
+            return
+        }
+    }
+
+    @Test func theAppIsBuiltWithTheRealDataHost() {
+        #expect(
+            SnapshotModel.Origin.dataBaseURL(info: Bundle.main.infoDictionary)
+                == "https://data.jminatel.dev/")
+    }
+
+    @Test func underXCTestAValidBaseURLStillNeverDownloads() {
+        let origin = SnapshotModel.Origin.live(
+            underTest: true, info: [SnapshotModel.Origin.baseURLKey: "https://data.example.dev/"])
+
+        guard case .none = origin else {
+            Issue.record("Under XCTest the origin must be .none")
+            return
+        }
+    }
+
     #if DEBUG
         @Test func theDebugFileOverrideOpensTheGivenFile() async throws {
             let suite = "MitoTests.\(UUID().uuidString)"

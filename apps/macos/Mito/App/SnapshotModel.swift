@@ -114,7 +114,7 @@ final class SnapshotModel {
             do {
                 await open(try await source.downloadCurrent())
             } catch {
-                // Expected until the bucket exists: quiet, the cached file stays in use.
+                // Offline is normal: quiet, the cached file stays in use.
                 Self.logger.notice(
                     "Snapshot download failed: \(String(describing: error), privacy: .public)")
                 status = .failed(.download(error))
@@ -151,16 +151,33 @@ final class SnapshotModel {
 }
 
 extension SnapshotModel.Origin {
+    /// Info.plist key filled from `MITO_DATA_BASE_URL` in the xcconfigs (ADR 0011).
+    static let baseURLKey = "MitoDataBaseURL"
+
     /// Under XCTest nothing opens, so tests never download or touch the real cache.
-    static func live(underTest: Bool, defaults: UserDefaults = .standard) -> Self {
+    static func live(
+        underTest: Bool, defaults: UserDefaults = .standard,
+        info: [String: Any]? = Bundle.main.infoDictionary
+    ) -> Self {
         if underTest { return .none }
         #if DEBUG
             if let path = defaults.string(forKey: SnapshotModel.fileOverrideKey) {
                 return .file(URL(filePath: path))
             }
         #endif
-        // Only an insecure base URL throws, and the built-in one is https.
-        guard let downloader = try? SnapshotDownloader() else { return .none }
+        guard let base = dataBaseURL(info: info),
+            let downloader = try? SnapshotDownloader(baseURL: base)
+        else { return .none }
         return .source(DownloadedSnapshots(downloader: downloader))
+    }
+
+    /// `nil` when missing, not HTTPS, or on an `.invalid` host: the app then never downloads.
+    static func dataBaseURL(info: [String: Any]?) -> String? {
+        guard let value = info?[baseURLKey] as? String,
+            let url = URL(string: value), url.scheme?.lowercased() == "https",
+            let host = url.host()?.lowercased(), !host.isEmpty,
+            host != "invalid", !host.hasSuffix(".invalid")
+        else { return nil }
+        return value
     }
 }

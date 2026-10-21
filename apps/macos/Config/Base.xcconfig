@@ -13,7 +13,7 @@ LOCALIZATION_PREFERS_STRING_CATALOGS = YES
 PRODUCT_NAME = Mito
 PRODUCT_BUNDLE_IDENTIFIER = com.joacominatel.mito
 GENERATE_INFOPLIST_FILE = YES
-// Merged into the generated plist; carries the Sparkle keys, which have no INFOPLIST_KEY_ form.
+// Merged into the generated plist; carries the keys with no INFOPLIST_KEY_ form (Sparkle, data URL).
 INFOPLIST_FILE = Config/Info.plist
 INFOPLIST_KEY_CFBundleDisplayName = Mito
 INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.games
@@ -21,6 +21,10 @@ INFOPLIST_KEY_LSUIElement = YES
 
 // Outside the Mac App Store: the app reads the client's lockfile and process args (MITO_CONTEXT.md §24).
 ENABLE_APP_SANDBOX = NO
+
+// Snapshot and tips host (ADR 0011); the app reads only `manifest.json` here. Empty, non-HTTPS or
+// `.invalid` means no download. `/$()/` keeps `//` from starting an xcconfig comment.
+MITO_DATA_BASE_URL = https:/$()/data.jminatel.dev/
 
 // Sparkle (ADR 0009). Empty or `.invalid` keeps the updater off: no checks, no network.
 MITO_SPARKLE_FEED_URL =

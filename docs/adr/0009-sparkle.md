@@ -9,8 +9,9 @@
 Mito ships outside the Mac App Store (§24), so it needs its own updater. `MITO_CONTEXT.md` §24
 already settles Sparkle with an EdDSA-signed appcast, and a beta that is a Release published on
 Sparkle's `beta` channel rather than a separate build configuration. Two inputs belong to the
-CEO and are still open (roadmap Q5): the EdDSA key pair and where the appcast is hosted. The
-integration has to land before them without ever checking a feed that does not exist.
+CEO: the EdDSA key pair and where the appcast is hosted. Both are now known (see "Turning it
+on"), but turning updates on waits for a Developer ID. The integration has to land before them
+without ever checking a feed that does not exist.
 
 ## Decision
 
@@ -48,21 +49,24 @@ integration has to land before them without ever checking a feed that does not e
   the active app instead of stealing focus. Nothing is automated during a match.
 - **Keys.** The EdDSA private key lives only in the CEO's login Keychain, where Sparkle's
   `generate_keys` stores it. It never enters the repository, CI, or an xcconfig. The public key
-  is not secret and is committed in `Release.xcconfig`.
+  is not secret: it is recorded below and goes into `Release.xcconfig` in P10-07.
 - **Entitlements.** None. With the App Sandbox off, Sparkle needs no XPC services or
   entitlements, and Release keeps the hardened runtime (ADR 0002).
 
-## Turning it on (roadmap Q5)
+## Turning it on (P10-07)
 
-Q5 must provide:
+The inputs are settled; they are set in P10-07, when a Developer ID exists, because an update
+needs a notarized build (ADR 0010):
 
-1. The public EdDSA key printed by `generate_keys` (base64, 44 characters), set as
-   `MITO_SPARKLE_PUBLIC_ED_KEY` in `Release.xcconfig`.
-2. The HTTPS URL where `appcast.xml` will be served, set as `MITO_SPARKLE_FEED_URL` in
-   `Release.xcconfig` (written `https:/$()/host/path` so `//` is not an xcconfig comment).
+1. `MITO_SPARKLE_FEED_URL = https:/$()/data.jminatel.dev/app/appcast.xml` in
+   `Release.xcconfig` (written with `/$()/` so `//` is not an xcconfig comment). The feed lives
+   under `app/` in the data bucket, which only the release pipeline writes (ADR 0011).
+2. `MITO_SPARKLE_PUBLIC_ED_KEY = RZjee+ZzBKqCod/i4IoTCqNSqJg2MjJjwUh1xvpajPw=` in
+   `Release.xcconfig`. The matching private key is in the CEO's Keychain.
 
-Nothing else changes in code. The release pipeline (P10-02) signs each archive with
-`sign_update` from the same Keychain and publishes the appcast.
+Until then both stay as they are on purpose: the `.invalid` feed and an empty key. Builds are
+installed by hand with `scripts/release/install-local.sh`. Nothing else changes in code. The
+release pipeline (P10-02) signs each archive from the same Keychain and publishes the appcast.
 
 ## Consequences
 

@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>MitoDataBaseURL</key>
+	<string>$(MITO_DATA_BASE_URL)</string>
 	<key>SUFeedURL</key>
 	<string>$(MITO_SPARKLE_FEED_URL)</string>
 	<key>SUPublicEDKey</key>

@@ -14,6 +14,25 @@ scripts/release/release.sh --appcast ~/Downloads/appcast.xml   # add to the publ
 Run it from any checkout of the repository; paths resolve from the git root. The version comes
 from `apps/macos/Config/Version.xcconfig`: bump it there, commit, then release.
 
+## Local install (no Developer ID)
+
+```sh
+scripts/release/install-local.sh                       # into /Applications
+scripts/release/install-local.sh --dest build/scratch  # anywhere else, for a check
+```
+
+`install-local.sh` builds Release ad-hoc signed into `build/DerivedData` (log in
+`build/install-local/build.log`), quits a Mito running from the destination with AppleScript
+and waits up to 15 seconds, then replaces `Mito.app` and prints the installed version. A
+failed build or a Mito that will not quit leaves the old install in place. Settings,
+Application Support, the personal database and caches live outside the bundle, keyed by the
+bundle ID, so they survive. It never launches the app; it prints the `open` command instead.
+
+A build made on this Mac carries no quarantine attribute, so Gatekeeper does not block it and
+nothing needs to be cleared. The hardened runtime is off in this build, as in Debug: with
+ad-hoc signing, library validation would refuse `Sparkle.framework`. Updates stay off until
+P10-07.
+
 ## Steps
 
 1. **Preflight**: clean tree, version, a real Release Sparkle config (feed not `.invalid`,
@@ -33,7 +52,9 @@ from `apps/macos/Config/Version.xcconfig`: bump it there, commit, then release.
 
 `build/release/<version>/` (git-ignored): `Mito.app`, `Mito.dmg`, `appcast.xml`,
 `notarization/` (Apple's submission results and logs), and `logs/`. The script ends by
-printing what to upload where; it never uploads.
+printing what to upload where; it never uploads. The DMG goes to
+`https://<feed host>/app/releases/<version>/Mito.dmg` unless `--download-url-prefix` says
+otherwise ([ADR 0011](../../docs/adr/0011-r2-layout.md)).
 
 ## One-time setup (CEO)
 
@@ -41,9 +62,9 @@ printing what to upload where; it never uploads.
   If the Keychain holds several, set `MITO_SIGNING_IDENTITY` to the one to use.
 - `xcrun notarytool store-credentials mito-notary` (an App Store Connect API key or an
   app-specific password). Another profile name works with `MITO_NOTARY_PROFILE`.
-- Roadmap Q5: Sparkle's `generate_keys` (the private key stays in the Keychain, account
-  `ed25519` or `MITO_SPARKLE_ACCOUNT`), and the public key and HTTPS feed URL set in
-  `apps/macos/Config/Release.xcconfig`.
+- Sparkle's `generate_keys` (the private key stays in the Keychain, account `ed25519` or
+  `MITO_SPARKLE_ACCOUNT`). In P10-07 the public key and the feed recorded in
+  [ADR 0009](../../docs/adr/0009-sparkle.md) are set in `apps/macos/Config/Release.xcconfig`.
 
 No secret is passed on the command line, written to a file, or printed.
 
@@ -56,5 +77,5 @@ it skipped and each preflight failure a real run would stop on.
 ## Checks
 
 ```sh
-uvx --from shellcheck-py shellcheck scripts/release/release.sh
+uvx --from shellcheck-py shellcheck scripts/release/*.sh
 ```

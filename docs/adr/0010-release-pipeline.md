@@ -9,8 +9,8 @@
 Mito ships outside the Mac App Store as a Developer ID signed, notarized DMG that Sparkle can
 update (`MITO_CONTEXT.md` §24). Every input that makes a release trustworthy is a secret the
 CEO holds: the Developer ID certificate, the notary service credentials, and Sparkle's EdDSA
-private key. None of them may enter the repository, a log, or the build output. Where the DMG
-and the appcast are hosted is still open (roadmap Q5), so the pipeline cannot upload.
+private key. None of them may enter the repository, a log, or the build output. The DMG and the
+appcast are hosted under `app/` in the data bucket (ADR 0011); the pipeline does not upload.
 
 ## Decision
 
@@ -37,7 +37,8 @@ and the appcast are hosted is still open (roadmap Q5), so the pipeline cannot up
   an existing appcast. It replaces a separate `sign_update` call. The current appcast can be
   passed with `--appcast` so the new item is added to it. `--beta` passes `--channel beta`,
   producing `<sparkle:channel>beta</sparkle:channel>`. Each version's DMG is served from
-  `<feed directory>/<version>/Mito.dmg` unless `--download-url-prefix` says otherwise.
+  `https://<feed host>/app/releases/<version>/Mito.dmg` (ADR 0011) unless
+  `--download-url-prefix` says otherwise.
 - **Output.** `build/release/<version>/` (inside the git-ignored `/build/`): `Mito.app`,
   `Mito.dmg`, the appcast named after the feed URL, `notarization/` with Apple's results and
   logs, and `logs/`. The script prints what to upload and where, DMG first.
@@ -68,10 +69,11 @@ real release folder never is.
 
 ## Still missing
 
-- **Roadmap Q5**: the EdDSA key pair and the feed URL. Until `Release.xcconfig` has both, a
-  real run stops in preflight.
-- **Hosting** (Q5, likely R2): there is no upload step. The first upload is manual, following
-  the printed list.
+- **P10-07**: a Developer ID, then the feed and public key recorded in ADR 0009 set in
+  `Release.xcconfig`. Until then a real run stops in preflight; local builds are installed with
+  `scripts/release/install-local.sh`.
+- **Upload**: there is no upload step. `app/appcast.xml` and `app/releases/<version>/Mito.dmg`
+  go to R2 by hand, following the printed list.
 - **Release notes**: none are attached to the appcast item yet.
 - The configured public key is not compared with the Keychain's private key. Builds before
   the first configured release are inert, so the first real check is updating from the first

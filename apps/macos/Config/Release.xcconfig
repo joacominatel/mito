@@ -4,8 +4,7 @@ ENABLE_HARDENED_RUNTIME = YES
 DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
 SWIFT_COMPILATION_MODE = wholemodule
 
-// Placeholders until roadmap Q5 provides the appcast host and the public EdDSA key. `/$()/`
-// keeps `//` from starting an xcconfig comment.
+// Off on purpose until P10-07 and a Developer ID: the real feed and key are in ADR 0009.
 MITO_SPARKLE_FEED_URL = https:/$()/updates.mito.invalid/appcast.xml
 MITO_SPARKLE_PUBLIC_ED_KEY =
 

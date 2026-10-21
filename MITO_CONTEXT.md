@@ -2146,10 +2146,10 @@ y a las listas estáticas.
 
 ### 14.12 Export
 
-- Un archivo por (schema_version, parche, cola, bracket):
-  `schema-1/16.21/420/emerald_plus.sqlite.xz`. `emerald_plus` es la base y se publica
-  siempre; `diamond_plus` es una capa opcional con el mismo schema; `master_plus` no se
-  publica hasta que el volumen medido lo justifique.
+- Un archivo por (schema_version, parche, cola, bracket) y build:
+  `snapshots/v1/16.21/420/emerald_plus/20261020T120000Z-1a2b3c4d.sqlite.xz`. `emerald_plus`
+  es la base y se publica siempre; `diamond_plus` es una capa opcional con el mismo schema;
+  `master_plus` no se publica hasta que el volumen medido lo justifique.
 - Se exportan solo filas que pasan el mínimo de §18.2. Los mínimos salen de la misma config
   que se escribe en `meta.thresholds`. Excepciones: `champion_roles` va completa (la
   inferencia de roles necesita los roles raros) y las filas que exige la regla de completitud.
@@ -2212,6 +2212,22 @@ con `reviewed_patch` que no es `X.Y` se salta. El texto nunca se loguea.
 - `manifest.json`. `sha256` y `bytes` son del archivo comprimido; `raw_bytes`, del SQLite
   descomprimido. La app ignora entradas con un `schema_version` que no soporta; durante una
   transición se publican las dos versiones.
+- **Bucket** (R2 en `https://data.jminatel.dev/`, ADR 0011): `manifest.json` es el único
+  objeto de datos que se reescribe (`Cache-Control: no-cache`). Snapshots
+  (`snapshots/v<schema_version>/<parche>/<cola>/<bracket>/<build>.sqlite.xz`) y tips
+  (`tips/v<format_version>/<locale>/<build>.json`) son inmutables (cache de un año): un
+  republish es un build nuevo, nunca otro contenido en la misma key. `<build>` es
+  `<UTC yyyymmddTHHMMSSZ>-<8 hex del commit de mito-data>`. Cada publish deja
+  `audit/publishes/<build>.json` (el manifest tal cual, commit, ventana y conteos del crawl,
+  cada key con `sha256` y `bytes`, el build reemplazado, hora UTC) y cada poda explícita,
+  `audit/prunes/<UTC>.json`; ninguno se modifica ni se borra, y no hay reglas de ciclo de vida.
+  Se conserva lo que referencia el manifest actual más el último build del parche anterior.
+  `mito-data` escribe todo menos `app/**`, que es del pipeline de release (§24).
+- **En la app:** la base sale de `MITO_DATA_BASE_URL` en los xcconfig (Debug y Release:
+  `https://data.jminatel.dev/`), vía la key `MitoDataBaseURL` de `Config/Info.plist`. La app
+  solo asume `manifest.json` en la base y sigue las URLs absolutas del manifest, que tienen que
+  ser HTTPS. Sin valor, sin HTTPS o con host `.invalid` no hay descarga (el modo sin snapshot
+  de §20.3); bajo XCTest nunca hay red.
 
 ```json
 {
@@ -2224,7 +2240,7 @@ con `reviewed_patch` que no es `X.Y` se salta. El texto nunca se loguea.
       "patch": "16.21",
       "queue": 420,
       "bracket": "emerald_plus",
-      "url": "https://data.example/schema-1/16.21/420/emerald_plus.sqlite.xz",
+      "url": "https://data.jminatel.dev/snapshots/v1/16.21/420/emerald_plus/20261020T120000Z-1a2b3c4d.sqlite.xz",
       "sha256": "…",
       "bytes": 1650000,
       "raw_bytes": 4900000,
@@ -2236,7 +2252,7 @@ con `reviewed_patch` que no es `X.Y` se salta. El texto nunca se loguea.
     {
       "format_version": 1,
       "locale": "es-AR",
-      "url": "https://data.example/tips/1/es-AR.json",
+      "url": "https://data.jminatel.dev/tips/v1/es-AR/20261018T090000Z-5e6f7a8b.json",
       "sha256": "…",
       "bytes": 48211,
       "updated_at": "2026-10-18T09:00:00Z"
@@ -4349,10 +4365,11 @@ Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10
   repo. `SUFeedURL` y `SUPublicEDKey` salen de `MITO_SPARKLE_FEED_URL` y
   `MITO_SPARKLE_PUBLIC_ED_KEY` en los xcconfig, vía `Config/Info.plist`.
 - **Apagado hasta configurarse**: Debug no tiene feed y nunca actualiza; Release trae
-  `https://updates.mito.invalid/appcast.xml` y la clave vacía hasta que se resuelva la Q5 del
-  roadmap. `UpdaterModel` crea el updater de Sparkle solo si el build no es Debug, el feed es
-  HTTPS sobre un host que no es `.invalid` y la clave son 32 bytes en base64; si no (y siempre
-  bajo XCTest), no hay chequeos ni red.
+  `https://updates.mito.invalid/appcast.xml` y la clave vacía a propósito hasta P10-07, cuando
+  haya Developer ID. El feed (`https://data.jminatel.dev/app/appcast.xml`) y la clave pública
+  ya están decididos y anotados en ADR 0009. `UpdaterModel` crea el updater de Sparkle solo si
+  el build no es Debug, el feed es HTTPS sobre un host que no es `.invalid` y la clave son 32
+  bytes en base64; si no (y siempre bajo XCTest), no hay chequeos ni red.
 - La beta es un Release publicado en el canal `beta` de Sparkle (`<sparkle:channel>beta`), no
   otra configuración. "Recibir versiones beta" (§21.1) suma ese canal al default.
 - Chequeos programados con los defaults de Sparkle (uno por día), sin descarga ni instalación
@@ -4365,13 +4382,21 @@ Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10
   Un chequeo pedido por el usuario se muestra siempre en el momento. No es automatizar nada
   dentro de la partida: Mito solo calla su propio aviso.
 - Instalación por DMG. Opcional: cask de Homebrew.
+- **Instalación local, sin Developer ID** (hasta P10-07): `scripts/release/install-local.sh`
+  compila Release firmado ad-hoc (sin hardened runtime, como Debug), cierra con AppleScript un
+  Mito abierto desde el destino, reemplaza `/Applications/Mito.app` (`--dest <dir>` para otro
+  lugar) e imprime la versión. Si el build falla o la app no se cierra, la instalación vieja
+  queda intacta. Los datos (Application Support, settings, la base personal, cachés) van por
+  bundle ID fuera del bundle y se conservan. Nunca abre la app. Un build local no lleva
+  cuarentena, así que no hay nada que limpiar. Sin actualizaciones automáticas.
 - **Pipeline de release** (`scripts/release/release.sh`, ADR 0010): preflight (árbol limpio,
   versión de `Version.xcconfig`, feed y clave de Sparkle reales en Release, identidad
   Developer ID y perfil de `notarytool` presentes), archive Release firmado con Developer ID,
   export `developer-id`, chequeo de firma de la app y de los helpers de Sparkle,
   notarización y staple de la app, DMG con `hdiutil` (APFS, symlink a Applications) firmado,
   notarizado y stapleado, y appcast con `generate_appcast` (`--beta` lo publica en el canal
-  `beta`). Todo queda en `build/release/<versión>/`; no sube nada, imprime qué subir y adónde.
+  `beta`). Todo queda en `build/release/<versión>/`; no sube nada, imprime qué subir y adónde:
+  el DMG va a `app/releases/<versión>/Mito.dmg` en el host del feed (ADR 0011).
   Los secretos se leen del Llavero del CEO en el momento y nunca se escriben ni se loguean.
   `--dry-run` corre sin credenciales: archive ad-hoc, DMG y un reporte de los pasos salteados.
 - Permisos de macOS: notificaciones. No hace falta Accesibilidad ni Grabación de pantalla

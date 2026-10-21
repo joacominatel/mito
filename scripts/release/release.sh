@@ -12,7 +12,7 @@ Usage: scripts/release/release.sh [--dry-run] [--beta] [--appcast <file>] [--dow
   --appcast <file>           The currently published appcast, to add the new item to.
   --download-url-prefix <url>
                              Where the DMG will be served from. Defaults to
-                             <feed directory>/<version>/.
+                             https://<feed host>/app/releases/<version>/ (ADR 0011).
 
 Environment (all optional):
   MITO_SIGNING_IDENTITY      Developer ID Application identity name or SHA-1, when the login
@@ -123,10 +123,10 @@ PUBLIC_ED_KEY="$(release_setting MITO_SPARKLE_PUBLIC_ED_KEY)"
 
 feed_host="$(printf '%s' "$FEED_URL" | sed -nE 's#^https://([^/:]+).*#\1#p' | tr '[:upper:]' '[:lower:]')"
 if [[ -z "$feed_host" || "$feed_host" == "invalid" || "$feed_host" == *.invalid ]]; then
-  problem "MITO_SPARKLE_FEED_URL in Release.xcconfig is '${FEED_URL:-empty}', not a real HTTPS feed. Set it once roadmap Q5 picks the appcast host (ADR 0009)."
+  problem "MITO_SPARKLE_FEED_URL in Release.xcconfig is '${FEED_URL:-empty}', not a real HTTPS feed. It stays off until P10-07; the real feed is in ADR 0009."
 fi
 if [[ "$(printf '%s' "$PUBLIC_ED_KEY" | base64 -D 2>/dev/null | wc -c | tr -d ' ')" != "32" ]]; then
-  problem "MITO_SPARKLE_PUBLIC_ED_KEY in Release.xcconfig is not a base64 Ed25519 public key. Set it to the key generate_keys prints once roadmap Q5 is done (ADR 0009)."
+  problem "MITO_SPARKLE_PUBLIC_ED_KEY in Release.xcconfig is not a base64 Ed25519 public key. It stays empty until P10-07; the real key is in ADR 0009."
 fi
 log "    feed: ${FEED_URL:-<empty>}"
 log "    public EdDSA key: $([[ -n "$PUBLIC_ED_KEY" ]] && echo set || echo '<empty>')"
@@ -160,7 +160,7 @@ fi
 if security find-generic-password -s "https://sparkle-project.org" -a "$SPARKLE_ACCOUNT" >/dev/null 2>&1; then
   log "    Sparkle EdDSA key: in the Keychain (account $SPARKLE_ACCOUNT)"
 else
-  problem "No Sparkle EdDSA private key in the Keychain for account '$SPARKLE_ACCOUNT'. It comes from Sparkle's generate_keys (roadmap Q5)."
+  problem "No Sparkle EdDSA private key in the Keychain for account '$SPARKLE_ACCOUNT'. It comes from Sparkle's generate_keys (ADR 0009)."
 fi
 
 OUT="$ROOT/build/release/$VERSION"
@@ -339,7 +339,7 @@ GENERATE_APPCAST="$SPARKLE_BIN/generate_appcast"
 [[ -x "$GENERATE_APPCAST" ]] || fail "Sparkle's generate_appcast is not at $GENERATE_APPCAST; the archive should have resolved the Sparkle package there."
 FEED_NAME="$(basename "${FEED_URL:-appcast.xml}")"
 if [[ -z "$DOWNLOAD_URL_PREFIX" ]]; then
-  DOWNLOAD_URL_PREFIX="${FEED_URL%/*}/$VERSION/"
+  DOWNLOAD_URL_PREFIX="https://$feed_host/app/releases/$VERSION/"
 fi
 [[ "$DOWNLOAD_URL_PREFIX" == */ ]] || DOWNLOAD_URL_PREFIX="$DOWNLOAD_URL_PREFIX/"
 appcast_cmd=("$GENERATE_APPCAST" --account "$SPARKLE_ACCOUNT" --download-url-prefix "$DOWNLOAD_URL_PREFIX")
