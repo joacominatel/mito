@@ -123,9 +123,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 
 | # | Item | Blocks | Since |
 | --- | --- | --- | --- |
-| Q1 | Apply for the Riot Personal API key in the Developer Portal | publishing any snapshot (MD5 publish) | 2026-10-21 |
 | Q2 | Create the Cloudflare R2 account and the `mito-data` remote repository | MD5 publish, mito-data CI | 2026-10-21 |
-| Q3 | Record LCU fixtures with `tools/lcu-recorder` (`champ-select`, `ready-check`, `lobby-to-game`) | verifying every LCU field name; P2-05 mock scenarios | 2026-10-21 |
 | Q5 | Generate the Sparkle EdDSA key pair (`generate_keys`, private key stays in your Keychain) and choose where the appcast is hosted (R2 with the snapshots?) | turning updates on in a Release; P10-01 ships with the updater off until the public key and feed URL are set | 2026-10-21 |
 
 ## External deliveries
@@ -298,6 +296,7 @@ Can overlap Stage 6.
 | --- | --- | --- | --- | --- | --- | --- |
 | P10-01 | Sparkle | shell (serial) + pbxproj + xcconfig | `Mito/App/**`, `Mito.xcodeproj/**`, `Config/*.xcconfig` | §21.1, §22.4, §24; ADR 0009 | P9-09 | merged |
 | P10-06 | General settings take effect: open at login, menu bar icon, Dock icon and the activation policy (§24), the LoL install path in lockfile discovery; Sparkle defers scheduled update prompts while a game is running | shell (serial) | `Mito/App/**`, `Mito/Scenes/**`, `Mito/Features/Onboarding/**`, `LCUKit` discovery (path override), their tests | §21.1, §24 | P10-01 | merged |
+| LV-01 | Recorded LCU scenarios (`ready-check`, `champ-select`, `lobby-to-game`) land; every documented endpoint and decoded field is checked against them; decoding tests over the recordings; `tools/lcu-mock` replays the recorded ready-check | lcu + fixtures + tools-lcu-mock | `fixtures/lcu/<scenario>/**`, `MitoKit/Sources/LCUKit/**` (decoding fixes only), `MitoKit/Tests/LCUKitTests/**`, `tools/lcu-mock/**`, `docs/lcu-endpoints.md` | §10, §23.1 | P10-06 | in progress |
 | P10-02 | Release pipeline: archive, Developer ID signing, notarization, DMG, Sparkle archive signature and appcast; every secret read from the CEO's Keychain at run time, a dry run works without them | release | `scripts/release/**` | §24; ADR 0010 | P10-01 | in progress |
 | P10-03 | About screen and legal disclaimer | about | `Mito/Features/About/**` | — | P9-07 | merged |
 | P10-04 | Register the app in the Riot Developer Portal | CEO | — | — | P10-03 | todo |
