@@ -41,8 +41,9 @@ sections your prompt names before writing code.
 When you are dispatched for a unit in `docs/roadmap.md` (ADR 0006):
 
 - Work only in the worktree your prompt names (`.worktrees/<id>-<slug>`, branch
-  `unit/<id>-<slug>`). Your first write is `.claude/lane` in that worktree, with the write
-  globs from your unit card, one per line. Stay inside them.
+  `unit/<id>-<slug>`). Your first write is `.claude/lane` in that worktree, with one
+  `allow <glob>` line per write glob from your unit card (the harness lane guard ignores bare
+  globs). Add the `MITO_CONTEXT.md` and docs files your card lets you edit. Stay inside them.
 - Commit by responsibility on the unit branch, scoped with your lane name, following the
   charter. Never push, never merge into `dev`, never edit `docs/roadmap.md`.
 - Edit only the `MITO_CONTEXT.md` sections and the `docs/lcu-endpoints.md` group your card

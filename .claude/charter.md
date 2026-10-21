@@ -67,7 +67,8 @@ Feature lanes and their folders: `connection` (Connection), `gameflow` (Gameflow
 
 A unit's write set may be a narrower folder inside its lane (for example
 `MitoKit/Sources/LCUKit/Discovery/**`); units in one module run in parallel when their
-folders are disjoint. The agent writes its globs to `.claude/lane` in its worktree. Each unit
+folders are disjoint. The agent writes its globs to `.claude/lane` in its worktree, one `allow <glob>` line each
+(the harness guard's format; `deny <glob>` narrows), including the doc files its card may edit. Each unit
 owns its tests; the `tests` lane is for `test-engineer` audits and never runs alongside the
 unit it audits. Cross-lane edits require explicit authorization in the unit card, and the
 commit message records it.
