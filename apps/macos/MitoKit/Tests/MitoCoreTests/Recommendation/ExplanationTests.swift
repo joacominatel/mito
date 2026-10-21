@@ -52,6 +52,7 @@ struct RecommendationPrivacyTests {
             .matchup(opponent: zed, delta: -0.02, games: 497),
             .profileMatchup(
                 opponent: zed, profiles: [.heavyAD, .heavyCC], delta: -0.01, games: 900),
+            .expectedMatchup(role: .middle, delta: 0.011, opponents: 10),
             .comfort(poolRank: 3, games: 41, winrate: 0.56),
             .versusEnemy(enemy: zed, delta: 0.01, games: 661),
             .synergy(ally: zed, allyRole: .jungle, delta: 0.01, games: 247),

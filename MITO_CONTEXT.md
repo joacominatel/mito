@@ -2763,7 +2763,8 @@ score(c) =  w_meta    · meta(c, r)
 Componentes (todos en "puntos de winrate" para que sean comparables):
 
 - `meta`: `wr_smoothed(c, r) − 0,5`
-- `matchup`: delta contra el rival de lane, mezclado por probabilidad de rol si es inferido
+- `matchup`: delta contra el rival de lane, mezclado por probabilidad de rol si es inferido;
+  sin rival de lane, el delta esperado contra los más jugados del rol (abajo)
 - `vs_team`: deltas contra el resto de los rivales, con peso reducido (0,3)
 - `synergy`: deltas con aliados. Peso alto para pares fuertes (bot + support, jungla + mid)
 - `comp_fit`: equilibrio de la composición (ver 18.4)
@@ -2776,7 +2777,7 @@ Pesos iniciales:
 | Peso | Default | Notas |
 |---|---|---|
 | `w_meta` | 1,0 | |
-| `w_matchup` | 1,2 | Se anula si el rival de lane no se conoce |
+| `w_matchup` | 1,2 | Igual sin rival de lane: pesa el delta esperado, que ya viene diluido |
 | `w_counter` | 0,3 | |
 | `w_synergy` | 0,6 | |
 | `w_comp` | 0,8 | |
@@ -2828,6 +2829,7 @@ struct Reason: Sendable {          // MitoCore/Recommendation/Reason.swift
     enum Kind {
         case matchup(opponent:delta:games:)          // el signo del delta da fuerte o débil
         case profileMatchup(opponent:profiles:delta:games:)   // backoff del matchup al perfil rival
+        case expectedMatchup(role:delta:opponents:)  // sin rival de lane: promedio vs los más jugados
         case versusEnemy(enemy:delta:games:)
         case synergy(ally:allyRole:delta:games:)
         case meta(tier:games:)
@@ -2871,8 +2873,19 @@ Precisiones (`MitoEngine/Pick/PickScoring`):
   (§12.3) entre los roles que ningún slot rival tiene. `p(e)` es la probabilidad de que `e`
   juegue tu rol (1 o 0 con rol, `roleProbabilities` si no). `matchup = Σ p(e) · delta(c vs e)`
   y `vs_team = Σ (1 − p(e)) · delta_vs_team(c, e)` sobre los rivales lockeados: cada rival
-  cuenta como lane o como resto del equipo según su probabilidad. Sin ningún rival con
-  probabilidad en tu rol, el matchup vale 0.
+  cuenta como lane o como resto del equipo según su probabilidad.
+- Rival de lane desconocido: si ningún rival lockeado tiene `p(e) > 0` en tu rol (ninguno
+  asignado ni inferido ahí), `matchup` es el delta esperado contra los rivales más probables
+  del rol. Son los `K = 10` campeones con más partidas en `champ_role_stats` de tu rol, desde el
+  mínimo de `champ_role`, sin lo lockeado ni lo hovereado por cualquiera (aliados, rivales y
+  vos), sin lo baneado y sin el propio candidato (`PickScoring.likelyOpponentCount`). Cada uno
+  pesa su share de partidas entre esos 10, y su delta es el mismo de un rival de lane: la fila
+  de `matchup_stats` o el backoff al perfil rival. `matchup = Σ share(o) · delta(c vs o)` sobre
+  los que tienen delta usable; los que no, salen sin renormalizar, así la falta de datos acerca
+  el término a 0 en vez de inflarlo. `w_matchup` sigue en 1,2. La razón es
+  `expectedMatchup(role:delta:opponents:)` con ese delta, los rivales que tuvieron delta y el
+  nivel de muestra más bajo entre ellos; si ninguno tiene, no hay razón y el matchup vale 0.
+  Con un rival conocido o inferido no cambia nada, y en ARAM no se calcula (no hay rol, §20.3).
 - Sinergia: los aliados lockeados sin tu slot, en su rol asignado o inferido (como en §18.4).
   Un par fuerte (bottom + utility, jungle + middle, en cualquier orden) cuenta ×1,5 dentro de
   la suma.
@@ -2887,10 +2900,10 @@ Precisiones (`MitoEngine/Pick/PickScoring`):
   tengo" es lo que tenés y "Todos" no filtra; el pool y lo que tenés son entradas. Nunca se
   rankea lo baneado ni lo lockeado por cualquier equipo; los hovers sí.
 - Razones: una por cada término con fila usable (matchup, vs_team y sinergia por campeón, el
-  tier del candidato y las de comp fit), ordenadas por el valor absoluto de su aporte
-  ponderado al score; a igual aporte, primero los rivales en orden de draft (matchup y después
-  vs_team), luego los aliados, el tier, el comp fit y la comodidad. Cada una lleva el nivel de
-  muestra de su fila.
+  matchup esperado, el tier del candidato y las de comp fit), ordenadas por el valor absoluto
+  de su aporte ponderado al score; a igual aporte, primero el matchup esperado, después los
+  rivales en orden de draft (matchup y después vs_team), luego los aliados, el tier, el comp
+  fit y la comodidad. Cada una lleva el nivel de muestra de su fila.
 - Comodidad: una razón `comfort` cuando `personal` no es 0 y hay partidas propias con el
   candidato en ese rol, con su winrate crudo (`wins / games`) y su `poolRank`. Su aporte es
   `w_personal · personal` y no lleva muestra (no es una fila del snapshot).
@@ -3460,12 +3473,17 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
      un solo lado, "Ahri llega a 6 a los 7:40". Un perfil con `tl_games` debajo del mínimo de
      `build_layer` (el denominador de esas medianas) no cuenta. Llegar primero exige 20 s de
      diferencia; menos es ruido.
-   - **Claves:** `Clave` es `.curated(CuratedTip)` o `.generated(ClaveTemplate, sample:)`; con
-     tips curados (P9-05) reemplazan a los generados y se muestra "revisado en 16.20" si el
-     parche no es el del snapshot. Hoy no llegan tips, así que van las plantillas, solo con
-     rival y en este orden: el matchup (|delta| ≥ 1 punto), el oro @15 (|diff| ≥ 100), el primer
-     power spike con alguien primero y la curva contra el rival. Cada una lleva la muestra de su
-     dato y la marca de muestra baja si no es "confiable".
+   - **Claves:** `Clave` es `.curated(CuratedTip)` o `.generated(ClaveTemplate, sample:)`. Los
+     tips curados llegan desde P9-06: `SnapshotModel` carga los instalados al arrancar y, después
+     de chequear el snapshot, los reemplaza con los que baja (si la descarga falla quedan los
+     instalados), y `AnalysisSubject.tips` los pasa a la pestaña. `MatchupPresentation` pide
+     los de (campeón, rol, rival): primero los del rival y después los generales del campeón en
+     el rol; sin rival, solo los generales. Si hay alguno reemplazan a las plantillas, en el
+     orden del archivo, con "revisado en 16.20" si el parche del tip no es el del snapshot y
+     sin muestra. Sin tips, van las plantillas, solo con rival y en este orden: el matchup
+     (|delta| ≥ 1 punto), el oro @15 (|diff| ≥ 100), el primer power spike con alguien primero
+     y la curva contra el rival. Cada una lleva la muestra de su dato y la marca de muestra baja
+     si no es "confiable".
    - VoiceOver: el encabezado, cada bloque de números y cada línea son un solo elemento.
 2. **Composición:** perfil de daño de ambos equipos (ponderado por `dmg_per_min`), perfiles
    del rival (`heavy_ad`, `heavy_cc`…), frontline, CC, early vs late (de `duration_curves`),
@@ -3541,6 +3559,11 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
      "Sin datos de Ahri"; ARAM, lo fijo que mandaría el importador ("Lo fijo de Ahri": página,
      spells o set del primer override en orden de rol que fija algo, §13.1), si no "Sin build de
      ARAM".
+   - Sin snapshot (P9-06): `.fixed(parts)` con lo fijo del override para el rol asignado o el
+     del selector, lo mismo que mandaría el importador: "Lo fijo de Ahri · MID" y "Sin
+     estadísticas del parche: solo lo que guardaste.", con cada parte como "Fija del override"
+     y sin muestra ni alternativas. Si el override no fija nada para ese rol, o no hay rol al
+     que mirar, `.noSnapshot`: el mismo "Sin estadísticas todavía" del panel.
    - No tiene "Importar ahora" ni "Editar": la acción vive en Import (P9-06/P9-07).
 4. **Mi historial:** tu rendimiento con ese campeón, vs ese rival y en ese rol. Implementado
    (`PersonalHistory.read` en `MitoEngine/Analysis/History/`, sobre `PersonalMetrics`;
@@ -3599,7 +3622,11 @@ En inicio de parche, el encabezado muestra "Datos 16.21 + 16.20" desde `meta.ble
   overrides, aun sin snapshot, y si no hay nada fijo no importa nada y lo avisa una vez
   (§13.1); la pestaña Build muestra lo mismo, también sin snapshot.
 - **Rival de lane desconocido:** se muestran recomendaciones "seguras" (mejor promedio
-  contra los rivales más probables del rol, ponderado por pick rate). Pendiente (P9-08).
+  contra los rivales más probables del rol, ponderado por pick rate). Implementado (P9-08):
+  sin rival lockeado asignado ni inferido en tu rol, el `matchup` del score de pick es el delta
+  esperado contra los 10 más jugados del rol que siguen disponibles, ponderado por su share de
+  partidas (§18.3), con la razón "+1,1 de promedio vs los más jugados de MID (10 rivales)". Los
+  bans no cambian. En ARAM no aplica: no hay rol.
 - **Sin snapshot descargado:** modo degradado. Funcionan el auto-accept, las páginas fijas
   por campeón y la capa personal. Implementado: `SnapshotModel.provider` no tiene `meta`; la
   pestaña Campeones y la columna de recomendaciones muestran su estado vacío, y Matchup y
@@ -3881,6 +3908,10 @@ Implementados en `Mito/DesignSystem/` (textos en `DesignSystem.xcstrings`):
     directo. Varios perfiles se unen como lista del locale ("mucho AD y mucho CC") con las
     mismas etiquetas que el import ("mucho AD", "mucho AP", "daño mixto", "mucho CC"); una
     etiqueta desconocida va tal cual. El tono sigue al signo, como el matchup.
+  - El matchup esperado (`expectedMatchup`, rival de lane desconocido) nombra el rol y cuántos
+    rivales tuvieron datos: "+1,1 de promedio vs los más jugados de MID (10 rivales)", "(1
+    rival)" en singular. El rol va abreviado (TOP, JG, MID, ADC, SUP), con un ícono propio
+    distinto del matchup directo y del estimado por perfil; el tono sigue al signo.
   - La comodidad (`comfort`) nombra el puesto en el pool del rol con ordinales abreviados
     delante de "campeón": el 1 es "Tu campeón principal"; los que terminan en "primer" o
     "tercer" se apocopan ("Tu 3.er campeón", también 13, 21, 23…) y el resto lleva "º" ("Tu 2.º

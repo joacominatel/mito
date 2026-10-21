@@ -34,6 +34,10 @@ struct ReasonTextTests {
             "+1,2 vs Zed (estimado por perfil: mucho AD, 797 partidas)"
         ),
         (
+            .expectedMatchup(role: .middle, delta: 0.011, opponents: 10),
+            "+1,1 de promedio vs los más jugados de MID (10 rivales)"
+        ),
+        (
             .comfort(poolRank: 3, games: 41, winrate: 0.56),
             "Tu 3.er campeón (41 partidas, \(percent(0.56)))"
         ),
@@ -128,6 +132,9 @@ struct ReasonTextTests {
             .favorable
         ),
         (.profileMatchup(opponent: zed, profiles: [.mixed], delta: 0.0004, games: 1), .neutral),
+        (.expectedMatchup(role: .top, delta: 0.011, opponents: 10), .favorable),
+        (.expectedMatchup(role: .top, delta: -0.011, opponents: 10), .unfavorable),
+        (.expectedMatchup(role: .top, delta: 0.0004, opponents: 10), .neutral),
         (.comfort(poolRank: 1, games: 41, winrate: 0.56), .favorable),
         (.comfort(poolRank: nil, games: 41, winrate: 0.56), .favorable),
         (.comfort(poolRank: 2, games: 20, winrate: 0.504), .neutral),
@@ -161,6 +168,36 @@ struct ReasonTextTests {
         #expect(
             ReasonText.text(reason, names: Self.names, locale: Self.locale)
                 == "\u{2212}3,4 vs Zed (estimado por perfil: \(labels), 1.240 partidas)")
+    }
+
+    /// It names the role it averaged over and how many rivals had data, one in the singular.
+    @Test(arguments: [
+        (Role.top, 1, "TOP (1 rival)"),
+        (.jungle, 2, "JG (2 rivales)"),
+        (.middle, 10, "MID (10 rivales)"),
+        (.bottom, 1_000, "ADC (1.000 rivales)"),
+        (.utility, 3, "SUP (3 rivales)"),
+    ])
+    func expectedMatchupNamesTheRoleAndTheRivals(role: Role, opponents: Int, suffix: String) {
+        let reason = Reason(
+            kind: .expectedMatchup(role: role, delta: -0.034, opponents: opponents),
+            sample: .usable)
+
+        #expect(
+            ReasonText.text(reason, names: Self.names, locale: Self.locale)
+                == "\u{2212}3,4 de promedio vs los más jugados de \(suffix)")
+    }
+
+    @Test func anExpectedMatchupLooksDifferentFromADirectOne() {
+        let direct = Reason.Kind.matchup(opponent: Self.zed, delta: 0.011, games: 797)
+        let expected = Reason.Kind.expectedMatchup(role: .middle, delta: 0.011, opponents: 10)
+
+        #expect(ReasonText.symbol(direct) != ReasonText.symbol(expected))
+        #expect(
+            ReasonText.symbol(
+                .profileMatchup(
+                    opponent: Self.zed, profiles: [.heavyAD], delta: 0.011, games: 797))
+                != ReasonText.symbol(expected))
     }
 
     @Test func profileMatchupLooksDifferentFromADirectMatchup() {
@@ -215,6 +252,7 @@ struct ReasonTextTests {
             .profileMatchup(opponent: Self.zed, profiles: [.heavyAD], delta: 0.012, games: 797),
             .comfort(poolRank: 3, games: 41, winrate: 0.56),
             .matchup(opponent: Self.zed, delta: 0.021, games: 8212),
+            .expectedMatchup(role: .middle, delta: 0.011, opponents: 10),
         ]
 
         for kind in kinds {

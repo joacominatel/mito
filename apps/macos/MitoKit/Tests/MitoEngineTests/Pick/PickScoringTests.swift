@@ -95,6 +95,8 @@ struct PickScoringTests {
                 case .profileMatchup(let opponent, let profiles, let delta, let games):
                     .profileMatchup(
                         opponent: opponent, profiles: profiles, delta: round(delta), games: games)
+                case .expectedMatchup(let role, let delta, let opponents):
+                    .expectedMatchup(role: role, delta: round(delta), opponents: opponents)
                 case .versusEnemy(let enemy, let delta, let games):
                     .versusEnemy(enemy: enemy, delta: round(delta), games: games)
                 case .synergy(let ally, let allyRole, let delta, let games):
@@ -388,6 +390,166 @@ struct PickScoringTests {
         let draft = context(enemies: [slot(5, zed, .middle), slot(6, lux, .utility)])
 
         #expect(component(.matchup, recommend(backoffProvider(), context: draft)) == 0)
+    }
+
+    // MARK: - Unknown lane opponent
+
+    /// (200 + 100)/(300 + 200) − 0.5 = 0.1.
+    private var favorable: MatchupStats { lane(games: 300, wins: 200) }
+    /// (50 + 100)/(300 + 200) − 0.5 = −0.2.
+    private var unfavorable: MatchupStats { lane(games: 300, wins: 50) }
+
+    private func expectedReasons(_ ranked: [PickRecommendation]) -> [Reason] {
+        rounded(ahriIn(ranked)?.reasons ?? []).filter {
+            if case .expectedMatchup = $0.kind { true } else { false }
+        }
+    }
+
+    @Test func withoutALaneOpponentMatchupIsExpectedOverTheMostPlayedByGamesShare() {
+        // Zed 600 and Syndra 400 games: 0.6 · 0.1 + 0.4 · −0.2 = −0.02; 1.2 · −0.02.
+        let stats = provider(
+            rows: [ahri: even(1_000), zed: even(600), syndra: even(400)],
+            matchups: [zed: favorable, syndra: unfavorable])
+
+        let ranked = recommend(stats)
+
+        #expect(isClose(component(.matchup, ranked), -0.024))
+        #expect(
+            rounded(ahriIn(ranked)?.reasons ?? []) == [
+                Reason(
+                    kind: .expectedMatchup(role: .middle, delta: -0.02, opponents: 2),
+                    sample: .reliable),
+                neutralMeta,
+            ])
+    }
+
+    @Test func theExpectationTakesOnlyTheTenMostPlayedOthers() {
+        // Twelve opponents: the two least played are the only unfavorable ones, and Ahri, the
+        // most played, is not her own opponent.
+        let opponents = (1...12).map { ChampionID(rawValue: 500 + $0) }
+        let rows = Dictionary(
+            uniqueKeysWithValues: opponents.enumerated().map { ($1, even(300 + 10 * $0)) })
+        let matchups = Dictionary(
+            uniqueKeysWithValues: opponents.enumerated().map {
+                ($1, $0 < 2 ? unfavorable : favorable)
+            })
+        let stats = provider(rows: rows.merging([ahri: even(2_000)]) { $1 }, matchups: matchups)
+
+        #expect(
+            expectedReasons(recommend(stats, limit: 13)) == [
+                Reason(
+                    kind: .expectedMatchup(role: .middle, delta: 0.1, opponents: 10),
+                    sample: .reliable)
+            ])
+    }
+
+    enum TakenOpponent: CaseIterable {
+        case banned, allyLocked, enemyLockedElsewhere, allyHover, enemyHover, belowMinimum
+    }
+
+    @Test(arguments: TakenOpponent.allCases)
+    func aTakenOrThinOpponentIsNotExpected(_ taken: TakenOpponent) {
+        // Syndra would weigh −0.2; only Zed's 0.1 is left, at its whole games share.
+        let draft: DraftContext =
+            switch taken {
+            case .banned: context(bans: [syndra])
+            case .allyLocked: context(allies: [slot(1, syndra, .top)])
+            case .enemyLockedElsewhere: context(enemies: [slot(5, syndra, .top)])
+            case .allyHover:
+                context(allies: [
+                    DraftSlot(
+                        cellId: 1, champion: nil, hover: syndra, role: .top, roleConfidence: 1)
+                ])
+            case .enemyHover:
+                context(enemies: [
+                    DraftSlot(cellId: 5, champion: nil, hover: syndra, role: nil, roleConfidence: 0)
+                ])
+            case .belowMinimum: context()
+            }
+        let stats = provider(
+            rows: [
+                ahri: even(1_000), zed: even(600),
+                syndra: even(taken == .belowMinimum ? 198 : 600),
+            ],
+            matchups: [zed: favorable, syndra: unfavorable])
+
+        let ranked = recommend(stats, context: draft)
+
+        #expect(isClose(component(.matchup, ranked), 0.12))
+        #expect(
+            expectedReasons(ranked) == [
+                Reason(
+                    kind: .expectedMatchup(role: .middle, delta: 0.1, opponents: 1),
+                    sample: .reliable)
+            ])
+    }
+
+    @Test func anOpponentWithoutDataShrinksTheExpectationInsteadOfRenormalizing() {
+        // Syndra's 40 % share has no matchup: 0.6 · 0.1, not 0.1.
+        let stats = provider(
+            rows: [ahri: even(1_000), zed: even(600), syndra: even(400)],
+            matchups: [zed: favorable])
+
+        let ranked = recommend(stats)
+
+        #expect(isClose(component(.matchup, ranked), 1.2 * 0.06))
+        #expect(
+            expectedReasons(ranked) == [
+                Reason(
+                    kind: .expectedMatchup(role: .middle, delta: 0.06, opponents: 1),
+                    sample: .reliable)
+            ])
+    }
+
+    @Test func withoutAnyUsableMatchupThereIsNoExpectation() {
+        let stats = provider(
+            rows: [ahri: even(1_000), zed: even(600)], matchups: [zed: lane(games: 29, wins: 29)])
+
+        let ranked = recommend(stats)
+
+        #expect(component(.matchup, ranked) == 0)
+        #expect(ahriIn(ranked)?.reasons == [neutralMeta])
+    }
+
+    @Test func anOpponentWithoutAMatchupRowBacksOffToTheEnemyProfile() {
+        // Zed is top, so mid is open; Syndra 600 at −0.2 and Jinx 400 by the heavy_ad backoff at
+        // 0.1 over a usable 300: 0.6 · −0.2 + 0.4 · 0.1 = −0.08 at the weakest sample.
+        var stats = backoffProvider(matchups: [syndra: unfavorable])
+        stats.championProfilesByChampion[zed] = [.top: championProfile(physical: 0.9, magic: 0.1)]
+        stats.championRoleStatsByRole[.middle] = [
+            ahri: even(1_000), syndra: even(600), jinx: even(400),
+        ]
+
+        let ranked = recommend(stats, context: backoffDraft(zedRole: .top))
+
+        #expect(isClose(component(.matchup, ranked), 1.2 * -0.08))
+        #expect(
+            expectedReasons(ranked) == [
+                Reason(
+                    kind: .expectedMatchup(role: .middle, delta: -0.08, opponents: 2),
+                    sample: .usable)
+            ])
+    }
+
+    @Test func theLikeliestOpponentsComeFromMyRole() {
+        var stats = provider(rows: [ahri: even(1_000)], matchups: [zed: favorable])
+        stats.championRoleStatsByRole[.top] = [zed: even(5_000)]
+
+        #expect(expectedReasons(recommend(stats)).isEmpty)
+    }
+
+    @Test(arguments: [Role.middle, nil])
+    func aKnownOrInferredLaneOpponentKeepsTheDirectMatchup(zedRole: Role?) {
+        // Syndra is the most played, but Zed is the opponent: 1.2 · 0.1, mixed by p(mid) = 1.
+        let stats = provider(
+            rows: [ahri: even(1_000), syndra: even(5_000)],
+            matchups: [zed: favorable, syndra: unfavorable],
+            roleGames: [zed: [.middle: 1_000]])
+
+        let ranked = recommend(stats, context: context(enemies: [slot(5, zed, zedRole)]))
+
+        #expect(isClose(component(.matchup, ranked), 0.12))
+        #expect(expectedReasons(ranked).isEmpty)
     }
 
     // MARK: - personal

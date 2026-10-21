@@ -10,6 +10,12 @@
     "%@ contra %@ en el equipo rival (%@ partidas)" : {
       "comment" : "Reason: the delta against a locked enemy outside the lane. Arguments: signed winrate points, enemy champion, game count."
     },
+    "%@ de promedio vs los más jugados de %@ (%@ rivales)" : {
+      "comment" : "Reason: the expected lane matchup when the lane opponent is unknown, weighted by games over the role's most played champions. Arguments: signed winrate points, the role abbreviation (MID), how many of them had data."
+    },
+    "%@ de promedio vs los más jugados de %@ (1 rival)" : {
+      "comment" : "Reason: the expected lane matchup when the lane opponent is unknown, against the role's most played champions; only one of them had data. Arguments: signed winrate points, the role abbreviation (MID)."
+    },
     "%@ para tu %@ (%@ partidas)" : {
       "comment" : "Ban reason: how much this champion hurts one of the user's picks. Arguments: signed winrate points (negative), the user's champion, game count."
     },
@@ -49,6 +55,9 @@
     "6.º" : {
       "comment" : "Item build layer: the sixth item."
     },
+    "ADC" : {
+      "comment" : "Role abbreviation in a reason: bot lane carry."
+    },
     "Aporta el engage que no tiene nadie" : {
       "comment" : "Reason: the candidate has engage and no ally does."
     },
@@ -64,6 +73,12 @@
     "Curva de poder: early %@, tu equipo %@" : {
       "comment" : "Reason: early-game strength of the candidate and of the allied team, in signed winrate points."
     },
+    "JG" : {
+      "comment" : "Role abbreviation in a reason: jungle."
+    },
+    "MID" : {
+      "comment" : "Role abbreviation in a reason: mid lane."
+    },
     "Orden de habilidades" : {
       "comment" : "Loadout part: the ability leveling order."
     },
@@ -73,11 +88,17 @@
     "Runas" : {
       "comment" : "Loadout part: the rune page."
     },
+    "SUP" : {
+      "comment" : "Role abbreviation in a reason: support."
+    },
     "Spells" : {
       "comment" : "Loadout part: the summoner spells."
     },
     "Suma el CC que le falta al equipo (más CC que el %@ del rol)" : {
       "comment" : "Reason: the team lacks crowd control. The argument is the candidate's CC percentile in its role."
+    },
+    "TOP" : {
+      "comment" : "Role abbreviation in a reason: top lane."
     },
     "Tier %@ del parche (%@ partidas)" : {
       "comment" : "Reason: the candidate's tier this patch. Arguments: tier letter (S to D), game count."

@@ -11,6 +11,9 @@ public struct Reason: Hashable, Sendable {
         /// among those rows.
         case profileMatchup(
             opponent: ChampionID, profiles: [EnemyProfile], delta: Double, games: Int)
+        /// §18.3 unknown lane opponent: `delta` is the games-share-weighted `matchup_delta`
+        /// against the role's most played champions, over the `opponents` that had a usable one.
+        case expectedMatchup(role: Role, delta: Double, opponents: Int)
         /// §18.3 `vs_team`: the delta against a locked enemy outside the lane.
         case versusEnemy(enemy: ChampionID, delta: Double, games: Int)
         /// §18.3 `synergy`: the delta with a locked ally in its role.

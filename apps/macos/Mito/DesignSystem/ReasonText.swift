@@ -31,6 +31,16 @@ enum ReasonText {
                 localized:
                     "\(points(delta)) vs \(names.champion(opponent)) (estimado por perfil: \(labels), \(count(games)) partidas)",
                 table: "DesignSystem")
+        case .expectedMatchup(let role, let delta, 1):
+            return String(
+                localized:
+                    "\(points(delta)) de promedio vs los más jugados de \(roleName(role)) (1 rival)",
+                table: "DesignSystem")
+        case .expectedMatchup(let role, let delta, let opponents):
+            return String(
+                localized:
+                    "\(points(delta)) de promedio vs los más jugados de \(roleName(role)) (\(count(opponents)) rivales)",
+                table: "DesignSystem")
         case .versusEnemy(let enemy, let delta, let games):
             return String(
                 localized:
@@ -134,6 +144,7 @@ enum ReasonText {
         switch kind {
         case .matchup: "person.line.dotted.person"
         case .profileMatchup: "person.3.sequence"
+        case .expectedMatchup: "person.crop.circle.badge.questionmark"
         case .comfort: "person.crop.circle.badge.checkmark"
         case .versusEnemy: "person.3"
         case .synergy: "link"
@@ -157,6 +168,7 @@ enum ReasonText {
     static func tone(_ kind: Reason.Kind) -> Tone {
         switch kind {
         case .matchup(_, let delta, _), .profileMatchup(_, _, let delta, _),
+            .expectedMatchup(_, let delta, _),
             .versusEnemy(_, let delta, _),
             .synergy(_, _, let delta, _), .threatens(_, let delta, _):
             WinratePoints.tone(delta)
@@ -195,6 +207,16 @@ enum ReasonText {
         case .fourth: String(localized: "4.º", table: "DesignSystem")
         case .fifth: String(localized: "5.º", table: "DesignSystem")
         case .sixth: String(localized: "6.º", table: "DesignSystem")
+        }
+    }
+
+    static func roleName(_ role: Role) -> String {
+        switch role {
+        case .top: String(localized: "TOP", table: "DesignSystem")
+        case .jungle: String(localized: "JG", table: "DesignSystem")
+        case .middle: String(localized: "MID", table: "DesignSystem")
+        case .bottom: String(localized: "ADC", table: "DesignSystem")
+        case .utility: String(localized: "SUP", table: "DesignSystem")
         }
     }
 

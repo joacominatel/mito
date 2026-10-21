@@ -63,6 +63,10 @@ private struct LowSampleMark: View {
                 sample: .usable),
             names: .preview)
         ReasonRow(
+            reason: Reason(
+                kind: .expectedMatchup(role: .middle, delta: 0.011, opponents: 10),
+                sample: .usable))
+        ReasonRow(
             reason: Reason(kind: .comfort(poolRank: 3, games: 41, winrate: 0.56), sample: nil))
         ReasonRow(
             reason: Reason(kind: .comfort(poolRank: nil, games: 12, winrate: 0.42), sample: nil))

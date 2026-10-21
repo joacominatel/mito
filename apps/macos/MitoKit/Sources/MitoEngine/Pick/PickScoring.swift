@@ -28,6 +28,8 @@ public enum PickScoring {
     public static let defaultLimit = 10
     /// The synergy of a strong pair (bot + support, jungle + mid) counts this many times.
     public static let strongPairMultiplier = 1.5
+    /// With no lane opponent, the matchup is expected over this many of the role's most played.
+    public static let likelyOpponentCount = 10
 
     /// `personal` returns `personal(c, r)` with its comfort facts, `nil` without personal data.
     public static func recommendations(
@@ -48,6 +50,13 @@ public enum PickScoring {
         let enemies = laneOdds(of: context.enemies, in: role, stats: stats)
         let enemyProfile = Composition.enemyProfile(in: context, stats: stats)
             .sorted { $0.rawValue < $1.rawValue }
+        let likelyOpponents =
+            enemies.contains { $0.lane > 0 }
+            ? []
+            : likeliestOpponents(
+                in: role,
+                excluding: excluded.union((context.allies + context.enemies).compactMap(\.hover)),
+                stats: stats, meta: meta)
 
         let ranked = stats.championRoleStats(in: role).compactMap {
             champion, row -> PickRecommendation? in
@@ -72,16 +81,31 @@ public enum PickScoring {
                     ).map { (profile, $0) }
                 })
 
+            func laneTerm(against opponent: ChampionID) -> LaneTerm? {
+                let row = stats.matchup(for: champion, role: role, against: opponent)
+                return delta(row.map { ($0.wins, $0.games) }, .matchup).map {
+                    LaneTerm(delta: $0.delta, games: $0.games, sample: $0.sample, profiles: nil)
+                } ?? profileBackoff
+            }
+
             var reasons: [(impact: Double, reason: Reason)] = []
             var matchup = 0.0
             var counter = 0.0
+            if let expected = expectedMatchup(
+                of: champion, over: likelyOpponents, laneTerm: laneTerm)
+            {
+                matchup = expected.delta
+                reasons.append(
+                    (
+                        weights.matchup * expected.delta,
+                        Reason(
+                            kind: .expectedMatchup(
+                                role: role, delta: expected.delta, opponents: expected.opponents),
+                            sample: expected.sample)
+                    ))
+            }
             for enemy in enemies {
-                let laneRow = stats.matchup(for: champion, role: role, against: enemy.champion)
-                if enemy.lane > 0,
-                    let lane = delta(laneRow.map { ($0.wins, $0.games) }, .matchup).map({
-                        LaneTerm(delta: $0.delta, games: $0.games, sample: $0.sample, profiles: nil)
-                    }) ?? profileBackoff
-                {
+                if enemy.lane > 0, let lane = laneTerm(against: enemy.champion) {
                     matchup += enemy.lane * lane.delta
                     let kind: Reason.Kind =
                         if let profiles = lane.profiles {
@@ -226,6 +250,46 @@ public enum PickScoring {
             }
             return LockedEnemy(champion: champion, lane: odds.next()?.roleProbabilities[role] ?? 0)
         }
+    }
+
+    /// One extra, so each candidate still has `likelyOpponentCount` after leaving itself out.
+    private static func likeliestOpponents(
+        in role: Role, excluding taken: Set<ChampionID>, stats: some StatsProvider,
+        meta: SnapshotMeta
+    ) -> [(champion: ChampionID, games: Int)] {
+        let ranked = stats.championRoleStats(in: role).compactMap {
+            champion, row -> (champion: ChampionID, games: Int)? in
+            guard !taken.contains(champion),
+                let level = meta.sampleLevel(.championRole, games: row.games),
+                level != .belowMinimum
+            else { return nil }
+            return (champion, row.games)
+        }
+        return Array(
+            ranked.sorted {
+                $0.games != $1.games
+                    ? $0.games > $1.games : $0.champion.rawValue < $1.champion.rawValue
+            }
+            .prefix(likelyOpponentCount + 1))
+    }
+
+    /// Unrenormalized: an opponent without a usable delta pulls the term toward 0.
+    private static func expectedMatchup(
+        of champion: ChampionID, over likely: [(champion: ChampionID, games: Int)],
+        laneTerm: (ChampionID) -> LaneTerm?
+    ) -> (delta: Double, opponents: Int, sample: SampleLevel)? {
+        let field = likely.filter { $0.champion != champion }.prefix(likelyOpponentCount)
+        let total = field.reduce(0) { $0 + $1.games }
+        guard total > 0 else { return nil }
+        var delta = 0.0
+        var samples: [SampleLevel] = []
+        for opponent in field {
+            guard let lane = laneTerm(opponent.champion) else { continue }
+            delta += Double(opponent.games) / Double(total) * lane.delta
+            samples.append(lane.sample)
+        }
+        guard let sample = samples.min() else { return nil }
+        return (delta, samples.count, sample)
     }
 
     /// A lane matchup term: the `matchup_stats` row or its backoff to the enemy profile.
