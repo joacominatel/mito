@@ -464,3 +464,51 @@ struct RuneImporterOutcomeTests {
         #expect(writeRoutes(lcu) == ["PUT /lol-perks/v1/pages/202"])
     }
 }
+
+struct RuneImporterMitoPageLookupTests {
+    private let luxTitle = "Lux SUPPORT vs Nami"
+
+    @Test func findsThePageNamedForTheTitleWithItsRunes() throws {
+        let pages = try LCUEndpoint.perkPages.decode(runesCase("pages-with-mito-page"))
+        let found = try #require(RuneImporter.mitoPage(in: pages, title: luxTitle))
+
+        #expect(found.id == 202)
+        #expect(
+            found.runePage
+                == runePage(
+                    [8214, 8226, 8210, 8237, 8139, 8135, 5008, 5008, 5001], primary: sorcery,
+                    sub: domination))
+    }
+
+    @Test(arguments: ["pages-with-mito-page", "pages-without-mito-page"])
+    func aTitleWithNoPageOfItsOwnFindsNothing(_ fixture: String) throws {
+        let pages = try LCUEndpoint.perkPages.decode(runesCase(fixture))
+
+        #expect(RuneImporter.mitoPage(in: pages, title: title) == nil)
+    }
+
+    @Test(arguments: [
+        "Mito · Lux SUPPORT vs Nami (copy)", "Mito ·Lux SUPPORT vs Nami",
+        "Mito Lux SUPPORT vs Nami", "My Mito · Lux SUPPORT vs Nami",
+    ])
+    func aLookalikeNameIsNotMitosPage(_ name: String) {
+        let pages = [PerkPage(id: 203, name: name, current: true, isEditable: true)]
+
+        #expect(RuneImporter.mitoPage(in: pages, title: luxTitle) == nil)
+    }
+
+    @Test(arguments: [false, nil])
+    func aPageWithMitosNameThatIsNotEditableIsNotMitos(_ editable: Bool?) {
+        let pages = [PerkPage(id: 101, name: "Mito · \(luxTitle)", isEditable: editable)]
+
+        #expect(RuneImporter.mitoPage(in: pages, title: luxTitle) == nil)
+    }
+
+    @Test func prefersTheCurrentPageWhenSeveralCarryTheName() {
+        let pages = [203, 204].map {
+            PerkPage(id: $0, name: "Mito · \(luxTitle)", current: $0 == 204, isEditable: true)
+        }
+
+        #expect(RuneImporter.mitoPage(in: pages, title: luxTitle)?.id == 204)
+    }
+}

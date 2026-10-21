@@ -151,7 +151,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | FX-06 | App audit fixes: generation guard on the connect-time ready-check read (duplicate match-found notification), injectable notification poster and app-active signal in `AppModel`, overrides keep store order after save | shell + gameflow + overrides (serial) | `Mito/App/**`, `Mito/Features/Gameflow/**`, `Mito/Features/Overrides/OverridesModel.swift`, their tests | §11.3, §22.5 | — | merged |
 | FX-07 | Match history skips games with no winning team (server-aborted games), like mito-data's `no_winner` | lcu | `MitoKit/Sources/LCUKit/History/**`, `MitoKit/Tests/LCUKitTests/History/**`, `fixtures/lcu/cases/history/**` | §10.6 | P8-02 | merged |
 | FX-08 | `PersonalScore.winratePoints` uses the P8-07 formula (edge unscaled), so "Mi perfil" and the pick score agree | engine | `MitoEngine/Personal/PersonalScore.swift`, `MitoEngine/Pick/PersonalPoints.swift`, tests | §19.3 | P8-07 | merged |
-| FX-09 | For re-import: `PerkPage` decodes styles and perks; MitoImport exposes how it finds Mito's rune page and item set blocks | lcu + import | `LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `MitoImport/Runes/**`, `MitoImport/ItemSets/**`, their tests | §13.2, §13.4 | P7-10 | in progress |
+| FX-09 | For re-import: `PerkPage` decodes styles and perks; MitoImport exposes how it finds Mito's rune page and item set blocks | lcu + import | `LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `MitoImport/Runes/**`, `MitoImport/ItemSets/**`, their tests | §13.2, §13.4 | P7-10 | merged |
 
 ## P1 — Connection
 

@@ -10,16 +10,51 @@ public struct PerkPage: Decodable, Hashable, Sendable {
     public let isEditable: Bool?
     /// `false` for pages that do not take a custom page slot.
     public let isDeletable: Bool?
+    public let primaryStyleId: PerkStyleID?
+    public let subStyleId: PerkStyleID?
+    /// LCU order, as in `RunePage.perks`.
+    public let selectedPerkIds: [PerkID]?
 
     public init(
         id: Int, name: String? = nil, current: Bool? = nil, isEditable: Bool? = nil,
-        isDeletable: Bool? = nil
+        isDeletable: Bool? = nil, primaryStyleId: PerkStyleID? = nil,
+        subStyleId: PerkStyleID? = nil, selectedPerkIds: [PerkID]? = nil
     ) {
         self.id = id
         self.name = name
         self.current = current
         self.isEditable = isEditable
         self.isDeletable = isDeletable
+        self.primaryStyleId = primaryStyleId
+        self.subStyleId = subStyleId
+        self.selectedPerkIds = selectedPerkIds
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, current, isEditable, isDeletable, primaryStyleId, subStyleId
+        case selectedPerkIds
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        current = try container.decodeIfPresent(Bool.self, forKey: .current)
+        isEditable = try container.decodeIfPresent(Bool.self, forKey: .isEditable)
+        isDeletable = try container.decodeIfPresent(Bool.self, forKey: .isDeletable)
+        // Read only to compare with what Mito sent, so a bad value must not drop the page.
+        primaryStyleId = (try? container.decodeIfPresent(Int.self, forKey: .primaryStyleId))
+            .map(PerkStyleID.init)
+        subStyleId = (try? container.decodeIfPresent(Int.self, forKey: .subStyleId))
+            .map(PerkStyleID.init)
+        selectedPerkIds = (try? container.decodeIfPresent([Int].self, forKey: .selectedPerkIds))
+            .map { $0.map(PerkID.init) }
+    }
+
+    /// The page's runes, or `nil` when the client left out either style or the perks.
+    public var runePage: RunePage? {
+        guard let primaryStyleId, let subStyleId, let selectedPerkIds else { return nil }
+        return RunePage(primaryStyle: primaryStyleId, subStyle: subStyleId, perks: selectedPerkIds)
     }
 }
 

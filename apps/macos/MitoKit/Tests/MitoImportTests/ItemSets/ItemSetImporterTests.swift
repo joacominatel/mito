@@ -184,3 +184,61 @@ struct ItemSetImporterTests {
         #expect(lcu.writes.count == 1)
     }
 }
+
+struct ItemSetImporterMitoSetLookupTests {
+    private func list(_ json: String) throws -> LCUItemSets {
+        try LCUEndpoint.itemSets(summonerId: summonerId).decode(Data(json.utf8))
+    }
+
+    @Test func readsBackTheBlocksOfTheSetTheImporterSent() async throws {
+        let lcu = connection(get: try fixture("old-mito-sets"))
+        _ = await apply(on: lcu)
+        let sent = try LCUEndpoint.itemSets(summonerId: summonerId)
+            .decode(try #require(lcu.writes.first?.body))
+
+        #expect(ItemSetImporter.mitoItemSet(in: sent, champion: ahri) == recommended)
+    }
+
+    @Test func readsTheSetOfTheRequestedChampionOnly() throws {
+        let sets = try LCUEndpoint.itemSets(summonerId: summonerId)
+            .decode(try fixture("old-mito-sets"))
+
+        #expect(
+            ItemSetImporter.mitoItemSet(in: sets, champion: ChampionID(rawValue: 238))
+                == ItemSet(blocks: []))
+        #expect(ItemSetImporter.mitoItemSet(in: sets, champion: ChampionID(rawValue: 1)) == nil)
+    }
+
+    @Test(arguments: ["old-mito-sets", "user-sets-with-unknown-fields", "empty"])
+    func onlyLookalikesOrNoSetsReadAsNoMitoSet(_ name: String) throws {
+        // In old-mito-sets, Ahri's sets are the user's or an older uid ("mito-103-middle").
+        let sets = try LCUEndpoint.itemSets(summonerId: summonerId).decode(try fixture(name))
+
+        #expect(ItemSetImporter.mitoItemSet(in: sets, champion: ahri) == nil)
+    }
+
+    @Test func aMitoUIDUnderTheUsersTitleIsNotMitos() throws {
+        let sets = try list(#"{"itemSets": [{"uid": "mito-103", "title": "Ahri", "blocks": []}]}"#)
+
+        #expect(ItemSetImporter.mitoItemSet(in: sets, champion: ahri) == nil)
+    }
+
+    @Test func blocksAndItemsTheClientChangedBeyondReadingAreLeftOut() throws {
+        let sets = try list(
+            #"""
+            {"itemSets": [{"uid": "mito-103", "title": "Mito · Ahri MID", "blocks": [
+              {"type": "Inicio", "items": [{"id": "1056"}, {"id": 2003, "count": 2},
+                {"id": "3020", "count": "2"}, {"id": "abc", "count": 1}]},
+              {"items": [{"id": "1001", "count": 1}]},
+              {"type": "Vacío"}
+            ]}]}
+            """#)
+
+        #expect(
+            ItemSetImporter.mitoItemSet(in: sets, champion: ahri)
+                == ItemSet(blocks: [
+                    .init(title: "Inicio", items: [.init(id: ItemID(rawValue: 1056))]),
+                    .init(title: "Vacío", items: []),
+                ]))
+    }
+}

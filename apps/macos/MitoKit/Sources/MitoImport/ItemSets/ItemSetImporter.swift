@@ -58,6 +58,18 @@ public struct ItemSetImporter: Sendable {
         }
     }
 
+    /// The blocks of `champion`'s Mito set (`mito-<championId>`, `MITO_CONTEXT.md` §13.4), as
+    /// the client has them now; a block without a `type` or an item it cannot read is left out.
+    public static func mitoItemSet(in list: LCUItemSets, champion: ChampionID) -> ItemSet? {
+        guard
+            let set = list.itemSets.first(where: {
+                isMito($0) && $0["uid"] == .string(uid(for: champion))
+            })
+        else { return nil }
+        guard case .array(let blocks)? = set["blocks"] else { return ItemSet(blocks: []) }
+        return ItemSet(blocks: blocks.compactMap(block))
+    }
+
     static func isMito(_ set: LCUItemSets.Object) -> Bool {
         guard case .string(let title)? = set["title"], case .string(let uid)? = set["uid"] else {
             return false
@@ -68,6 +80,32 @@ public struct ItemSetImporter: Sendable {
     private static func isFor(_ champion: ChampionID, _ set: LCUItemSets.Object) -> Bool {
         guard case .array(let champions)? = set["associatedChampions"] else { return false }
         return champions.contains(.integer(Int64(champion.rawValue)))
+    }
+
+    private static func uid(for champion: ChampionID) -> String {
+        "\(uidPrefix)\(champion.rawValue)"
+    }
+
+    private static func block(_ value: LCUItemSets.Value) -> ItemSet.Block? {
+        guard case .object(let block) = value, case .string(let title)? = block["type"] else {
+            return nil
+        }
+        guard case .array(let items)? = block["items"] else {
+            return ItemSet.Block(title: title, items: [])
+        }
+        return ItemSet.Block(title: title, items: items.compactMap(item))
+    }
+
+    private static func item(_ value: LCUItemSets.Value) -> ItemSet.Block.Item? {
+        guard case .object(let item) = value, case .string(let rawID)? = item["id"],
+            let id = Int(rawID)
+        else { return nil }
+        switch item["count"] {
+        case nil: return ItemSet.Block.Item(id: ItemID(rawValue: id))
+        case .integer(let count)?:
+            return ItemSet.Block.Item(id: ItemID(rawValue: id), count: Int(count))
+        default: return nil
+        }
     }
 
     private static func payload(
@@ -86,7 +124,7 @@ public struct ItemSetImporter: Sendable {
             ])
         }
         return [
-            "uid": .string("\(uidPrefix)\(champion.rawValue)"),
+            "uid": .string(uid(for: champion)),
             "title": .string("\(titlePrefix) \(title)"),
             "type": .string("custom"),
             "map": .string(map.code),

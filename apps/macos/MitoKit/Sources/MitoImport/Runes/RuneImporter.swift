@@ -37,7 +37,7 @@ public struct RuneImporter: Sendable {
         confirmedReplacement: Int? = nil
     ) async -> RuneImportResult {
         guard settings.importRunes else { return .disabled }
-        let name = "\(Self.namePrefix) \(title)"
+        let name = Self.pageName(title)
         do {
             let styles = try await connection.send(.perkStyles).styles
             if let error = page.validationError(against: styles) { return .invalid(error) }
@@ -58,6 +58,28 @@ public struct RuneImporter: Sendable {
         } catch {
             return .failed(error)
         }
+    }
+
+    /// The page an import of `title` left, if it is still Mito's (`MITO_CONTEXT.md` §13.2):
+    /// editable and named `Mito · <title>`, the current one first. `PerkPage.runePage` gives
+    /// its runes.
+    public static func mitoPage(in pages: [PerkPage], title: String) -> PerkPage? {
+        preferringCurrent(pages.filter { isMito($0) && $0.name == pageName(title) })
+    }
+
+    /// The page `.mitoPage` overwrites, whatever its title.
+    static func mitoPage(in pages: [PerkPage]) -> PerkPage? {
+        preferringCurrent(pages.filter(isMito))
+    }
+
+    private static func isMito(_ page: PerkPage) -> Bool {
+        page.isEditable == true && page.name?.hasPrefix(namePrefix) == true
+    }
+
+    private static func pageName(_ title: String) -> String { "\(namePrefix) \(title)" }
+
+    private static func preferringCurrent(_ pages: [PerkPage]) -> PerkPage? {
+        pages.first { $0.current == true } ?? pages.first
     }
 
     private enum Target {
@@ -81,10 +103,7 @@ public struct RuneImporter: Sendable {
             guard let current else { return .none(.noEditablePage) }
             return .replaceCurrent(current.id)
         case .mitoPage:
-            let mitoPages = editable.filter { $0.name?.hasPrefix(Self.namePrefix) == true }
-            if let mito = mitoPages.first(where: { $0.current == true }) ?? mitoPages.first {
-                return .update(mito.id)
-            }
+            if let mito = Self.mitoPage(in: pages) { return .update(mito.id) }
             let owned = try await connection.send(.perkInventory).ownedPageCount ?? 0
             // Unknown flags count as custom: a wrong guess asks the user instead of a failed POST.
             if pages.count(where: { $0.isDeletable != false }) < owned { return .create }

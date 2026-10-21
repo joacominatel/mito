@@ -1529,6 +1529,13 @@ Opciones de Settings (§21.4): con `.reservedPage` se edita siempre la página
 editable, no se envía nada); con `.currentPage` se reemplaza la página activa sin pedir
 confirmación, si es editable. Nunca se borra una página.
 
+**Releer lo que puso Mito** (para el re-import, §13.1). `PerkPage` decodifica también
+`primaryStyleId`, `subStyleId` y `selectedPerkIds` (un valor ausente o de otro tipo queda en
+`nil` sin perder la página), y `PerkPage.runePage` los vuelve `RunePage` solo si están los
+tres. `RuneImporter.mitoPage(in:title:)` devuelve la página que dejó un import de ese título:
+la regla del paso 1 (el mismo código que usa el importador) más el nombre exacto
+`Mito · <title>`.
+
 Payload (igual para `POST` y `PUT`):
 
 ```json
@@ -1612,6 +1619,10 @@ Flash 4, Ignite 14, Teleport 12, Smite 11, Exhaust 3, Heal 7, Barrier 21, Cleans
 - El set nuevo va al final de la lista, con `uid` `mito-<championId>` y `title`
   `Mito · <texto>` (el texto lo arma quien llama). Pendiente: validar los ítems contra
   `items.json` del parche antes de enviar.
+- `ItemSetImporter.mitoItemSet(in:champion:)` relee los bloques del set de Mito de un campeón
+  (`uid` `mito-<championId>` y la misma regla de título y `uid` de arriba) como `ItemSet`, o
+  `nil` si no hay. Un bloque sin `type` o un ítem sin `id` numérico en string (o con `count`
+  que no es entero) se deja afuera; sin `count`, cuenta 1. Es para el re-import (§13.1).
 - Bloques de la build (P6-06), uno por `BuildLayer` elegido y en este orden: "Inicio"
   (`start`), "Núcleo" (`core`), "Botas" (`boots`), "4.º ítem" (`fourth`), "5.º ítem" (`fifth`)
   y "6.º ítem" (`sixth`), del catálogo `Import.xcstrings`. La build adaptada (P7-10, §18.7)

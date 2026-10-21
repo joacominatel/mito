@@ -86,13 +86,53 @@ struct PerkPagesDecodingTests {
             pages == [
                 PerkPage(
                     id: 101, name: "Domination: The Hunter", current: false, isEditable: false,
-                    isDeletable: false),
+                    isDeletable: false, primaryStyleId: PerkStyleID(rawValue: 8100),
+                    subStyleId: PerkStyleID(rawValue: 8200),
+                    selectedPerkIds: ids([8112, 8139, 8140, 8135, 8226, 8210, 5008, 5008, 5001])),
                 PerkPage(
-                    id: 201, name: "My page", current: true, isEditable: true, isDeletable: true),
+                    id: 201, name: "My page", current: true, isEditable: true, isDeletable: true,
+                    primaryStyleId: PerkStyleID(rawValue: 8000),
+                    subStyleId: PerkStyleID(rawValue: 8100),
+                    selectedPerkIds: ids([8005, 9111, 9104, 8014, 8139, 8135, 5005, 5008, 5001])),
                 PerkPage(
                     id: 202, name: "Mito · Lux SUPPORT vs Nami", current: false, isEditable: true,
-                    isDeletable: true),
+                    isDeletable: true, primaryStyleId: PerkStyleID(rawValue: 8200),
+                    subStyleId: PerkStyleID(rawValue: 8100),
+                    selectedPerkIds: ids([8214, 8226, 8210, 8237, 8139, 8135, 5008, 5008, 5001])),
             ])
+    }
+
+    @Test func decodesStylesAndPerksOfPagesWithoutAMitoPage() throws {
+        let pages = try LCUEndpoint.perkPages.decode(runesCase("pages-without-mito-page"))
+        let another = try #require(pages.first { $0.id == 203 })
+
+        #expect(pages.map(\.id) == [101, 201, 203])
+        #expect(
+            another.runePage
+                == RunePage(
+                    primaryStyle: PerkStyleID(rawValue: 8200),
+                    subStyle: PerkStyleID(rawValue: 8100),
+                    perks: ids([8214, 8226, 8210, 8237, 8139, 8135, 5008, 5008, 5001])))
+    }
+
+    @Test(arguments: [
+        ("primaryStyleId", #""8100""#), ("subStyleId", "{}"),
+        ("selectedPerkIds", #"[8112, "x"]"#), ("selectedPerkIds", "8112"),
+    ])
+    func aWrongTypedRuneFieldIsNilAndThePageStillDecodes(_ key: String, _ value: String) throws {
+        var members = [
+            "primaryStyleId": "8100", "subStyleId": "8200", "selectedPerkIds": "[8112]",
+        ]
+        members[key] = value
+        let runes = members.map { #""\#($0.key)": \#($0.value)"# }.joined(separator: ", ")
+        let body = #"[{"id": 7, "name": "Mine", "current": true, \#(runes)}]"#
+        let pages = try LCUEndpoint.perkPages.decode(Data(body.utf8))
+        let page = try #require(pages.first)
+
+        #expect(pages.count == 1)
+        #expect(page.name == "Mine")
+        #expect(page.current == true)
+        #expect(page.runePage == nil)
     }
 
     @Test func aPageWithoutAnIDIsSkippedAndMissingFieldsAreNil() throws {
@@ -104,6 +144,25 @@ struct PerkPagesDecodingTests {
     @Test func isAGetOnThePagesPath() {
         #expect(LCUEndpoint.perkPages.method == .get)
         #expect(LCUEndpoint.perkPages.path == "/lol-perks/v1/pages")
+    }
+}
+
+struct PerkPageRunePageTests {
+    @Test func aPageWithBothStylesAndItsPerksIsARunePage() {
+        let perkPage = PerkPage(
+            id: 1, primaryStyleId: page.primaryStyle, subStyleId: page.subStyle,
+            selectedPerkIds: page.perks)
+
+        #expect(perkPage.runePage == page)
+    }
+
+    @Test(arguments: [
+        PerkPage(id: 1, subStyleId: page.subStyle, selectedPerkIds: page.perks),
+        PerkPage(id: 1, primaryStyleId: page.primaryStyle, selectedPerkIds: page.perks),
+        PerkPage(id: 1, primaryStyleId: page.primaryStyle, subStyleId: page.subStyle),
+    ])
+    func aPageMissingAStyleOrItsPerksIsNoRunePage(_ perkPage: PerkPage) {
+        #expect(perkPage.runePage == nil)
     }
 }
 
