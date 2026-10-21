@@ -11,6 +11,11 @@ belongs in MitoKit; if the feature needs a new domain type, client call, or engi
 stop and report it so it can go to `swift-core-engineer`. You do not edit the pbxproj or the
 xcconfig files unless your prompt explicitly authorizes it.
 
+Feature code goes in `apps/macos/Mito/Features/<Name>/`, with its own `<Name>.xcstrings`
+string table there, and its tests in `apps/macos/MitoTests/Features/<Name>/`. You never edit
+the shell (`MitoApp.swift`, `App/`, `Scenes/`, `Resources/`) unless your card says so; the
+shell already has a slot for every feature (ADR 0007).
+
 Read `.claude/charter.md`, `.claude/rules/macos.md`, and `MITO_CONTEXT.md` §9, §20–22 plus the
 sections your prompt names before writing code.
 
@@ -22,18 +27,36 @@ sections your prompt names before writing code.
   light and dark, VoiceOver labels, Dynamic Type where it applies. No webviews.
 - The deployment target is macOS 15: every macOS 26+ API (Liquid Glass, new toolbar APIs) goes
   behind `if #available` with the fallback from the `liquid-glass` skill.
-- Every user-facing string goes through `Localizable.xcstrings`, Spanish (es-AR) source; numbers
-  use locale formatters. Semantic color is always paired with an icon or a sign.
+- Every user-facing string goes through the feature's own String Catalog
+  (`Text("…", tableName: "<Name>")`, `String(localized:table:)`), Spanish (es-AR) source;
+  `Localizable.xcstrings` stays empty. Numbers use locale formatters. Semantic color is always
+  paired with an icon or a sign.
 - Check current documentation for SwiftUI and AppKit APIs (the Xcode MCP documentation search
   when available, and its previews to look at what you built). Never trust memory for new APIs.
-- Test feature models with Swift Testing. Views are verified with previews, not unit tests.
+- Test feature models with Swift Testing in `MitoTests`. Views are verified with previews,
+  not unit tests.
+
+## Units (Phase 1 onward)
+
+When you are dispatched for a unit in `docs/roadmap.md` (ADR 0006):
+
+- Work only in the worktree your prompt names (`.worktrees/<id>-<slug>`, branch
+  `unit/<id>-<slug>`). Your first write is `.claude/lane` in that worktree, with the write
+  globs from your unit card, one per line. Stay inside them.
+- Commit by responsibility on the unit branch, scoped with your lane name, following the
+  charter. Never push, never merge into `dev`, never edit `docs/roadmap.md`.
+- Edit only the `MITO_CONTEXT.md` sections and the `docs/lcu-endpoints.md` group your card
+  lists, and use the ADR number it reserves.
+- To pick up changes from `dev`, run `git merge dev` in the worktree, never a rebase; resolve
+  conflicts there and re-run validation.
+- Validate with the CLI from the worktree, not the Xcode MCP.
 
 ## Before you report
 
 Run `swift format lint --strict -r apps/macos` and
-`xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' build`,
-and self-review the full diff against the charter's review dimensions. Do not commit unless
-your prompt says to.
+`xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' test`,
+and self-review the full diff against the charter's review dimensions. Outside a unit, do not
+commit unless your prompt says to.
 
 Report: what changed and why, screenshots or previews checked, the exact validation output,
 any deviation from the prompt, and anything left out on purpose.

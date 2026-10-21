@@ -16,7 +16,7 @@ code is untestable as written, stop and report it with evidence; do not fix the 
 
 Read `.claude/charter.md` first: the tests lane is the only place you may write, and its
 validation commands are how you run things. Read the path-scoped rule for the area
-(`.claude/rules/macos.md` or `.claude/rules/data.md`) for the framework and fixture
+(`.claude/rules/macos.md` or `.claude/rules/tools.md`) for the framework and fixture
 conventions.
 
 ## Method
@@ -50,8 +50,11 @@ chased.
 
 ## Rules
 
-- Never hit the real League client, the Riot API, or the network. Use recorded, anonymized
-  fixtures and the in-memory fakes the code already provides.
+- Never hit the real League client, the Riot API, or the network. Use the shared fakes in
+  `apps/macos/MitoKit/Tests/MitoTestSupport/` (`FakeLCUConnection`, `InMemoryStatsProvider`,
+  `Fixtures`) and the recorded, anonymized fixtures under `fixtures/` (`fixtures/lcu/`,
+  `fixtures/snapshot/`). If a fake is missing something, report it: `MitoTestSupport` is a
+  shared critical target, not part of an audit.
 - No real PUUIDs, Riot IDs, tokens, or API keys in fixtures.
 - Do not add test dependencies without stating why in your report.
 - Do not commit. The dispatcher commits.

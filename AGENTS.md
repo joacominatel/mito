@@ -26,8 +26,15 @@ first.**
 
 ## Workflow
 
-Pre-beta: commit by responsibility directly on `dev` and push to `origin/dev`. No issues, no
-PRs. Never touch `main`. The charter has the specifics.
+Pre-beta there are no issues and no PRs, and nobody but the CEO touches `main`.
+
+- **Phase 0**: commit by responsibility directly on `dev` and push to `origin/dev`.
+- **Phase 1 onward**: each unit in `docs/roadmap.md` runs on a local `unit/<id>-<slug>`
+  branch in `.worktrees/<id>-<slug>`. Write `.claude/lane` first, commit by responsibility,
+  catch up with `git merge dev`, never push, never merge. The dispatcher squash-merges into
+  `dev`. See `docs/adr/0006-parallel-unit-workflow.md`.
+
+The charter has the lanes, the shared critical files, and the specifics.
 
 ## Riot policy is non-negotiable
 
@@ -52,7 +59,9 @@ audit coverage and close gaps after any non-trivial unit.
 ## Documentation stays in sync
 
 Any change to behavior reviews and updates the affected `MITO_CONTEXT.md` sections in the same
-change. Durable decisions get an ADR in `docs/adr/`.
+change. A unit edits only the sections its card lists; if another section is wrong, it
+reports that instead of editing it. Units never edit `docs/roadmap.md`, which belongs to the
+dispatcher. Durable decisions get an ADR in `docs/adr/`, numbered as the card reserves.
 
 ## External libraries
 
