@@ -166,4 +166,26 @@ struct InMemoryStatsProviderTests {
         #expect(stats.bans(of: ahri) == nil)
         #expect(stats.flags(of: ahri).isEmpty)
     }
+
+    @Test func servesDurationCurvesOnlyForTheirChampionAndRole() {
+        let curve: [DurationBucket: RelationStats] = [
+            .under20: RelationStats(games: 717, wins: 355),
+            .over40: RelationStats(games: 566, wins: 309),
+        ]
+        let stats = InMemoryStatsProvider(durationCurvesByChampion: [ahri: [.middle: curve]])
+        #expect(stats.durationCurves(for: ahri, role: .middle) == curve)
+        #expect(stats.durationCurves(for: ahri, role: .top).isEmpty)
+        #expect(stats.durationCurves(for: zed, role: .middle).isEmpty)
+    }
+
+    @Test func servesItemClassesAndAntihealApart() {
+        let morello = ItemID(rawValue: 3165)
+        let tabis = ItemID(rawValue: 3047)
+        let stats = InMemoryStatsProvider(
+            itemClasses: [morello: .legendary, tabis: .bootsT2], antihealItems: [morello])
+        #expect(stats.itemClass(of: tabis) == .bootsT2)
+        #expect(stats.itemClass(of: ItemID(rawValue: 1001)) == nil)
+        #expect(stats.isAntiheal(morello))
+        #expect(!stats.isAntiheal(tabis))
+    }
 }

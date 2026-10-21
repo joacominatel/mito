@@ -20,7 +20,8 @@ enum ReasonText {
         func count(_ games: Int) -> String { games.countText(locale: locale) }
 
         switch reason.kind {
-        case .matchup(let opponent, let delta, let games):
+        case .matchup(let opponent, let delta, let games),
+            .profileMatchup(let opponent, _, let delta, let games):
             return String(
                 localized:
                     "\(points(delta)) vs \(names.champion(opponent)) (\(count(games)) partidas)",
@@ -39,6 +40,8 @@ enum ReasonText {
             return String(
                 localized: "Tier \(tier.rawValue) del parche (\(count(games)) partidas)",
                 table: "DesignSystem")
+        case .comfort(_, let games, _):
+            return String(localized: "\(count(games)) partidas propias", table: "DesignSystem")
         case .fillsDamageGap(.magic, let alliedShare):
             return String(
                 localized: "Tu equipo es \(percent(alliedShare)) AD: aporta AP",
@@ -98,7 +101,8 @@ enum ReasonText {
 
     static func symbol(_ kind: Reason.Kind) -> String {
         switch kind {
-        case .matchup: "person.line.dotted.person"
+        case .matchup, .profileMatchup: "person.line.dotted.person"
+        case .comfort: "person.crop.circle"
         case .versusEnemy: "person.3"
         case .synergy: "link"
         case .meta: "chart.bar"
@@ -119,7 +123,8 @@ enum ReasonText {
     /// For the user's pick: a threat is bad news even when it argues for a ban.
     static func tone(_ kind: Reason.Kind) -> Tone {
         switch kind {
-        case .matchup(_, let delta, _), .versusEnemy(_, let delta, _),
+        case .matchup(_, let delta, _), .profileMatchup(_, _, let delta, _),
+            .versusEnemy(_, let delta, _),
             .synergy(_, _, let delta, _), .threatens(_, let delta, _):
             WinratePoints.tone(delta)
         case .situationalItem(_, _, _, _, let delta):
@@ -131,7 +136,8 @@ enum ReasonText {
             case .c, .d: .unfavorable
             }
         case .fillsDamageGap, .addsFrontline, .addsCrowdControl, .addsEngage: .favorable
-        case .powerCurve, .generalChoice, .adaptedToOpponent, .adaptedToProfile, .countersFlag:
+        case .comfort, .powerCurve, .generalChoice, .adaptedToOpponent, .adaptedToProfile,
+            .countersFlag:
             .neutral
         }
     }

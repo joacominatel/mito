@@ -5,10 +5,12 @@ import Testing
 /// (`MITO_CONTEXT.md` §17), so neither side changes without the other.
 struct ContractPinTests {
     /// Every column of each table the reader queries. Schema 1, pinned in P6-02; the Phase 7
-    /// relation, profile, ban and flag tables joined in P7-02.
+    /// relation, profile, ban and flag tables joined in P7-02, `item_classes` and
+    /// `duration_curves` in P7-08.
     private static let pinnedTables: [String: [String]] = [
         "meta": ["key", "value"],
         "champion_flags": ["champion_id", "flag"],
+        "item_classes": ["item_id", "class", "antiheal"],
         "champ_ban_stats": ["champion_id", "bans"],
         "champion_roles": ["champion_id", "role", "games"],
         "champ_role_stats": [
@@ -19,6 +21,7 @@ struct ContractPinTests {
             "tankiness", "cc_score", "tl_games", "gold_diff_15", "lvl6_s", "item1_s", "item2_s",
             "item3_s",
         ],
+        "duration_curves": ["champion_id", "role", "bucket", "games", "wins"],
         "champ_vs_profile": ["champion_id", "role", "enemy_profile", "games", "wins"],
         "matchup_stats": [
             "champion_id", "role", "opp_id", "games", "wins", "tl_games", "gold_diff_15",
@@ -42,9 +45,10 @@ struct ContractPinTests {
         "skill_orders": ["champion_id", "role", "max_order", "sequence", "games", "wins"],
     ]
 
-    /// §17 tables no `StatsProvider` query reads yet. A new table lands here or in
-    /// `pinnedTables`, never silently in neither.
-    private static let unreadTables: Set<String> = ["champions", "item_classes", "duration_curves"]
+    /// §17 tables no `StatsProvider` query reads. A new table lands here or in `pinnedTables`,
+    /// never silently in neither. `champions` stays unread: only the exporter's blend (§14.13)
+    /// uses `changed`, and no engine rule does (P7-08).
+    private static let unreadTables: Set<String> = ["champions"]
 
     @Test func everySchemaTableIsEitherReadOrDeliberatelyUnread() throws {
         let tables = Set(try Self.fixtureSchema().keys)

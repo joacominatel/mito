@@ -164,6 +164,23 @@ struct SnapshotReaderTests {
 
     // MARK: Tolerance
 
+    @Test func aBucketOutsideTheContractIsAMalformedTable() throws {
+        try SnapshotCopy.with("UPDATE duration_curves SET bucket = '45+' WHERE bucket = '40+'") {
+            file in
+            #expect(throws: SnapshotReadError.malformedTable("duration_curves")) {
+                try SnapshotReader(fileURL: file)
+            }
+        }
+    }
+
+    @Test func anUnknownItemClassIsKeptAsUnknown() throws {
+        try SnapshotCopy.with("UPDATE item_classes SET class = 'mythic' WHERE item_id = 3157") {
+            file in
+            let reader = try SnapshotReader(fileURL: file)
+            #expect(reader.itemClass(of: ItemID(rawValue: 3157)) == .unknown("mythic"))
+        }
+    }
+
     @Test func anUnknownFlagIsKeptAsUnknown() throws {
         try SnapshotCopy.with("INSERT INTO champion_flags VALUES (103, 'split_push')") { file in
             let reader = try SnapshotReader(fileURL: file)
@@ -229,6 +246,7 @@ struct SnapshotReaderTests {
     @Test(arguments: [
         "matchup_stats", "synergy_stats", "vs_team_stats", "champion_profiles", "champ_vs_profile",
         "rune_page_vs_profile", "item_vs_profile", "champ_ban_stats", "champion_flags",
+        "duration_curves", "item_classes",
     ])
     func aMissingPhase7TableIsAMalformedTable(_ table: String) throws {
         try SnapshotCopy.with("DROP TABLE \(table)") { file in
@@ -272,6 +290,7 @@ struct SnapshotReaderTests {
         #expect(reader.finalItems(for: unknown, role: .middle, against: .mixed).isEmpty)
         #expect(reader.bans(of: unknown) == nil)
         #expect(reader.flags(of: unknown).isEmpty)
+        #expect(reader.durationCurves(for: unknown, role: .middle).isEmpty)
     }
 
     @Test func aRoleTheChampionDoesNotPlayHasNoLoadouts() throws {

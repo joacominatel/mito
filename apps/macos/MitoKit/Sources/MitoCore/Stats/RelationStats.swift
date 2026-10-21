@@ -1,5 +1,6 @@
 /// Games and wins of a (champ, role) in one relation: with an ally (`synergy_stats`), against
-/// any enemy (`vs_team_stats`) or against an enemy profile (`champ_vs_profile`) (§17).
+/// any enemy (`vs_team_stats`), against an enemy profile (`champ_vs_profile`) or in a
+/// game-length bucket (`duration_curves`) (§17).
 public struct RelationStats: Hashable, Sendable {
     /// `games`; the denominator of usage in this context (§17, "Capas y denominadores").
     public let games: Int

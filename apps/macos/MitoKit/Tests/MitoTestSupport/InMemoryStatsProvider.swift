@@ -29,6 +29,9 @@ public struct InMemoryStatsProvider: StatsProvider {
         [ChampionID: [Role: [EnemyProfile: [FinalItemCandidate]]]]
     public var bansByChampion: [ChampionID: Int]
     public var flagsByChampion: [ChampionID: Set<ChampionFlag>]
+    public var durationCurvesByChampion: [ChampionID: [Role: [DurationBucket: RelationStats]]]
+    public var itemClasses: [ItemID: ItemClass]
+    public var antihealItems: Set<ItemID>
 
     public init(
         roleGamesByChampion: [ChampionID: [Role: Int]] = [:],
@@ -55,7 +58,10 @@ public struct InMemoryStatsProvider: StatsProvider {
         profileFinalItemsByChampion: [ChampionID: [Role: [EnemyProfile: [FinalItemCandidate]]]] =
             [:],
         bansByChampion: [ChampionID: Int] = [:],
-        flagsByChampion: [ChampionID: Set<ChampionFlag>] = [:]
+        flagsByChampion: [ChampionID: Set<ChampionFlag>] = [:],
+        durationCurvesByChampion: [ChampionID: [Role: [DurationBucket: RelationStats]]] = [:],
+        itemClasses: [ItemID: ItemClass] = [:],
+        antihealItems: Set<ItemID> = []
     ) {
         self.roleGamesByChampion = roleGamesByChampion
         self.meta = meta
@@ -77,6 +83,9 @@ public struct InMemoryStatsProvider: StatsProvider {
         self.profileFinalItemsByChampion = profileFinalItemsByChampion
         self.bansByChampion = bansByChampion
         self.flagsByChampion = flagsByChampion
+        self.durationCurvesByChampion = durationCurvesByChampion
+        self.itemClasses = itemClasses
+        self.antihealItems = antihealItems
     }
 
     public func roleGames(for champion: ChampionID) -> [Role: Int] {
@@ -171,5 +180,19 @@ public struct InMemoryStatsProvider: StatsProvider {
 
     public func flags(of champion: ChampionID) -> Set<ChampionFlag> {
         flagsByChampion[champion] ?? []
+    }
+
+    public func durationCurves(for champion: ChampionID, role: Role)
+        -> [DurationBucket: RelationStats]
+    {
+        durationCurvesByChampion[champion]?[role] ?? [:]
+    }
+
+    public func itemClass(of item: ItemID) -> ItemClass? {
+        itemClasses[item]
+    }
+
+    public func isAntiheal(_ item: ItemID) -> Bool {
+        antihealItems.contains(item)
     }
 }

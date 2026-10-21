@@ -50,6 +50,9 @@ struct RecommendationPrivacyTests {
         let zed = ChampionID(rawValue: 238)
         let kinds: [Reason.Kind] = [
             .matchup(opponent: zed, delta: -0.02, games: 497),
+            .profileMatchup(
+                opponent: zed, profiles: [.heavyAD, .heavyCC], delta: -0.01, games: 900),
+            .comfort(poolRank: 3, games: 41, winrate: 0.56),
             .versusEnemy(enemy: zed, delta: 0.01, games: 661),
             .synergy(ally: zed, allyRole: .jungle, delta: 0.01, games: 247),
             .meta(tier: .a, games: 2_824),

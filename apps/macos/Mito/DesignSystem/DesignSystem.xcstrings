@@ -13,6 +13,9 @@
     "%@ para tu %@ (%@ partidas)" : {
       "comment" : "Ban reason: how much this champion hurts one of the user's picks. Arguments: signed winrate points (negative), the user's champion, game count."
     },
+    "%@ partidas propias" : {
+      "comment" : "Reason: the user's own games with the champion in this role. The argument is the game count."
+    },
     "%@ puntos de winrate" : {
       "comment" : "VoiceOver label of a delta badge. The argument is the signed value (+2,1)."
     },

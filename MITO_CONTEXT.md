@@ -426,7 +426,7 @@ que esté siempre abierta para colgarle un `.task`.
 
 | Módulo | Responsabilidad | Depende de |
 |---|---|---|
-| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SummonerSpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet`; el protocolo `StatsProvider` y sus filas (`SnapshotMeta`, `ChampionRoleStats`, candidatos de loadout, relaciones, `ChampionProfile`, `EnemyProfile`, `ChampionFlag`, `Tier`, `SampleLevel`); la explicación (`Reason`, `PickRecommendation`, `BanRecommendation`); el protocolo `PersonalStore` y sus registros (`MyMatch`, `MyMatchParticipant`, `ChampionOverride`, `PoolEntry`, `ImportLogEntry`) | nada |
+| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SummonerSpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet`; el protocolo `StatsProvider` y sus filas (`SnapshotMeta`, `ChampionRoleStats`, candidatos de loadout, relaciones, `ChampionProfile`, `EnemyProfile`, `ChampionFlag`, `DurationBucket`, `Tier`, `SampleLevel`); la explicación (`Reason`, `PickRecommendation`, `BanRecommendation`); el protocolo `PersonalStore` y sus registros (`MyMatch`, `MyMatchParticipant`, `ChampionOverride`, `PoolEntry`, `ImportLogEntry`) | nada |
 | `LCUKit` | Descubrir el cliente, credenciales, REST tipado, WebSocket WAMP, reconexión | MitoCore |
 | `MitoStore` | Abrir el snapshot (read-only), DB personal (read-write), settings, migraciones; `DataDragonClient`, el cliente HTTPS que solo habla con `ddragon.leagueoflegends.com` | MitoCore, GRDB |
 | `MitoEngine` | Scoring de picks, bans, runas, ítems y spells. **Funciones puras** | MitoCore |
@@ -462,13 +462,21 @@ snapshot y los tests usan `InMemoryStatsProvider`. Superficie actual:
   (`rune_page_vs_profile`) y `finalItems` (`item_vs_profile`: sin perfil es la línea base
   `'any'`, con perfil es ese perfil).
 - Por campeón: `bans(of:)` (`champ_ban_stats`) y `flags(of:)` (`champion_flags`).
+- `durationCurves(for:role:)`: `duration_curves` como `[DurationBucket: RelationStats]`; cada
+  `DurationBucket` lleva su etiqueta de §17 (`<20` … `40+`) y sus límites en minutos
+  (`[lowerMinutes, upperMinutes)`, `40+` sin techo). Un bucket fuera de la codificación es una
+  tabla malformada.
+- Por ítem: `itemClass(of:)` (`item_classes.class` como `ItemClass`, tolerante) e
+  `isAntiheal(_:)` (`item_classes.antiheal`). Un ítem sin fila es `nil` y no es antiheal.
+- `champions` no se lee: `changed` solo lo usa la mezcla del exporter (§14.13), ninguna regla
+  del motor.
 - `EnemyProfile` y `ChampionFlag` son tolerantes: un valor desconocido carga como `.unknown`.
 
 Todo método tiene una implementación vacía por defecto en la extensión del protocolo, así un
 provider que no conoce una tabla compila igual.
 
 La explicación vive en MitoCore porque la produce `MitoEngine` y la dibuja la app: `Reason`
-lleva el tipo (`Reason.Kind`, con los números de §18.3–§18.8: deltas y shares como
+lleva el tipo (`Reason.Kind`, con los números de §18.3–§18.8 y §19.3: deltas y shares como
 fracciones, partidas) y su `SampleLevel`; nunca texto. `PickRecommendation` y
 `BanRecommendation` llevan candidato, score, componentes por término (§18.3) o factor
 (§18.5), razones por impacto y la confianza (el `SampleLevel` de `champ_role`).
@@ -2784,9 +2792,11 @@ struct Reason: Sendable {          // MitoCore/Recommendation/Reason.swift
     let sample: SampleLevel?       // "muestra baja" va acá, no como razón aparte
     enum Kind {
         case matchup(opponent:delta:games:)          // el signo del delta da fuerte o débil
+        case profileMatchup(opponent:profiles:delta:games:)   // backoff del matchup al perfil rival
         case versusEnemy(enemy:delta:games:)
         case synergy(ally:allyRole:delta:games:)
         case meta(tier:games:)
+        case comfort(poolRank:games:winrate:)        // §19.3: "Tu 3er campeón (41 partidas, 56 %)"
         case fillsDamageGap(adds:alliedShare:), addsFrontline(tankiness:),
              addsCrowdControl(ccScore:), addsEngage, powerCurve(early:teamEarly:)   // §18.4
         case threatens(pick:delta:games:)                                         // §18.5
@@ -2798,8 +2808,14 @@ struct Reason: Sendable {          // MitoCore/Recommendation/Reason.swift
 }
 ```
 
-Los deltas y shares van como fracción; la UI los formatea. La razón de comodidad personal
-todavía no existe: necesita un caso nuevo en `Reason.Kind` (MitoCore).
+Los deltas y shares van como fracción; la UI los formatea. `profileMatchup` es el backoff del
+matchup (abajo): `profiles` son las etiquetas activas con fila usable de `champ_vs_profile`,
+`delta` su media ponderada por `games` y `games` la suma; así la UI lo muestra como estimado
+por perfil ("vs Zed (estimado por perfil: mucho AD)") y no como un matchup directo. `comfort`
+es la comodidad personal: partidas propias con el campeón en ese rol, su winrate crudo y
+`poolRank`, el puesto (desde 1) en el orden del pool del rol, `nil` fuera de él. El motor
+todavía no emite ninguno de los dos (P7-13) y la app los dibuja con una línea neutra hasta
+P7-14.
 
 Precisiones (`MitoEngine/Pick/PickScoring`):
 

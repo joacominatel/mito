@@ -25,6 +25,11 @@ struct ReasonTextTests {
             "+2,1 vs Zed (8.212 partidas)"
         ),
         (
+            .profileMatchup(opponent: zed, profiles: [.heavyAD], delta: -0.012, games: 797),
+            "\u{2212}1,2 vs Zed (797 partidas)"
+        ),
+        (.comfort(poolRank: 3, games: 41, winrate: 0.56), "41 partidas propias"),
+        (
             .versusEnemy(enemy: zed, delta: -0.034, games: 412),
             "\u{2212}3,4 contra Zed en el equipo rival (412 partidas)"
         ),
@@ -106,6 +111,11 @@ struct ReasonTextTests {
     @Test(arguments: [
         (Reason.Kind.matchup(opponent: zed, delta: 0.021, games: 1), Tone.favorable),
         (.matchup(opponent: zed, delta: -0.021, games: 1), .unfavorable),
+        (
+            .profileMatchup(opponent: zed, profiles: [.heavyAD], delta: -0.021, games: 1),
+            .unfavorable
+        ),
+        (.comfort(poolRank: 1, games: 41, winrate: 0.56), .neutral),
         (.synergy(ally: zed, allyRole: .top, delta: 0.0004, games: 1), .neutral),
         (.threatens(pick: ahri, delta: -0.042, games: 1), .unfavorable),
         (.meta(tier: .a, games: 1), .favorable),

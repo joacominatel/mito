@@ -5,12 +5,22 @@ public struct Reason: Hashable, Sendable {
     public enum Kind: Hashable, Sendable {
         /// §18.3 `matchup`: `delta` is `matchup_delta` against the lane opponent over `games`.
         case matchup(opponent: ChampionID, delta: Double, games: Int)
+        /// §18.3 matchup backoff: no usable `matchup_stats` row against `opponent`, so `delta`
+        /// is the `games`-weighted `matchup_delta` against the active enemy `profiles` with a
+        /// usable `champ_vs_profile` row, and `games` their sum. The sample is the lowest
+        /// among those rows.
+        case profileMatchup(
+            opponent: ChampionID, profiles: [EnemyProfile], delta: Double, games: Int)
         /// §18.3 `vs_team`: the delta against a locked enemy outside the lane.
         case versusEnemy(enemy: ChampionID, delta: Double, games: Int)
         /// §18.3 `synergy`: the delta with a locked ally in its role.
         case synergy(ally: ChampionID, allyRole: Role, delta: Double, games: Int)
         /// §18.3 `meta`: the tier of `wr_smoothed(champ, role)` and its `games`.
         case meta(tier: Tier, games: Int)
+        /// §18.3, §19.3 personal comfort ("Tu 3er campeón (41 partidas, 56 %)"): the user's
+        /// own `games` with the champion in this role and their raw `winrate` over them.
+        /// `poolRank` is the 1-based place in the role's pool order (§18.3), `nil` outside it.
+        case comfort(poolRank: Int?, games: Int, winrate: Double)
         /// §18.4 damage balance: the allied `team_phys` or `team_magic` share that `adds` offsets.
         case fillsDamageGap(adds: DamageType, alliedShare: Double)
         /// §18.4 frontline: the candidate's `tankiness` when the team has no frontline.

@@ -49,4 +49,14 @@ struct StatsProviderDefaultsTests {
         #expect(stats.finalItems(for: ahri, role: .middle).isEmpty)
         #expect(stats.finalItems(for: ahri, role: .middle, against: .heavyAP).isEmpty)
     }
+
+    @Test func aProviderWithoutDurationCurvesHasNoBuckets() {
+        #expect(RoleGamesOnly().durationCurves(for: ahri, role: .middle).isEmpty)
+    }
+
+    @Test func aProviderWithoutItemClassesClassifiesNothingAsAntiheal() {
+        let morello = ItemID(rawValue: 3165)
+        #expect(RoleGamesOnly().itemClass(of: morello) == nil)
+        #expect(!RoleGamesOnly().isAntiheal(morello))
+    }
 }

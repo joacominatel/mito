@@ -123,6 +123,20 @@ public struct SnapshotReader: StatsProvider {
         tables.flags[champion] ?? []
     }
 
+    public func durationCurves(for champion: ChampionID, role: Role)
+        -> [DurationBucket: RelationStats]
+    {
+        tables.durationCurves[ChampionRole(champion: champion, role: role)] ?? [:]
+    }
+
+    public func itemClass(of item: ItemID) -> ItemClass? {
+        tables.itemClasses[item]
+    }
+
+    public func isAntiheal(_ item: ItemID) -> Bool {
+        tables.antihealItems.contains(item)
+    }
+
     private func loadouts(_ champion: ChampionID, _ role: Role, _ opponent: ChampionID)
         -> Loadouts
     {
@@ -175,6 +189,9 @@ extension SnapshotReader {
         var baselineFinalItems: [ChampionRole: [FinalItemCandidate]] = [:]
         var bans: [ChampionID: Int] = [:]
         var flags: [ChampionID: Set<ChampionFlag>] = [:]
+        var durationCurves: [ChampionRole: [DurationBucket: RelationStats]] = [:]
+        var itemClasses: [ItemID: ItemClass] = [:]
+        var antihealItems: Set<ItemID> = []
     }
 
     /// A value outside the §17 encoding; reported as `malformedTable`.
@@ -205,6 +222,7 @@ extension SnapshotReader {
         let meta = try readMeta(db)
         var tables = Tables()
         try readChampions(db, into: &tables)
+        try readItemClasses(db, into: &tables)
         try readRelations(db, into: &tables)
         try readLoadouts(db, into: &tables)
         try readProfileLoadouts(db, into: &tables)
@@ -269,6 +287,28 @@ extension SnapshotReader {
         try each(db, "champion_flags", "SELECT champion_id, flag FROM champion_flags") { row in
             tables.flags[try champion(row), default: []].insert(
                 ChampionFlag(rawValue: try row.decode(forColumn: "flag")))
+        }
+
+        try each(
+            db, "duration_curves",
+            "SELECT champion_id, role, bucket, games, wins FROM duration_curves"
+        ) { row in
+            guard let bucket = DurationBucket(rawValue: try row.decode(forColumn: "bucket")) else {
+                throw OutOfContract()
+            }
+            tables.durationCurves[try key(row), default: [:]][bucket] = try relation(row)
+        }
+    }
+
+    private static func readItemClasses(_ db: Database, into tables: inout Tables)
+        throws(SnapshotReadError)
+    {
+        try each(db, "item_classes", "SELECT item_id, class, antiheal FROM item_classes") { row in
+            let item = ItemID(rawValue: try row.decode(forColumn: "item_id"))
+            tables.itemClasses[item] = ItemClass(rawValue: try row.decode(forColumn: "class"))
+            if try row.decode(Int.self, forColumn: "antiheal") != 0 {
+                tables.antihealItems.insert(item)
+            }
         }
     }
 

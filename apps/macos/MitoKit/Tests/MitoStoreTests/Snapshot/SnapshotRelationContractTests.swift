@@ -4,7 +4,7 @@ import Testing
 @testable import MitoStore
 
 /// The §23.3 contract test for the Phase 7 tables: relations, enemy profiles, per-opponent and
-/// per-profile loadouts, bans and flags. Expected values come from
+/// per-profile loadouts, bans, flags, duration curves and item classes. Expected values come from
 /// `sqlite3 fixtures/snapshot/emerald_plus.sqlite`.
 struct SnapshotRelationContractTests {
     private static let zed = ChampionID(rawValue: 238)
@@ -296,5 +296,54 @@ struct SnapshotRelationContractTests {
         #expect(reader.flags(of: Self.ashe) == [.autoAttacker, .engage])
         #expect(reader.flags(of: Self.lux) == [.poke])
         #expect(reader.flags(of: Self.ahri).isEmpty)
+    }
+
+    // MARK: Duration curves
+
+    @Test func aDurationCurveHasEveryBucketOfItsChampionAndRole() throws {
+        #expect(
+            try Self.reader().durationCurves(for: Self.ahri, role: .middle) == [
+                .under20: RelationStats(games: 717, wins: 355),
+                .from20To25: RelationStats(games: 123, wins: 58),
+                .from25To30: RelationStats(games: 497, wins: 228),
+                .from30To35: RelationStats(games: 703, wins: 357),
+                .from35To40: RelationStats(games: 218, wins: 117),
+                .over40: RelationStats(games: 566, wins: 309),
+            ])
+    }
+
+    /// Zed plays JUNGLE and MIDDLE; each role is its own curve.
+    @Test func aDurationCurveIsKeyedByRole() throws {
+        let reader = try Self.reader()
+        #expect(
+            reader.durationCurves(for: Self.zed, role: .jungle)[.under20]
+                == RelationStats(games: 1359, wins: 618))
+        #expect(
+            reader.durationCurves(for: Self.zed, role: .middle)[.under20]
+                == RelationStats(games: 107, wins: 57))
+        #expect(reader.durationCurves(for: Self.zed, role: .top).isEmpty)
+    }
+
+    // MARK: Item classes
+
+    @Test(arguments: [
+        (1001, ItemClass.bootsT1), (1036, .component), (1056, .starter), (2003, .consumable),
+        (3047, .bootsT2), (3157, .legendary), (3869, .supportUpgrade),
+    ])
+    func anItemCarriesItsSnapshotClass(item: Int, itemClass: ItemClass) throws {
+        #expect(try Self.reader().itemClass(of: ItemID(rawValue: item)) == itemClass)
+    }
+
+    @Test func antihealIsTheFlaggedItemsOnly() throws {
+        let reader = try Self.reader()
+        #expect([3033, 3075, 3165].allSatisfy { reader.isAntiheal(ItemID(rawValue: $0)) })
+        #expect(!reader.isAntiheal(ItemID(rawValue: 3157)))
+    }
+
+    /// 6609 is antiheal in the game but absent from the fixture's `item_classes`.
+    @Test func anUnclassifiedItemHasNoClassAndIsNotAntiheal() throws {
+        let reader = try Self.reader()
+        #expect(reader.itemClass(of: ItemID(rawValue: 6609)) == nil)
+        #expect(!reader.isAntiheal(ItemID(rawValue: 6609)))
     }
 }

@@ -69,6 +69,16 @@ public protocol StatsProvider: Sendable {
 
     /// `champion_flags`; empty when none is curated.
     func flags(of champion: ChampionID) -> Set<ChampionFlag>
+
+    /// `duration_curves`: games and wins per game-length bucket, the source of
+    /// `early_strength` and `late_strength` (§18.4). A bucket without a row is absent.
+    func durationCurves(for champion: ChampionID, role: Role) -> [DurationBucket: RelationStats]
+
+    /// `item_classes.class` (§16.3); `nil` for an item the snapshot does not classify.
+    func itemClass(of item: ItemID) -> ItemClass?
+
+    /// `item_classes.antiheal` (§16.3, §18.7); `false` for an unclassified item.
+    func isAntiheal(_ item: ItemID) -> Bool
 }
 
 extension StatsProvider {
@@ -127,4 +137,12 @@ extension StatsProvider {
     public func bans(of champion: ChampionID) -> Int? { nil }
 
     public func flags(of champion: ChampionID) -> Set<ChampionFlag> { [] }
+
+    public func durationCurves(for champion: ChampionID, role: Role)
+        -> [DurationBucket: RelationStats]
+    { [:] }
+
+    public func itemClass(of item: ItemID) -> ItemClass? { nil }
+
+    public func isAntiheal(_ item: ItemID) -> Bool { false }
 }
