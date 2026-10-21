@@ -136,7 +136,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | MD-FX | Contract fixture snapshot (`uv run mito-data fixture`) | mito-data | — | — | MD0 | done (mito-data ef55706, `fixtures/snapshot/`) |
 | KEY | Personal API key from the Riot Developer Portal | CEO | — | — | — | development key in the Keychain (expires every 24 h); personal key required before publishing, application pending |
 | MD5 | `mito-data` pipeline MVP: crawl, normalize, P5 aggregations, export, R2 publish | mito-data | — | — | MD0, KEY | in progress (publishes to a local R2-shaped directory until the R2 account exists) |
-| MD7 | `mito-data` Phase 7 aggregations, curated flags, `meta.profile_rules` | mito-data | — | — | MD5 | in progress (Phase 7 fixture first) |
+| MD7 | `mito-data` Phase 7 aggregations, curated flags, `meta.profile_rules` | mito-data | — | — | MD5 | fixture done (mito-data 927a3b3); exporter carries MD7 (9aa775f) |
 | MD-tips | Curated es-AR tips file published by `mito-data` | mito-data | — | — | MD5 | todo |
 
 ## Fixes
@@ -147,6 +147,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | FX-02 | Personal contract gaps: `ChampionOverride.fixedItems`; `my_match_participants` keyed by `(game_id, slot)` | core + docs (serial) | `MitoCore/Personal/ChampionOverride.swift`, `MITO_CONTEXT.md` §17 | §17 | P8-00 | merged |
 | FX-03 | Hand the personal store to `OnboardingModel` and `OverridesModel` so P8-05 and P8-08 run in parallel without shell edits | shell (serial) | `Mito/App/AppModel.swift`, `Mito/Features/{Onboarding,Overrides}/*Model.swift` | — | P8-04 | merged |
 | FX-04 | `GameData.allChampions/allItems/allSpells` and a public `RunePage.validationError(against:)` for the overrides editor | assets + import | `MitoAssets/GameData/GameData.swift`, `MitoImport/Runes/RunePageValidation.swift` | — | P4-01, P4-03 | merged |
+| FX-05 | Match history items include the role-quest slot (`roleBoundItem`), where bot-lane boots live since the 2026 role quests | lcu | `MitoKit/Sources/LCUKit/History/**`, `fixtures/lcu/cases/history/**` | §10.6 | P8-02 | todo |
 
 ## P1 — Connection
 

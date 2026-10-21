@@ -1872,7 +1872,7 @@ Se calculan desde match-v5 y la timeline:
 La fuerza early y late no se guarda: sale de `duration_curves` (§18.4).
 
 Lo que los datos no capturan bien se cura a mano por parche en `mito-data`
-(`curated/champion_flags.yaml`) y se exporta como `champion_flags`: `high_heal`,
+(`src/mito_data/champion_flags.toml`, TOML que lee la stdlib de Python) y se exporta como `champion_flags`: `high_heal`,
 `point_click_cc`, `auto_attacker`, `poke` y `engage`. Reemplaza a los `tags` de Data Dragon
 y a las listas estáticas.
 
