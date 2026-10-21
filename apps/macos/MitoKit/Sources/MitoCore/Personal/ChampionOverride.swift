@@ -86,6 +86,8 @@ public struct ChampionOverride: Hashable, Sendable {
     public var spellMode: SpellMode
     public var fixedSpells: SpellPair?
     public var itemMode: ItemMode
+    /// The set imported when `itemMode` is `.fixedSet` (`fixed_items`).
+    public var fixedItems: ItemSet?
     public var isFavorite: Bool
     public var isExcludedFromPool: Bool
 
@@ -97,6 +99,7 @@ public struct ChampionOverride: Hashable, Sendable {
         spellMode: SpellMode = .recommended,
         fixedSpells: SpellPair? = nil,
         itemMode: ItemMode = .recommended,
+        fixedItems: ItemSet? = nil,
         isFavorite: Bool = false,
         isExcludedFromPool: Bool = false
     ) {
@@ -107,6 +110,7 @@ public struct ChampionOverride: Hashable, Sendable {
         self.spellMode = spellMode
         self.fixedSpells = fixedSpells
         self.itemMode = itemMode
+        self.fixedItems = fixedItems
         self.isFavorite = isFavorite
         self.isExcludedFromPool = isExcludedFromPool
     }

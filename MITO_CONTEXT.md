@@ -2346,9 +2346,9 @@ CREATE TABLE my_matches (
 );
 
 CREATE TABLE my_match_participants (    -- los otros 9, para insights por perfil o sinergia
-  game_id INTEGER NOT NULL, champion_id INTEGER NOT NULL,
-  is_enemy INTEGER NOT NULL, role TEXT,
-  PRIMARY KEY (game_id, champion_id)
+  game_id INTEGER NOT NULL, slot INTEGER NOT NULL,   -- slot: orden 0–8 en la partida
+  champion_id INTEGER NOT NULL, is_enemy INTEGER NOT NULL, role TEXT,
+  PRIMARY KEY (game_id, slot)            -- blind pick y One for All repiten campeones
 );
 
 CREATE TABLE champion_overrides (       -- preferencias manuales del usuario
