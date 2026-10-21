@@ -1,6 +1,7 @@
 import Foundation
 import MitoCore
 import MitoEngine
+import MitoStore
 import Testing
 
 @testable import Mito
@@ -204,7 +205,7 @@ struct HistorySummaryTests {
         let subject = AnalysisSubject(
             queue: queue, champion: champion, role: role,
             laneOpponent: rival.map { .init(cellId: 5, champion: zed, role: $0) },
-            allies: [], enemies: [], stats: stats,
+            allies: [], enemies: [], stats: stats, tips: .empty,
             personal: PersonalInputs(matches: matches, masteryPoints: mastery),
             names: ReasonNames(
                 champion: { [103: "Ahri", 134: "Syndra", 238: "Zed"][$0.rawValue] ?? "?" },

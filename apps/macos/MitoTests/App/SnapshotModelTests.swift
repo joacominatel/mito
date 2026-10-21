@@ -7,14 +7,22 @@ import Testing
 @testable import Mito
 
 /// A cache and a download that never leave memory; files are named after their patch.
-private nonisolated final class FakeSnapshotSource: SnapshotSource {
+nonisolated final class FakeSnapshotSource: SnapshotSource {
     private let cached: URL?
     private let download: Result<URL, SnapshotDownloadError>
+    private let installed: CuratedTips
+    private let tipsDownload: Result<CuratedTips, SnapshotDownloadError>
     private let downloads = Mutex(0)
 
-    init(cached: String?, download: Result<String, SnapshotDownloadError>) {
+    init(
+        cached: String?, download: Result<String, SnapshotDownloadError>,
+        installedTips: CuratedTips = .empty,
+        tipsDownload: Result<CuratedTips, SnapshotDownloadError> = .success(.empty)
+    ) {
         self.cached = cached.map(Self.file)
         self.download = download.map(Self.file)
+        installed = installedTips
+        self.tipsDownload = tipsDownload
     }
 
     var downloadCount: Int { downloads.withLock { $0 } }
@@ -24,6 +32,12 @@ private nonisolated final class FakeSnapshotSource: SnapshotSource {
     func downloadCurrent() async throws(SnapshotDownloadError) -> URL {
         downloads.withLock { $0 += 1 }
         return try download.get()
+    }
+
+    func installedTips() async -> CuratedTips { installed }
+
+    func downloadCurrentTips() async throws(SnapshotDownloadError) -> CuratedTips {
+        try tipsDownload.get()
     }
 
     private static func file(_ patch: String) -> URL {
@@ -103,6 +117,51 @@ struct SnapshotModelTests {
         #expect(snapshots.status == .failed(.unreadable(.unsupportedSchemaVersion(9))))
     }
 
+    // MARK: Curated tips
+
+    static func tips(_ text: String) -> CuratedTips {
+        CuratedTips(records: [
+            CuratedTipRecord(
+                champion: ChampionID(rawValue: 103), role: .middle, opponent: nil,
+                reviewedPatch: Patch(rawValue: "16.20"), text: text)
+        ])
+    }
+
+    @Test func theInstalledTipsLoadAtLaunchAndTheCurrentOnesReplaceThem() async {
+        let source = FakeSnapshotSource(
+            cached: "16.20", download: .success("16.21"), installedTips: Self.tips("viejo"),
+            tipsDownload: .success(Self.tips("nuevo")))
+        let snapshots = model(source)
+
+        await snapshots.run()
+
+        #expect(snapshots.tips == Self.tips("nuevo"))
+    }
+
+    @Test func aFailedTipsInstallKeepsTheInstalledTips() async {
+        let snapshots = model(
+            FakeSnapshotSource(
+                cached: "16.20", download: .success("16.21"), installedTips: Self.tips("viejo"),
+                tipsDownload: .failure(.tipsInvalid)))
+
+        await snapshots.run()
+
+        #expect(snapshots.tips == Self.tips("viejo"))
+        #expect(snapshots.status == .ready)
+    }
+
+    @Test func offlineTheInstalledTipsStillLoad() async {
+        let failure = SnapshotDownloadError.manifestUnreachable("offline")
+        let snapshots = model(
+            FakeSnapshotSource(
+                cached: nil, download: .failure(failure), installedTips: Self.tips("viejo"),
+                tipsDownload: .failure(failure)))
+
+        await snapshots.run()
+
+        #expect(snapshots.tips == Self.tips("viejo"))
+    }
+
     @Test func anUnreadableFileIsNotOpened() async {
         let snapshots = SnapshotModel(
             origin: .file(URL(filePath: "/nonexistent/emerald_plus.sqlite")))
@@ -129,6 +188,7 @@ struct SnapshotModelTests {
         }
         #expect(snapshots.meta == nil)
         #expect(snapshots.status == .none)
+        #expect(snapshots.tips == .empty)
     }
 
     #if DEBUG

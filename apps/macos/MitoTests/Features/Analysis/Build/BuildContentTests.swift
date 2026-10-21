@@ -2,6 +2,7 @@ import Foundation
 import MitoAssets
 import MitoCore
 import MitoEngine
+import MitoStore
 import Testing
 
 @testable import Mito
@@ -57,6 +58,63 @@ struct BuildContentTests {
         ])
 
         #expect(derive(queue: .aram, role: nil, personal: personal).state == .aram([]))
+    }
+
+    // MARK: No snapshot
+
+    @Test func withoutASnapshotTheRolesFixedChoicesShow() {
+        let personal = PersonalInputs(overrides: [
+            ChampionOverride(
+                champion: Stats.ahri, role: .middle, runeMode: .fixed, fixedPage: Stats.conqueror,
+                spellMode: .fixed, fixedSpells: nil)
+        ])
+        let content = derive(personal: personal, stats: ChampSelectModel.NoStats())
+
+        guard case .fixed(let parts) = content.state else {
+            Issue.record("Expected the fixed page, got \(content.state)")
+            return
+        }
+        #expect(content.role == .middle)
+        // The spells' fixed mode has nothing saved: nothing goes, so nothing shows.
+        #expect(parts.map(\.id) == [.runes])
+        #expect(parts.map(\.source) == [.override])
+        #expect(parts.first?.chosen.first?.title == "Runa 8010")
+    }
+
+    @Test func withoutASnapshotOrAFixedChoiceTheTabHasNoStats() {
+        let favorite = PersonalInputs(overrides: [
+            ChampionOverride(champion: Stats.ahri, role: .middle, isFavorite: true)
+        ])
+
+        #expect(derive(stats: ChampSelectModel.NoStats()).state == .noSnapshot)
+        #expect(
+            derive(personal: favorite, stats: ChampSelectModel.NoStats()).state == .noSnapshot)
+    }
+
+    @Test func withoutASnapshotOrARoleTheTabHasNoStats() {
+        let personal = PersonalInputs(overrides: [
+            ChampionOverride(
+                champion: Stats.ahri, role: .middle, runeMode: .fixed, fixedPage: Stats.conqueror)
+        ])
+
+        #expect(
+            derive(role: nil, personal: personal, stats: ChampSelectModel.NoStats()).state
+                == .noSnapshot)
+    }
+
+    @Test func aramShowsItsFixedChoicesWithoutASnapshot() {
+        let personal = PersonalInputs(overrides: [
+            ChampionOverride(
+                champion: Stats.ahri, role: .middle, runeMode: .fixed, fixedPage: Stats.conqueror)
+        ])
+        let content = derive(
+            queue: .aram, role: nil, personal: personal, stats: ChampSelectModel.NoStats())
+
+        guard case .aram(let parts) = content.state else {
+            Issue.record("Expected the fixed page, got \(content.state)")
+            return
+        }
+        #expect(parts.map(\.id) == [.runes])
     }
 
     @Test func blindPickShowsTheSelectorsRoleOverTheMostPlayedOne() {
@@ -283,7 +341,8 @@ struct BuildContentTests {
         enemies: [AnalysisSubject.Slot] = [],
         personal: PersonalInputs = PersonalInputs(),
         gameData: GameData? = nil,
-        settings: ImportSettings = ImportSettings()
+        settings: ImportSettings = ImportSettings(),
+        stats: any StatsProvider = Stats()
     ) -> BuildContent {
         let me = AnalysisSubject.Slot(
             id: 2, champion: source == .locked ? champion : nil,
@@ -293,7 +352,7 @@ struct BuildContentTests {
             queue: queue,
             champion: champion.map { AnalysisSubject.Champion(id: $0, source: source) },
             role: selectorRole ?? role, laneOpponent: nil, allies: [me], enemies: enemies,
-            stats: Stats(),
+            stats: stats, tips: .empty,
             personal: personal, names: .ids, gameData: gameData)
         return BuildContent.derive(subject, settings: settings)
     }

@@ -102,6 +102,8 @@ struct ImportOutcome: Identifiable, Equatable {
     var adaptations: [Part: [Adaptation]] = [:]
     var missing: Missing?
     var reimport: Reimport?
+    /// No snapshot was open, so only the override's fixed choices went (§20.3).
+    var withoutStats = false
 
     var status: Status {
         switch missing {
@@ -166,6 +168,11 @@ struct ImportOutcome: Identifiable, Equatable {
                     status: itemsUnavailable.status, origin: origins[part])
             }
             let result = result(of: part)
+            if withoutStats, result == .skipped(.notInLoadout) {
+                return Row(
+                    part: part, symbol: "minus.circle", tone: .neutral,
+                    status: LocalizedStringResource("Sin estadísticas del parche", table: "Import"))
+            }
             var row = Self.row(part, result)
             row.isLowSample = lowSample.contains(part) && result.keepsTheRecommendation
             row.origin = origins[part]

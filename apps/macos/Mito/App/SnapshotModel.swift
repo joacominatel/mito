@@ -10,10 +10,18 @@ nonisolated protocol SnapshotSource: Sendable {
     func cachedFile() async -> URL?
     /// On failure the cached file stays where it was.
     func downloadCurrent() async throws(SnapshotDownloadError) -> URL
+    /// Reads only the disk; `.empty` when none is installed.
+    func installedTips() async -> CuratedTips
+    /// On failure the installed tips stay where they were.
+    func downloadCurrentTips() async throws(SnapshotDownloadError) -> CuratedTips
 }
 
-/// Ranked Solo/Duo at Emerald+, the only snapshot the app reads today (§14.8).
+/// Ranked Solo/Duo at Emerald+, the only snapshot the app reads today (§14.8), and the tips in
+/// the UI's language.
 nonisolated struct DownloadedSnapshots: SnapshotSource {
+    /// The UI's only language today (§14.12).
+    static let tipsLocale = "es-AR"
+
     let downloader: SnapshotDownloader
 
     func cachedFile() async -> URL? {
@@ -27,9 +35,18 @@ nonisolated struct DownloadedSnapshots: SnapshotSource {
             queue: QueueType.rankedSolo.queueID, bracket: .emeraldPlus
         ).fileURL
     }
+
+    func installedTips() async -> CuratedTips {
+        await downloader.installedTips(locale: Self.tipsLocale)
+    }
+
+    func downloadCurrentTips() async throws(SnapshotDownloadError) -> CuratedTips {
+        try await downloader.installCurrentTips(locale: Self.tipsLocale)
+    }
 }
 
-/// The open per-patch snapshot every feature reads its stats from (§9.3, §20.3).
+/// The open per-patch snapshot every feature reads its stats from (§9.3, §20.3), and the curated
+/// tips the Matchup tab reads (§14.12).
 @Observable
 final class SnapshotModel {
     enum Status: Equatable {
@@ -65,6 +82,8 @@ final class SnapshotModel {
     private(set) var provider: any StatsProvider = NoSnapshot()
     /// The last open or download attempt.
     private(set) var status: Status = .none
+    /// The installed ones until a download replaces them; a failed one keeps them.
+    private(set) var tips: CuratedTips = .empty
 
     @ObservationIgnored private let origin: Origin
     @ObservationIgnored private let opener: Opener
@@ -90,6 +109,7 @@ final class SnapshotModel {
             await open(url)
         case .source(let source):
             if let cached = await source.cachedFile() { await open(cached) }
+            tips = await source.installedTips()
             status = .downloading
             do {
                 await open(try await source.downloadCurrent())
@@ -98,6 +118,12 @@ final class SnapshotModel {
                 Self.logger.notice(
                     "Snapshot download failed: \(String(describing: error), privacy: .public)")
                 status = .failed(.download(error))
+            }
+            do {
+                tips = try await source.downloadCurrentTips()
+            } catch {
+                Self.logger.notice(
+                    "Tips download failed: \(String(describing: error), privacy: .public)")
             }
         }
     }

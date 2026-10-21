@@ -1,6 +1,7 @@
 import Foundation
 import MitoCore
 import MitoEngine
+import MitoStore
 
 /// What the Matchup tab shows for a subject (§20.2), worded in es-AR. The numbers come from
 /// `MatchupAnalysis`; this only words them.
@@ -23,7 +24,10 @@ enum MatchupPresentation: Equatable {
         guard
             let analysis = MatchupAnalysis(
                 champion: champion.id, role: role, opponent: opponent?.champion,
-                stats: subject.stats)
+                stats: subject.stats,
+                curatedTips: subject.tips.tips(
+                    for: champion.id, role: role, against: opponent?.champion
+                ).map { CuratedTip(text: $0.text, reviewedPatch: $0.reviewedPatch) })
         else {
             self = .noStats
             return

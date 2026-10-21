@@ -1,4 +1,5 @@
 import MitoCore
+import MitoStore
 import Observation
 
 /// The "Análisis" panel under the draft (§20.1): the chosen tab and the subject every tab reads.
@@ -10,8 +11,9 @@ final class AnalysisModel {
         case build
         case history
 
-        /// Mi historial reads only the personal layer, so it works without a snapshot (§20.3).
-        var needsSnapshot: Bool { self != .history }
+        /// Mi historial reads only the personal layer, and Build shows the fixed choices, so both
+        /// work without a snapshot (§20.3).
+        var needsSnapshot: Bool { self == .matchup || self == .composition }
     }
 
     /// Kept while the app runs, never saved to settings.
@@ -19,13 +21,16 @@ final class AnalysisModel {
 
     private let champSelect: ChampSelectModel
     private let readStats: @MainActor () -> any StatsProvider
+    private let readTips: @MainActor () -> CuratedTips
 
     init(
         champSelect: ChampSelectModel,
-        stats: @escaping @MainActor () -> any StatsProvider = { ChampSelectModel.NoStats() }
+        stats: @escaping @MainActor () -> any StatsProvider = { ChampSelectModel.NoStats() },
+        tips: @escaping @MainActor () -> CuratedTips = { .empty }
     ) {
         self.champSelect = champSelect
         readStats = stats
+        readTips = tips
     }
 
     /// `nil` outside champ select. Derived on read, like the recommendations, so the draft and
@@ -34,7 +39,7 @@ final class AnalysisModel {
         guard let draft = champSelect.draft else { return nil }
         return AnalysisSubject.derive(
             draft: draft, role: champSelect.scoringRole, enemyRoles: champSelect.enemyRoles,
-            topPick: { champSelect.topPick }, stats: readStats(),
+            topPick: { champSelect.topPick }, stats: readStats(), tips: readTips(),
             personal: champSelect.personal, names: champSelect.reasonNames,
             gameData: champSelect.gameData)
     }

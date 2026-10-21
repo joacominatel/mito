@@ -23,11 +23,19 @@ struct ImportTargetTests {
 
     private func decide(
         queue: QueueType = .normalBlind, role: Role?, enemies: [DraftSlot] = [],
-        overrides: [ChampionOverride] = [], settings: ImportSettings = ImportSettings()
+        overrides: [ChampionOverride] = [], settings: ImportSettings = ImportSettings(),
+        stats: InMemoryStatsProvider? = nil
     ) -> ImportTarget? {
         ImportTarget.decide(
-            for: ahri, queue: queue, role: role, enemies: enemies, stats: stats,
+            for: ahri, queue: queue, role: role, enemies: enemies, stats: stats ?? self.stats,
             overrides: overrides, settings: settings)
+    }
+
+    /// The same rows with no snapshot open: none of them may be read.
+    private var noSnapshot: InMemoryStatsProvider {
+        var stats = stats
+        stats.meta = nil
+        return stats
     }
 
     private func enemy(_ champion: ChampionID, _ role: Role? = nil) -> DraftSlot {
@@ -75,6 +83,47 @@ struct ImportTargetTests {
             decide(role: .middle, enemies: [enemy(zed)])?.opponent
                 == ImportTarget.LaneOpponent(champion: zed, isInferred: true))
         #expect(decide(role: .top, enemies: [enemy(zed)])?.opponent == nil)
+    }
+
+    // MARK: No snapshot
+
+    @Test func withoutASnapshotOnlyTheRolesFixedChoicesGo() throws {
+        let middle = ChampionOverride(
+            champion: ahri, role: .middle, runeMode: .fixed, fixedPage: fixedPage,
+            spellMode: .fixed, fixedSpells: nil)
+        let top = ChampionOverride(
+            champion: ahri, role: .top, spellMode: .fixed, fixedSpells: fixedSpells)
+        let target = try #require(
+            decide(
+                role: .middle, enemies: [enemy(zed, .middle)], overrides: [top, middle],
+                stats: noSnapshot))
+
+        #expect(target.role == .middle)
+        #expect(target.override == middle)
+        #expect(target.opponent == nil)
+        #expect(target.general.loadout.runes == nil)
+        // The spells' fixed mode has nothing saved, and there is no general pair to send.
+        #expect(
+            target.plan
+                == ImportPlan(
+                    loadout: Loadout(runes: fixedPage, spells: nil, itemSet: nil, skillOrder: nil),
+                    origins: [.runes: .override]))
+    }
+
+    @Test func withoutASnapshotOrAFixedChoiceThePlanIsEmpty() throws {
+        let favorite = ChampionOverride(champion: ahri, role: .middle, isFavorite: true)
+
+        #expect(try #require(decide(role: .middle, stats: noSnapshot)).plan.isEmpty)
+        #expect(
+            try #require(decide(role: .middle, overrides: [favorite], stats: noSnapshot)).plan
+                .isEmpty)
+    }
+
+    @Test func withoutASnapshotOrARoleThereIsNothingToDecide() {
+        let override = ChampionOverride(
+            champion: ahri, role: .middle, runeMode: .fixed, fixedPage: fixedPage)
+
+        #expect(decide(role: nil, overrides: [override], stats: noSnapshot) == nil)
     }
 
     // MARK: ARAM

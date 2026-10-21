@@ -55,10 +55,11 @@ public struct ImportTarget: Hashable, Sendable {
 
     /// `nil` in ARAM.
     public let role: Role?
+    /// Always `nil` in ARAM and without a snapshot.
     public let opponent: LaneOpponent?
     public let enemyProfile: Set<EnemyProfile>
     public let override: ChampionOverride?
-    /// Empty in ARAM, which has no stats (§20.3).
+    /// Empty in ARAM and without a snapshot, which have no stats (§20.3).
     public let general: GeneralLoadout
     public let adapted: GeneralLoadout
     public let plan: ImportPlan
@@ -66,14 +67,22 @@ public struct ImportTarget: Hashable, Sendable {
     /// At least even odds, so a coin-toss guess never picks the matchup (§12.3).
     public static let minimumLaneOdds = 0.5
 
-    /// `role` is the champ-select selector's (§20.3); without one, the most played role. ARAM
-    /// ignores it and sends only fixed choices. `nil` when no role has data.
+    /// `role` is the assigned one or the champ-select selector's (§20.3); without one, the most
+    /// played role. ARAM ignores it and sends only fixed choices; without a snapshot only the
+    /// role's fixed choices go, and only for a given role. `nil` when no role has data.
     public static func decide(
         for champion: ChampionID, queue: QueueType, role: Role?, enemies: [DraftSlot],
         stats: some StatsProvider, overrides: [ChampionOverride], settings: ImportSettings
     ) -> ImportTarget? {
         let mine = overrides.filter { $0.champion == champion }
         if queue == .aram { return aram(mine, settings: settings) }
+        guard stats.meta != nil else {
+            guard let role else { return nil }
+            let override = mine.first { $0.role == role }
+            return fixedOnly(
+                role: role, override: override,
+                plan: override.map { fixedPlan($0, settings: settings) })
+        }
         guard let role = role ?? mostPlayedRole(of: champion, in: stats) else { return nil }
         let opponent = laneOpponent(among: enemies, in: role, stats: stats)
         let profile = Composition.enemyProfile(
@@ -98,19 +107,33 @@ public struct ImportTarget: Hashable, Sendable {
     private static func aram(_ overrides: [ChampionOverride], settings: ImportSettings)
         -> ImportTarget
     {
-        let nothing = Loadout(runes: nil, spells: nil, itemSet: nil, skillOrder: nil)
         let fixed = Role.allCases.lazy.compactMap { role -> (ChampionOverride, ImportPlan)? in
             guard let override = overrides.first(where: { $0.role == role }) else { return nil }
-            var plan = plan(
-                general: nothing, adapted: nothing, override: override, settings: settings)
-            // Without stats there is no general part to fall back to.
-            plan.general = []
-            plan.origins = plan.origins.filter { $0.value == .override }
+            let plan = fixedPlan(override, settings: settings)
             return plan.isEmpty ? nil : (override, plan)
         }.first
-        return ImportTarget(
-            role: nil, opponent: nil, enemyProfile: [], override: fixed?.0, general: .empty,
-            adapted: .empty, plan: fixed?.1 ?? ImportPlan(loadout: nothing))
+        return fixedOnly(role: nil, override: fixed?.0, plan: fixed?.1)
+    }
+
+    private static let nothing = Loadout(runes: nil, spells: nil, itemSet: nil, skillOrder: nil)
+
+    /// The override's fixed choices alone: without stats there is no general part to fall back to.
+    private static func fixedPlan(_ override: ChampionOverride, settings: ImportSettings)
+        -> ImportPlan
+    {
+        var plan = plan(general: nothing, adapted: nothing, override: override, settings: settings)
+        plan.general = []
+        plan.origins = plan.origins.filter { $0.value == .override }
+        return plan
+    }
+
+    /// No stats: no lane opponent, no profile, and an empty plan without fixed choices.
+    private static func fixedOnly(role: Role?, override: ChampionOverride?, plan: ImportPlan?)
+        -> ImportTarget
+    {
+        ImportTarget(
+            role: role, opponent: nil, enemyProfile: [], override: override, general: .empty,
+            adapted: .empty, plan: plan ?? ImportPlan(loadout: nothing))
     }
 
     /// Ties go to the earlier role in `Role.allCases`.

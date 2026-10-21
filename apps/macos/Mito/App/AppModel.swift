@@ -45,10 +45,11 @@ final class AppModel {
         self.snapshots = snapshots
         gameflow = GameflowModel(
             connection: lcu, settings: { settings.value.game }, poster: poster)
-        champSelect = ChampSelectModel(
+        let champSelect = ChampSelectModel(
             connection: lcu, settings: { settings.value.champSelect },
             patch: { clientData.patch }, gameData: clientData.gameData,
             stats: { snapshots.provider }, store: personal)
+        self.champSelect = champSelect
         let onboarding = OnboardingModel(store: personal, gameData: clientData.gameData)
         self.onboarding = onboarding
         importing = ImportModel(
@@ -60,9 +61,10 @@ final class AppModel {
                 case .f: .f
                 case nil: nil
                 }
-            }, poster: poster, appIsActive: appIsActive)
+            }, scoringRole: { champSelect.scoringRole }, poster: poster, appIsActive: appIsActive)
         champions = ChampionsModel(stats: { snapshots.provider }, gameData: clientData.gameData)
-        analysis = AnalysisModel(champSelect: champSelect, stats: { snapshots.provider })
+        analysis = AnalysisModel(
+            champSelect: champSelect, stats: { snapshots.provider }, tips: { snapshots.tips })
         self.personal = personal
         // Re-detecting after each sync keeps the import's Flash slot current (§21.4).
         profile = ProfileModel(

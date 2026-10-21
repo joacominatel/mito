@@ -10,6 +10,10 @@ struct BuildContent: Equatable {
         case noChampion
         /// ARAM has no build data (§20.3): only the fixed choices the importer sends, maybe none.
         case aram([BuildPart])
+        /// No snapshot and nothing fixed for the role, or no role to look one up for.
+        case noSnapshot
+        /// No snapshot: only the override's fixed choices for the role (§20.3).
+        case fixed([BuildPart])
         /// No role to import for, or no `champ_role_stats` row for it.
         case noData
         case loadout([BuildPart])
@@ -110,26 +114,32 @@ extension BuildContent {
         }
 
         let stats = subject.stats
+        let hasStats = stats.meta != nil
         guard
             let target = ImportTarget.decide(
                 for: champion.id, queue: subject.queue, role: subject.role,
                 enemies: subject.enemies.map(\.draftSlot), stats: stats,
                 overrides: subject.personal.overrides, settings: settings)
-        else { return content(role: nil, state: .noData) }
+        else { return content(role: nil, state: hasStats ? .noData : .noSnapshot) }
         let plan = target.plan
+        // Without stats there is nothing to break down: only the fixed parts show.
+        let breakdownRole = hasStats ? target.role : nil
         let parts = BuildParts(
             names: names, settings: settings, plan: plan, adapted: target.adapted,
-            generalBreakdown: target.role.map {
+            generalBreakdown: breakdownRole.map {
                 LoadoutSelection.breakdown(
                     of: target.general, for: champion.id, role: $0, enemyProfile: [], stats: stats)
             },
-            adaptedBreakdown: target.role.map {
+            adaptedBreakdown: breakdownRole.map {
                 LoadoutSelection.breakdown(
                     of: target.adapted, for: champion.id, role: $0,
                     enemyProfile: target.enemyProfile, stats: stats)
             }
         ).all()
         guard let role = target.role else { return content(role: nil, state: .aram(parts)) }
+        guard hasStats else {
+            return content(role: role, state: plan.isEmpty ? .noSnapshot : .fixed(parts))
+        }
         guard !plan.isEmpty else { return content(role: role, state: .noData) }
 
         let imported = parts.filter(\.isImported).map(\.source)
@@ -156,7 +166,7 @@ private struct BuildParts {
     let settings: ImportSettings
     let plan: ImportPlan
     let adapted: GeneralLoadout
-    /// `nil` in ARAM, which has only the override's fixed parts.
+    /// `nil` in ARAM and without a snapshot, which have only the override's fixed parts.
     let generalBreakdown: LoadoutBreakdown?
     let adaptedBreakdown: LoadoutBreakdown?
 

@@ -1,5 +1,6 @@
 import MitoCore
 import MitoEngine
+import MitoStore
 import SwiftUI
 
 /// The "Mi historial" tab of the analysis panel (§20.2): your games with your champion, against
@@ -174,7 +175,7 @@ private enum HistoryPreview {
         AnalysisSubject(
             queue: queue, champion: champion, role: role,
             laneOpponent: role == nil ? nil : .init(cellId: 5, champion: zed, role: rival),
-            allies: [], enemies: [], stats: ChampSelectModel.NoStats(),
+            allies: [], enemies: [], stats: ChampSelectModel.NoStats(), tips: .empty,
             personal: PersonalInputs(
                 matches: matches ?? games(queue: queue), masteryPoints: [ahri: 182_340]),
             names: ReasonNames(

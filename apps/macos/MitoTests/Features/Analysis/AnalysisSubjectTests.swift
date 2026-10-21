@@ -159,7 +159,7 @@ struct AnalysisSubjectTests {
         #expect(subject.gameData == gameData)
     }
 
-    @Test func withoutASnapshotEveryTabButMiHistorialIsEmpty() throws {
+    @Test func withoutASnapshotOnlyMatchupAndComposicionAreEmpty() throws {
         let model = champSelect(stats: ChampSelectModel.NoStats())
         model.show(try Self.decode(Self.session()), queue: .rankedSolo, pickable: [])
         let analysis = AnalysisModel(champSelect: model)
@@ -169,7 +169,7 @@ struct AnalysisSubjectTests {
         #expect(subject.champion == nil)
         for tab in AnalysisModel.Tab.allCases {
             analysis.tab = tab
-            #expect(analysis.isMissingSnapshot == (tab != .history))
+            #expect(analysis.isMissingSnapshot == [.matchup, .composition].contains(tab))
         }
     }
 

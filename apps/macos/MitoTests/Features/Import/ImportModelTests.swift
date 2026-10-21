@@ -1765,6 +1765,103 @@ struct ImportARAMTests {
     }
 }
 
+/// §20.3: without a snapshot only the champion's fixed choices for the role are imported.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportNoSnapshotTests {
+    private func importWithoutStats(
+        overrides: [ChampionOverride], position: String = "middle",
+        scoringRole: @escaping @MainActor () -> Role? = { nil }
+    ) async throws -> Harness {
+        let harness = try Harness(
+            windowInFront: true, stats: NoStats(), overrides: overrides, scoringRole: scoringRole)
+        let run = harness.start()
+        harness.connection.emit(try ImportFixture.lockedSession(position: position))
+        await harness.stop(run)
+        return harness
+    }
+
+    @Test func aFixedPageIsSentAndTheRestSaysThereAreNoStats() async throws {
+        let harness = try await importWithoutStats(
+            overrides: [ahriOverride(spellMode: .recommended, itemMode: .recommended)])
+
+        let page = try #require(try harness.sentRunePage())
+        #expect(page["name"] as? String == "Mito · Ahri MID")
+        #expect(
+            page["selectedPerkIds"] as? [Int]
+                == [8112, 8139, 8140, 8135, 8226, 8210, 5008, 5008, 5001])
+        #expect(harness.spellWrites == 0)
+        #expect(!harness.connection.requests.contains { $0.path.hasPrefix("/lol-item-sets") })
+        let outcome = try #require(harness.model.outcome)
+        #expect(String(localized: outcome.headline) == "Importado para Ahri MID")
+        #expect(outcome.origins == [.runes: .override])
+        #expect(
+            outcome.rows.map { String(localized: $0.status) } == [
+                "Listo", "Sin estadísticas del parche", "Sin estadísticas del parche",
+            ])
+        #expect(await harness.store.log.map(\.outcome) == [.applied, .skipped, .skipped])
+    }
+
+    @Test func everyFixedPartIsSent() async throws {
+        let harness = try await importWithoutStats(overrides: [ahriOverride()])
+
+        #expect(try harness.sentRunePage() != nil)
+        #expect(Set(try #require(try harness.sentSpells()).values) == [4, 12])
+        #expect(try harness.sentItemSet()?["title"] as? String == "Mito · Ahri MID")
+        #expect(
+            harness.model.outcome?.origins == [
+                .runes: .override, .spells: .override, .items: .override,
+            ])
+    }
+
+    @Test func blindPickSendsTheFixedPartsOfTheSelectorsRole() async throws {
+        let harness = try await importWithoutStats(
+            overrides: [ahriOverride(spellMode: .recommended, itemMode: .recommended)],
+            position: "", scoringRole: { .middle })
+
+        #expect(harness.model.outcome?.origins == [.runes: .override])
+        #expect(harness.runePageWrites().count == 1)
+    }
+
+    @Test func withoutARoleNothingIsSentAndItSaysSo() async throws {
+        let harness = try await importWithoutStats(overrides: [ahriOverride()], position: "")
+
+        #expect(harness.writes.isEmpty)
+        #expect(harness.model.outcome?.status == .noStats)
+    }
+
+    @Test func withNothingFixedNothingIsSentAndItSaysSoOnce() async throws {
+        // A fixed mode with nothing saved has no general part to fall back to.
+        let harness = try Harness(
+            stats: NoStats(),
+            overrides: [ahriOverride(page: nil, spells: nil, itemMode: .recommended)])
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        harness.connection.emit(try ImportFixture.lockedSession(champion: 238))
+        await harness.stop(run)
+
+        #expect(harness.writes.isEmpty)
+        #expect(
+            harness.poster.posts.map(\.title) == [
+                "Sin estadísticas del parche: no se importó nada para Ahri MID"
+            ])
+        #expect(await harness.store.log.isEmpty)
+    }
+
+    @Test func aFixedSetIsNeverResentWhenTheContextChanges() async throws {
+        let harness = try Harness(
+            windowInFront: true, stats: NoStats(), overrides: [ahriOverride()])
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        harness.connection.emit(try ImportFixture.lockedSession(enemies: [(238, "middle")]))
+        await harness.stop(run)
+
+        #expect(harness.connection.writes(.put, itemSetsPath).count == 1)
+        #expect(harness.runePageWrites().count == 1)
+    }
+}
+
 /// §20.2: the Build tab shows what the importer sends, from the same decision.
 @Suite(.timeLimit(.minutes(1)))
 struct ImportBuildAgreementTests {
@@ -1800,8 +1897,8 @@ struct ImportBuildAgreementTests {
     private func runes(_ content: BuildContent) -> String? {
         let parts: [BuildPart] =
             switch content.state {
-            case .loadout(let parts), .aram(let parts): parts
-            case .noChampion, .noData: []
+            case .loadout(let parts), .aram(let parts), .fixed(let parts): parts
+            case .noChampion, .noData, .noSnapshot: []
             }
         return parts.first { $0.id == .runes }?.chosen.first?.id
     }

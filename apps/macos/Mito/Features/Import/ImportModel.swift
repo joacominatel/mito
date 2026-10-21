@@ -152,22 +152,22 @@ final class ImportModel {
         guard generation == self.generation else { return }
         let isARAM = queue == .aram
         let stats = readStats()
-        guard isARAM || stats.meta != nil else {
-            await tellNothingToImport(.stats, for: (target.champion, target.role))
+        // Without a snapshot only the override's fixed choices go (§20.3).
+        let withoutStats = !isARAM && stats.meta == nil
+        let role = target.role ?? scoringRole()
+        let prepared = await prepare(
+            target.champion, queue: queue ?? target.draft.queue, role: role, in: target.draft,
+            stats: stats, settings: settings)
+        guard generation == self.generation else { return }
+        guard let prepared, !prepared.plan.isEmpty else {
+            if isARAM {
+                await tellNothingToImport(.aramBuild, for: (target.champion, nil))
+            } else if withoutStats {
+                await tellNothingToImport(.stats, for: (target.champion, role))
+            }
             return
         }
-        guard
-            let prepared = await prepare(
-                target.champion, queue: queue ?? target.draft.queue,
-                role: target.role ?? scoringRole(), in: target.draft, stats: stats,
-                settings: settings),
-            generation == self.generation
-        else { return }
-        guard !prepared.plan.isEmpty else {
-            if isARAM { await tellNothingToImport(.aramBuild, for: (target.champion, nil)) }
-            return
-        }
-        await importLoadout(prepared, session: session)
+        await importLoadout(prepared, session: session, withoutStats: withoutStats)
     }
 
     /// What one import of a champion is built from, before anything reaches the client.
@@ -259,7 +259,9 @@ final class ImportModel {
         data?.item(item)?.name ?? String(item.rawValue)
     }
 
-    private func importLoadout(_ prepared: Prepared, session: ChampSelectSession) async {
+    private func importLoadout(
+        _ prepared: Prepared, session: ChampSelectSession, withoutStats: Bool
+    ) async {
         let plan = prepared.plan
         let settings = prepared.settings
         let loadout = plan.loadout
@@ -303,7 +305,7 @@ final class ImportModel {
             lowSample: prepared.lowSample, origins: plan.origins,
             adaptations: Self.adaptations(prepared.reasons, in: data).filter {
                 plan.origins[$0.key] == nil && !plan.general.contains($0.key)
-            })
+            }, withoutStats: withoutStats)
         await log(outcome, parts: ImportOutcome.Part.allCases)
         guard generation == self.generation else { return }
         lastImports[prepared.champion] = LastImport(
@@ -608,7 +610,8 @@ extension ImportOutcome {
         ImportOutcome(
             id: id, champion: champion, opponent: opponent, title: title, report: report,
             itemsUnavailable: itemsUnavailable, lowSample: lowSample, origins: origins,
-            adaptations: adaptations, missing: missing, reimport: reimport)
+            adaptations: adaptations, missing: missing, reimport: reimport,
+            withoutStats: withoutStats)
     }
 }
 

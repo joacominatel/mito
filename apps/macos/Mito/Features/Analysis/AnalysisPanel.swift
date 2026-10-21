@@ -30,7 +30,7 @@ struct AnalysisPanel: View {
     @ViewBuilder
     private func content(for subject: AnalysisSubject) -> some View {
         if model.isMissingSnapshot {
-            NoSnapshot()
+            NoSnapshotView()
         } else {
             switch model.tab {
             case .matchup: MatchupTab(subject: subject)
@@ -59,7 +59,8 @@ private struct TabPicker: View {
     }
 }
 
-private struct NoSnapshot: View {
+/// "Sin estadísticas todavía": a tab with nothing to show until a snapshot opens (§20.3).
+struct NoSnapshotView: View {
     var body: some View {
         ContentUnavailableView {
             Label {

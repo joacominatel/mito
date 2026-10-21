@@ -1,6 +1,7 @@
 import MitoAssets
 import MitoCore
 import MitoEngine
+import MitoStore
 
 /// What every analysis tab reads (§20.2): your champion and role, the lane opponent, both
 /// teams, and the data to analyze them with. Champions and roles only, never a player (§5).
@@ -72,6 +73,8 @@ struct AnalysisSubject {
     let enemies: [Slot]
     /// The open snapshot's; `meta` is `nil` without one.
     let stats: any StatsProvider
+    /// The installed curated tips (§14.12); `.empty` without a tips file.
+    let tips: CuratedTips
     /// Read once per champ select by `ChampSelectModel`.
     let personal: PersonalInputs
     let names: ReasonNames
@@ -85,7 +88,8 @@ extension AnalysisSubject {
     /// `topPick` runs only when you have neither locked nor hovered a champion.
     static func derive(
         draft: DraftContext, role: Role?, enemyRoles: [Int: InferredRole],
-        topPick: () -> ChampionID?, stats: any StatsProvider, personal: PersonalInputs,
+        topPick: () -> ChampionID?, stats: any StatsProvider, tips: CuratedTips = .empty,
+        personal: PersonalInputs,
         names: ReasonNames, gameData: GameData? = nil
     ) -> AnalysisSubject {
         let allies = draft.allies.map { slot in
@@ -102,7 +106,8 @@ extension AnalysisSubject {
         return AnalysisSubject(
             queue: draft.queue, champion: champion(in: allies, topPick: topPick), role: role,
             laneOpponent: role.flatMap { laneOpponent(in: enemies, role: $0) },
-            allies: allies, enemies: enemies, stats: stats, personal: personal, names: names,
+            allies: allies, enemies: enemies, stats: stats, tips: tips, personal: personal,
+            names: names,
             gameData: gameData)
     }
 

@@ -1,6 +1,7 @@
 import Foundation
 import MitoCore
 import MitoEngine
+import MitoStore
 import Testing
 
 @testable import Mito
@@ -146,6 +147,57 @@ struct MatchupPresentationTests {
         #expect(report.claves.map(\.sample) == [nil, nil])
     }
 
+    // MARK: The subject's curated tips
+
+    private static func tip(
+        _ text: String, against opponent: ChampionID?, champion: ChampionID = ahri,
+        role: Role = .middle, reviewed patch: String = "16.21"
+    ) -> CuratedTipRecord {
+        CuratedTipRecord(
+            champion: champion, role: role, opponent: opponent,
+            reviewedPatch: Patch(rawValue: patch), text: text)
+    }
+
+    @Test func theSubjectsTipsReplaceTheGeneratedClavesOpponentTipsFirst() throws {
+        let tips = CuratedTips(records: [
+            Self.tip("Jugá el nivel 2.", against: nil),
+            Self.tip("Guardá la E para la R de Zed.", against: Self.zed, reviewed: "16.20"),
+            Self.tip("Contra Syndra, esquivá la E.", against: ChampionID(rawValue: 134)),
+            Self.tip("Zed en la jungla.", against: nil, role: .jungle),
+            Self.tip("Zed de Zed.", against: nil, champion: Self.zed),
+        ])
+
+        let report = try #require(report(present(tips: tips)))
+
+        #expect(report.claves.map(\.text) == ["Guardá la E para la R de Zed.", "Jugá el nivel 2."])
+        #expect(report.claves.map(\.note) == ["revisado en 16.20", nil])
+        #expect(report.claves.map(\.symbol) == ["lightbulb", "lightbulb"])
+    }
+
+    @Test func withoutAnOpponentOnlyTheGeneralTipsShow() throws {
+        let tips = CuratedTips(records: [
+            Self.tip("Guardá la E para la R de Zed.", against: Self.zed),
+            Self.tip("Jugá el nivel 2.", against: nil, reviewed: "16.19"),
+        ])
+
+        let report = try #require(report(present(opponent: false, tips: tips)))
+
+        #expect(report.claves.map(\.text) == ["Jugá el nivel 2."])
+        #expect(report.claves.map(\.note) == ["revisado en 16.19"])
+    }
+
+    @Test func tipsForAnotherMatchupLeaveTheGeneratedClaves() throws {
+        let tips = CuratedTips(records: [
+            Self.tip("Contra Syndra, esquivá la E.", against: ChampionID(rawValue: 134))
+        ])
+
+        let withTips = try #require(report(present(tips: tips)))
+        let without = try #require(report(present()))
+
+        #expect(withTips.claves == without.claves)
+        #expect(!withTips.claves.isEmpty)
+    }
+
     // MARK: A recommendation
 
     @Test func aRecommendedChampionIsPhrasedConditionally() throws {
@@ -228,7 +280,7 @@ struct MatchupPresentationTests {
         champion: ChampionID? = ahri, source: AnalysisSubject.Champion.Source = .locked,
         role: Role? = .middle, opponent: Bool = true,
         opponentRole: AnalysisSubject.SlotRole = .inferred(.middle, probability: 0.82),
-        stats: MatchupTestStats = MatchupTestStats()
+        stats: MatchupTestStats = MatchupTestStats(), tips: CuratedTips = .empty
     ) -> MatchupPresentation {
         let subject = AnalysisSubject(
             queue: role == nil ? .aram : .rankedSolo,
@@ -237,7 +289,8 @@ struct MatchupPresentationTests {
             laneOpponent: opponent && role != nil
                 ? AnalysisSubject.LaneOpponent(cellId: 5, champion: Self.zed, role: opponentRole)
                 : nil,
-            allies: [], enemies: [], stats: stats, personal: PersonalInputs(), names: Self.names,
+            allies: [], enemies: [], stats: stats, tips: tips, personal: PersonalInputs(),
+            names: Self.names,
             gameData: nil)
         return MatchupPresentation(subject: subject, locale: Self.locale)
     }

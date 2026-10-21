@@ -1432,9 +1432,9 @@ pendiente. Una sesión que no se puede decodificar se ignora.
   (§20.2), así lo que se muestra y lo que se importa no se separan. El rol es el
   `assignedPosition` del jugador local; en blind pick es el del selector de la columna
   (`ChampSelectModel.scoringRole`, §20.3: la elección del usuario o su default), que
-  `ImportModel` lee con el `scoringRole` de su `init`. Si el selector todavía no tiene rol, va
-  el rol con más `roleGames` de ese campeón en el snapshot (empate: el primero en
-  `Role.allCases`), y si no tiene ninguno no se importa nada ni se avisa. Sin rol asignado,
+  `ImportModel` lee con el `scoringRole` de su `init` (el shell se lo pasa desde `AppModel`,
+  P9-06). Si el selector todavía no tiene rol y hay snapshot, va el rol con más `roleGames`
+  de ese campeón en el snapshot (empate: el primero en `Role.allCases`), y si no tiene ninguno no se importa nada ni se avisa. Sin rol asignado,
   `ImportModel` lee la cola de `GET /lol-gameflow/v1/session` para separar blind pick de ARAM
   (abajo). No se avisa si el campeón no tiene datos en ese rol (las tres partes vacías). Los bloques del item set
   llegan titulados con el `BuildLayer` (o `situational`) y la app los traduce (§13.4) antes de
@@ -1465,9 +1465,15 @@ pendiente. Una sesión que no se puede decodificar se ignora.
   ítems, el bloque más débil); cada fila del toast cuya parte quedó por debajo de `reliable`
   (§18.2) suma "· muestra baja", solo si la recomendación quedó en el cliente o espera
   confirmación (aplicada, ya elegida o `needsConfirmation`), no si la parte se salteó o falló.
-- **Sin snapshot** (§20.3): no se importa nada, no se manda nada al cliente, y se avisa **una
-  vez por champ select** con el título "Sin estadísticas del parche: no se importó nada para
-  Ahri MID", sin filas.
+- **Sin snapshot** (§20.3, P9-06): del snapshot no se manda nada. Como en ARAM, va solo lo fijo
+  del override de (campeón, rol), con las mismas reglas de modos y toggles de abajo
+  (`ImportTarget.decide` sin `meta`): el rol es el asignado o, en blind, el del selector, nunca
+  el más jugado; sin rol no se manda nada. Un modo fijo sin valor guardado no cae a la general,
+  porque no la hay. El título es el de siempre (`Ahri MID`), el rival no se calcula y las filas
+  de las partes que no se mandaron dicen "Sin estadísticas del parche". Sin rol o sin nada fijo
+  no se importa ni se registra nada, y se avisa **una vez por champ select** con el título "Sin
+  estadísticas del parche: no se importó nada para Ahri MID", sin filas. Lo fijo no cambia con
+  el contexto, así que sin snapshot no hay re-import.
 - **ARAM** (§20.3, modo degradado): sin estadísticas de ARAM, del snapshot no se manda nada.
   Va solo lo fijo del campeón: el primer override en orden de `Role` cuyo plan manda una
   página, un par de spells o un set fijos (con las mismas reglas de modos y toggles de abajo;
@@ -1514,8 +1520,8 @@ pendiente. Una sesión que no se puede decodificar se ignora.
   `no_editable_page`, `needs_confirmation`, `invalid_rune_page`, `lcu`, `unsupported_map`,
   `no_account`, más `override` o `no_fixed_choice` separados por coma). `game_id` va en `NULL`:
   la sesión de champ select no trae el ID de la partida. Confirmar el reemplazo de la página
-  suma otra entrada de runas. Sin snapshot no se importa nada y no se registra nada; un fallo
-  al escribir el registro no cambia el import.
+  suma otra entrada de runas. Sin snapshot se registra solo un import de partes fijas (las
+  demás como `not_in_loadout`); un fallo al escribir el registro no cambia el import.
 - **Feedback.** El `ImportReport` se muestra como toast arriba de la ventana principal si
   está abierta y Mito está en primer plano (`NSApp.isActive`); se cierra solo a los 6 s y
   VoiceOver lo anuncia. Si no, va como notificación `.loadoutImported` (§22.5) con el mismo
@@ -3321,7 +3327,7 @@ Es el corazón de la v1. Se abre al entrar en champ select y se actualiza en viv
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Estado actual (Fase 7).** Durante champ select el destino "Ahora" muestra `ChampSelectView`
+**Estado actual (Fase 9).** Durante champ select el destino "Ahora" muestra `ChampSelectView`
 (el shell le pasa la vista a `NowView`, así Gameflow no depende de ChampSelect); fuera de champ
 select, "Ahora" muestra la fase. `ChampSelectView` muestra el draft, las recomendaciones y, debajo,
 el panel de análisis:
@@ -3368,10 +3374,15 @@ el panel de análisis:
   Matchup, Composición, Build y Mi historial, y la pestaña elegida (§20.2). El draft toma primero
   la altura que necesita y el panel se queda con el resto, con un mínimo; la pestaña scrollea
   adentro del panel. La pestaña elegida dura mientras la app está abierta (vive en
-  `AnalysisModel`) y no se guarda en settings. Sin snapshot (`meta == nil`), Matchup,
-  Composición y Build muestran "Sin estadísticas todavía"; Mi historial no depende del snapshot
-  y se muestra igual. Fuera de champ select no hay panel. Hoy las cuatro pestañas son un estado
-  vacío: las llenan P9-01 a P9-04.
+  `AnalysisModel`) y no se guarda en settings. Las cuatro pestañas están implementadas (§20.2):
+  Matchup (P9-01), Composición (P9-02), Build (P9-03) y Mi historial (P9-04). `AnalysisModel`
+  lee de `SnapshotModel` el `StatsProvider` y los tips curados instalados (§14.12) y los deja
+  en el `AnalysisSubject`; Matchup pasa los de (campeón, rol, rival) al motor (P9-06). Sin
+  snapshot (`meta == nil`), Matchup y Composición muestran "Sin estadísticas todavía"; Build
+  muestra lo fijo del override para tu rol ("Lo fijo de Ahri · MID", "Sin estadísticas del
+  parche: solo lo que guardaste.") o, en ARAM, su estado de siempre, y "Sin estadísticas
+  todavía" si no hay nada fijo o no hay rol; Mi historial no depende del snapshot y se muestra
+  igual. Fuera de champ select no hay panel.
 - Solo campeones, roles y celdas: ningún nombre de jugador (§5). Cada fila es un solo elemento
   de VoiceOver con su rol, campeón, estado y turno.
 - Fuera de champ select la vista no muestra nada. En la barra de menú,
@@ -3574,18 +3585,29 @@ En inicio de parche, el encabezado muestra "Datos 16.21 + 16.20" desde `meta.ble
   declarado; si tampoco, MIDDLE. Los empates van al rol que se declara antes (top, jungle,
   middle, bottom, utility). El selector de la columna (§20.1) lo cambia y la elección dura lo que
   dura el champ select: no se guarda en settings. El importador y la pestaña Build usan ese
-  mismo rol (§13.1). ARAM queda sin rol.
+  mismo rol (§13.1). ARAM queda sin rol. Implementado: `ChampSelectModel.scoringRole` es ese
+  rol; las recomendaciones, el `AnalysisSubject` y, desde P9-06, el `ImportModel` del shell lo
+  leen.
 - **Flex (440) y Normal Draft (400):** usan el snapshot de la cola 420, sin aviso especial.
+  Implementado: la app baja solo el snapshot de 420 y nada depende de la cola; con el mismo
+  draft, las recomendaciones, las pestañas del análisis y el import de 440 y 400 salen iguales
+  que en 420 (`QueueWiringTests`, P9-06).
 - **ARAM (modo degradado en la v1):** solo datos personales y las páginas fijas del usuario.
-  Sin estadísticas de ARAM; llegan después, en un archivo aparte. El importador manda solo lo
-  fijo del campeón en sus overrides, aun sin snapshot, y si no hay nada fijo no importa nada y
-  lo avisa una vez (§13.1); la pestaña Build muestra lo mismo.
+  Sin estadísticas de ARAM; llegan después, en un archivo aparte. Implementado: la columna dice
+  "Sin rol asignado" y Matchup no tiene cruce; Composición lee los roles inferidos; Mi
+  historial cuenta solo partidas de ARAM. El importador manda solo lo fijo del campeón en sus
+  overrides, aun sin snapshot, y si no hay nada fijo no importa nada y lo avisa una vez
+  (§13.1); la pestaña Build muestra lo mismo, también sin snapshot.
 - **Rival de lane desconocido:** se muestran recomendaciones "seguras" (mejor promedio
-  contra los rivales más probables del rol, ponderado por pick rate).
+  contra los rivales más probables del rol, ponderado por pick rate). Pendiente (P9-08).
 - **Sin snapshot descargado:** modo degradado. Funcionan el auto-accept, las páginas fijas
-  por campeón y la capa personal. Implementado hoy (P6-06): `SnapshotModel.provider` no tiene
-  `meta`, la pestaña Campeones muestra su estado vacío y el importador no importa nada y lo
-  avisa una vez por champ select (§13.1). Las páginas fijas por campeón llegan con P8-08.
+  por campeón y la capa personal. Implementado: `SnapshotModel.provider` no tiene `meta`; la
+  pestaña Campeones y la columna de recomendaciones muestran su estado vacío, y Matchup y
+  Composición "Sin estadísticas todavía". El auto-accept no lee el snapshot. El importador manda
+  lo fijo del override para el rol asignado o el del selector (sin rol, nada) y, si no mandó
+  nada, lo avisa una vez por champ select (§13.1); la pestaña Build muestra eso mismo (P9-06).
+  Mi historial, el pool y los overrides no dependen del snapshot. Los tips curados instalados
+  se cargan igual, pero sin snapshot Matchup no se muestra.
 
 ---
 

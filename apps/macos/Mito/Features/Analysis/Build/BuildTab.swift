@@ -47,6 +47,23 @@ struct BuildView: View {
                     PartSection(part: part, opponent: nil, names: names)
                 }
             }
+        case .noSnapshot:
+            NoSnapshotView()
+        case .fixed(let parts):
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    fixedTitle.font(.headline)
+                    Text(
+                        "Sin estadísticas del parche: solo lo que guardaste.", tableName: "Build"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                ForEach(parts) { part in
+                    PartSection(part: part, opponent: nil, names: names)
+                }
+            }
         case .noData:
             Empty(
                 title: Text("Sin datos de \(content.champion)", tableName: "Build"),
@@ -61,6 +78,15 @@ struct BuildView: View {
                 }
             }
         }
+    }
+}
+
+extension BuildView {
+    fileprivate var fixedTitle: Text {
+        guard let role = content.role else {
+            return Text("Lo fijo de \(content.champion)", tableName: "Build")
+        }
+        return Text("Lo fijo de \(content.champion) · \(Text(role.shortName))", tableName: "Build")
     }
 }
 
@@ -388,5 +414,34 @@ extension Role {
         names: .preview
     )
     .padding()
+    .frame(width: 700)
+}
+
+#Preview("Sin snapshot, página fija") {
+    BuildView(
+        content: BuildContent(
+            champion: "Ahri", role: .middle, framing: .imports, opponent: nil, profiles: [],
+            state: .fixed([
+                BuildPart(
+                    id: .runes, title: "Runas", source: .override, isImported: true,
+                    chosen: [
+                        BuildOption(
+                            id: "a", title: "Electrocutar", subtitle: "Dominación + Brujería",
+                            level: nil, reasons: [])
+                    ], alternatives: [])
+            ])),
+        names: .preview
+    )
+    .padding()
+    .frame(width: 700)
+}
+
+#Preview("Sin snapshot, nada fijo") {
+    BuildView(
+        content: BuildContent(
+            champion: "Ahri", role: .middle, framing: .imports, opponent: nil, profiles: [],
+            state: .noSnapshot),
+        names: .preview
+    )
     .frame(width: 700)
 }

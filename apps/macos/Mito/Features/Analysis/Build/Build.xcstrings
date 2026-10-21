@@ -82,6 +82,9 @@
     "Lo fijo de %@" : {
       "comment" : "Heading of the Build tab in ARAM, over the fixed runes, spells, or items saved for the champion. The argument is the champion name."
     },
+    "Lo fijo de %@ · %@" : {
+      "comment" : "Heading of the Build tab without a stats snapshot, over the fixed runes, spells, or items saved for the champion in the role: champion name, then the short role name (MID, TOP…)."
+    },
     "Lo que se importa cuando lockees a %@" : {
       "comment" : "Build tab, champion only hovered: the loadout is imported once the user locks it. The argument is the champion name."
     },
@@ -126,6 +129,9 @@
     },
     "Sin estadísticas de ARAM: solo lo que guardaste." : {
       "comment" : "Note under the ARAM heading in the Build tab: only the fixed choices saved in the champion's override are imported."
+    },
+    "Sin estadísticas del parche: solo lo que guardaste." : {
+      "comment" : "Note under the heading of the Build tab without a stats snapshot: only the fixed choices saved in the champion's override are imported."
     },
     "Sin fija guardada: va la general" : {
       "comment" : "Build tab: the override asks for a fixed choice it does not have, so the general one is imported."

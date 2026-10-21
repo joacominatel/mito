@@ -169,6 +169,9 @@
     "Sin build de ARAM: no se importó nada para %@" : {
       "comment" : "Import toast heading and notification title in ARAM when the champion has no fixed runes, spells, or items saved; %@ is the champion."
     },
+    "Sin estadísticas del parche" : {
+      "comment" : "Import toast row status without a stats snapshot: only the champion's fixed choices were sent, and this part has none."
+    },
     "Sin estadísticas del parche: no se importó nada para %@" : {
       "comment" : "Import toast heading and notification title when no stats snapshot is open; %@ is the champion and role."
     },
