@@ -167,6 +167,7 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P2-05 | `tools/lcu-mock` with synthetic test scenarios; the recorded ready-check scenario follows Q3 | tools-lcu-mock | `tools/lcu-mock/**` | §23.1 | P1-07 | merged |
 | P2-06 | Debug lockfile override (`-MitoLCULockfilePath`) on `LCUClient` and in `AppModel`, to point discovery at `tools/lcu-mock` | lcu + shell (serial) | `MitoKit/Sources/LCUKit/Connection/**`, `Mito/App/**` | §9.3, §10.2 | P1-08, P2-05 | todo |
 | P2-07 | Load and save `MitoSettings` through `SettingsStore` in `AppModel`; give feature models read access to the current settings | shell (serial) | `Mito/App/**`, `Mito/MitoApp.swift`, `MitoTests/App/**` | §9.3, §21 | P2-03 | merged |
+| P2-08 | "Solo notificar" (§11.3): when a ready check is not auto-accepted and `notifyMatchFound` is on, post "Partida encontrada" | gameflow | `Mito/Features/Gameflow/**`, `MitoTests/Features/Gameflow/**` | §11.3, §22.5 | P2-04 | ready |
 
 ## P3 — Live champ select
 
@@ -177,6 +178,8 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P3-03 | Enemy role inference (§12.3) | engine | `MitoKit/Sources/MitoEngine/RoleInference/**` | §12.3 | P0-C | merged |
 | P3-05 | Typed gameflow-session (queue) and pickable/bannable champion endpoints | lcu | `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Gameflow.swift`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift`, `MitoKit/Sources/LCUKit/Gameflow/Session/**`, `fixtures/lcu/cases/gameflow-lobby/session-*`, `fixtures/lcu/cases/champ-select/pickable-*` | §10.6, §11.1 | P3-01 | merged |
 | P3-04 | Champ-select view and model with 150 ms debounce | champ-select | `Mito/Features/ChampSelect/**` | §12.4, §20.1 | P3-02, P3-05, P2-07 | merged |
+| P3-06 | Shared `GameDataCatalog`/`IconLoader` slot in `AppModel`; show `ChampSelectView` in "Ahora" during champ select; open the window on champ select when `showWindowOnChampSelect` is on | shell (serial) + gameflow `NowView` (authorized) | `Mito/App/**`, `Mito/MitoApp.swift`, `Mito/Scenes/**`, `MitoTests/App/**`, `Mito/Features/Gameflow/NowView.swift` | §9.3, §20.1 | P3-04, P2-04 | todo |
+| P3-07 | Typed game-version endpoint (`/lol-patch/v1/game-version`) mapped to `Patch` | lcu | `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Patch.swift`, `MitoKit/Tests/LCUKitTests/Endpoints/Patch/**`, `fixtures/lcu/cases/session/game-version*` | §10.6 | P1-02 | ready |
 
 ## P4 — Importer with fixed data
 
