@@ -1,5 +1,5 @@
 import Foundation
-import LCUKit
+import MitoAssets
 import MitoCore
 
 /// Pools and history in memory; reads and writes fail on demand. Only the pool and history
@@ -64,18 +64,12 @@ enum OnboardingFixture {
     static let ignite = SummonerSpellID(rawValue: 14)
     static let teleport = SummonerSpellID(rawValue: 12)
 
-    /// `fixtures/lcu/cases/assets/champion-summary.json`: the `-1` placeholder, Annie, and Ahri.
-    static func championSummary() throws -> Data {
-        let root = URL(filePath: #filePath)
-            .deletingLastPathComponent()  // Onboarding/
-            .deletingLastPathComponent()  // Features/
-            .deletingLastPathComponent()  // MitoTests/
-            .deletingLastPathComponent()  // macos/
-            .deletingLastPathComponent()  // apps/
-            .deletingLastPathComponent()  // repository root
-        return try Data(
-            contentsOf: root.appending(path: "fixtures/lcu/cases/assets/champion-summary.json"))
-    }
+    /// The shared data as the client sends it: the `-1` placeholder first, then out of name order.
+    static let gameData = GameData(champions: [
+        Champion(id: ChampionID(rawValue: -1), alias: "None", name: "None", iconPath: ""),
+        Champion(id: annie, alias: "Annie", name: "Annie", iconPath: ""),
+        Champion(id: ahri, alias: "Ahri", name: "Ahri", iconPath: ""),
+    ])
 
     static func game(_ id: Int, spells: SpellPair) -> MyMatch {
         MyMatch(

@@ -111,6 +111,10 @@ struct ImportToastRow: View {
                 Text("· muestra baja", tableName: "Import")
                     .foregroundStyle(.tertiary)
             }
+            if let origin = row.origin {
+                Text(origin.marker)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .font(.callout)
         .accessibilityElement(children: .combine)
@@ -147,12 +151,12 @@ extension ImportOutcome {
     fileprivate static func preview(
         runes: StepResult = .applied, spells: StepResult = .applied, items: StepResult = .applied,
         itemsUnavailable: ItemsUnavailable? = nil, lowSample: Set<Part> = [],
-        isMissingStats: Bool = false
+        origins: [Part: Origin] = [:], isMissingStats: Bool = false
     ) -> ImportOutcome {
         ImportOutcome(
             id: 1, champion: ChampionID(rawValue: 103), title: "Ahri MID",
             report: ImportReport(runes: runes, spells: spells, items: items),
-            itemsUnavailable: itemsUnavailable, lowSample: lowSample,
+            itemsUnavailable: itemsUnavailable, lowSample: lowSample, origins: origins,
             isMissingStats: isMissingStats)
     }
 }
@@ -191,6 +195,14 @@ private struct ToastPreview: View {
 #Preview("Otro mapa") {
     ToastPreview(
         outcome: .preview(items: .skipped(.notInLoadout), itemsUnavailable: .unsupportedMap))
+}
+
+#Preview("Con overrides") {
+    ToastPreview(
+        outcome: .preview(
+            runes: .failed(.invalidRunePage(.unknownStyle(PerkStyleID(rawValue: 8400)))),
+            items: .skipped(.notInLoadout), itemsUnavailable: .skippedByOverride,
+            origins: [.runes: .override, .spells: .noFixedChoice, .items: .override]))
 }
 
 #Preview("Confirmar runas") {

@@ -48,14 +48,26 @@ final class AppModel {
         champSelect = ChampSelectModel(
             connection: lcu, settings: { settings.value.champSelect },
             patch: { clientData.patch }, gameData: clientData.gameData)
+        let onboarding = OnboardingModel(store: personal, gameData: clientData.gameData)
+        self.onboarding = onboarding
         importing = ImportModel(
             connection: lcu, catalog: clientData.catalog, settings: { settings.value.importing },
-            stats: { snapshots.provider })
+            stats: { snapshots.provider }, store: personal,
+            detectedFlash: {
+                switch onboarding.resolvedFlashSlot(.auto) {
+                case .d: .d
+                case .f: .f
+                case nil: nil
+                }
+            })
         champions = ChampionsModel(stats: { snapshots.provider }, gameData: clientData.gameData)
         analysis = AnalysisModel()
         self.personal = personal
-        profile = ProfileModel(connection: lcu, store: personal, stats: { snapshots.provider })
-        onboarding = OnboardingModel(connection: lcu, store: personal)
+        // Re-detecting after each sync keeps the import's Flash slot current (§21.4).
+        profile = ProfileModel(
+            connection: lcu,
+            store: HistoryNotifyingStore(base: personal) { await onboarding.detectFlash() },
+            stats: { snapshots.provider })
         overrides = OverridesModel(store: personal)
         self.lifecycle = lifecycle
         settingsModel = settings

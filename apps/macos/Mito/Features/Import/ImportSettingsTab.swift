@@ -90,7 +90,7 @@ struct ImportSettingsTab: View {
                 Text("Cuándo importar", tableName: "Import")
             } footer: {
                 Text(
-                    "El modo de runas y el re-import llegan más adelante; por ahora Mito importa la build general del parche.",
+                    "El modo adaptativo y el re-import llegan más adelante; por ahora el adaptativo importa la build general del parche.",
                     tableName: "Import"
                 )
                 .font(.footnote)

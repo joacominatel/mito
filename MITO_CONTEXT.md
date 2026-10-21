@@ -545,8 +545,18 @@ final class AppModel {
   `LCUEndpoint.gameVersion` una vez. Publica `gameData` (lo último que cargó; una recarga
   fallida lo conserva), `gameVersion` y `patch` (los dos primeros componentes, o `Patch("")`
   mientras la versión no se pudo leer en esta conexión). `ImportModel` recibe el catálogo en su
-  `init`; `ChampSelectModel` recibe lectores de `gameData` y `patch`, que lee en vivo. Así cada
-  archivo de datos estáticos se pide una vez por conexión, no una por feature. Ninguna feature
+  `init`; `ChampSelectModel` recibe lectores de `gameData` y `patch`, que lee en vivo;
+  `ChampionsModel` y `OnboardingModel` (la lista de campeones del pool, de
+  `GameData.allChampions`) reciben un lector de `gameData`, y Overrides lo lee desde la vista.
+  Así cada archivo de datos estáticos se pide una vez por conexión, no una por feature.
+- **Base personal y Flash detectado:** `AppModel` le pasa `personal` a Profile, Onboarding,
+  Overrides e `ImportModel` (overrides e `import_log`, §13.1). A `ImportModel` le inyecta
+  además `detectedFlash`, un lector de `onboarding.resolvedFlashSlot(.auto)` traducido a
+  `ImportSettings.FlashPosition` (`d`/`f`, o `nil` sin mayoría). La detección no depende de
+  abrir la pestaña General: `OnboardingModel.run()` la corre al arrancar, y `ProfileModel`
+  recibe `personal` envuelto en `HistoryNotifyingStore` (en `App/`), que después de cada
+  `record(_:)` exitoso (cada sync del historial) llama a `onboarding.detectFlash()`. Así el
+  shell se entera del sync sin tocar `ProfileModel`. Ninguna feature
   arma hoy un `IconRequest`; cuando lo haga, `gameVersion.rawValue` es su `gameVersion`.
 - **Ventana principal:** `MainWindowModel` (en `App/`) tiene la selección del sidebar y decide
   cuándo champ select abre la ventana (§20.1). La etiqueta de la barra de menú
@@ -1355,7 +1365,45 @@ pendiente. Una sesión que no se puede decodificar se ignora.
   confirmación (aplicada, ya elegida o `needsConfirmation`), no si la parte se salteó o falló.
 - **Sin snapshot** (§20.3): no se importa nada, no se manda nada al cliente, y se avisa **una
   vez por champ select** con el título "Sin estadísticas del parche: no se importó nada para
-  Ahri MID", sin filas. Las páginas fijas por campeón llegan con P8-08.
+  Ahri MID", sin filas.
+- **Overrides por campeón (P8-09, §21.5).** Antes de armar el loadout, `ImportModel` lee el
+  `ChampionOverride` de (campeón, rol) con `PersonalStore.overrides()`, con el mismo rol que ya
+  resolvió (asignado, o el más jugado en blind). Si la base no se puede leer, se importa como
+  sin override. `ImportModel.plan(_:override:settings:)` aplica, en este orden:
+  - **Los toggles globales ganan.** Con `importRunes`, `importSpells` o `importItemSets`
+    apagado, esa parte queda como estaba y el importador la saltea (`disabled`), diga lo que
+    diga el override.
+  - **Runas.** `.fixed` manda `fixedPage` por el importador de siempre, que la valida contra
+    los estilos del cliente (§13.2): si ya no es válida no se envía, no se cae a la general, y
+    la fila dice por qué ("Página inválida (una rama ya no existe), no se envió"). `.general`
+    manda la página general del motor, diga lo que diga el modo global. `.adaptive` (el default
+    del editor, "sin preferencia"), `.unknown` o sin override siguen el modo global:
+    `fixedPerChampion` usa el `fixedPage` del override si hay uno guardado y, si no, la general,
+    y lo dice; `adaptive` y `general` mandan la página general (el adaptativo por matchup es
+    Fase 7 y hasta entonces se comporta como general).
+  - **Spells.** `.fixed` manda `fixedSpells` con la misma regla de Flash D/F (§13.3);
+    `.recommended` y `.unknown`, el par del motor.
+  - **Ítems.** `.fixedSet` manda `fixedItems` como el set de Mito (título `Mito · Ahri MID`,
+    uid `mito-<id>`, con los títulos de bloque del usuario); `.skip` no importa ningún set y
+    **no borra** el set de Mito que ya exista (no se lee ni se escribe `/lol-item-sets`);
+    `.recommended` y `.unknown`, la build del motor.
+  - Un modo fijo sin valor guardado (`fixedPage`, `fixedSpells` o `fixedItems` en `nil`) usa la
+    parte general y lo dice.
+
+  Cada fila del toast cuya parte salió del override suma "· override" (página, spells o set
+  fijos, o "No se importan" para un `.skip`); si se pidió una fija y no había, suma "· sin fija
+  guardada, va la general". Una parte del override no lleva "· muestra baja". Un override que
+  no fija nada (solo favorito o excluido, runas en adaptativo, spells e ítems recomendados)
+  importa lo mismo que no tenerlo; uno con runas en `.general` además ignora "Fijo por
+  campeón".
+- **Registro (`import_log`, §17).** Después de cada import se agrega una `ImportLogEntry` por
+  parte con `PersonalStore.appendImportLog`: `applied`, `skipped` o `failed`, y un `detail` de
+  códigos sin datos personales (`disabled`, `not_in_loadout`, `already_selected`,
+  `no_editable_page`, `needs_confirmation`, `invalid_rune_page`, `lcu`, `unsupported_map`,
+  `no_account`, más `override` o `no_fixed_choice` separados por coma). `game_id` va en `NULL`:
+  la sesión de champ select no trae el ID de la partida. Confirmar el reemplazo de la página
+  suma otra entrada de runas. Sin snapshot no se importa nada y no se registra nada; un fallo
+  al escribir el registro no cambia el import.
 - **Feedback.** El `ImportReport` se muestra como toast arriba de la ventana principal si
   está abierta y Mito está en primer plano (`NSApp.isActive`); se cierra solo a los 6 s y
   VoiceOver lo anuncia. Si no, va como notificación `.loadoutImported` (§22.5) con el mismo
@@ -1443,14 +1491,17 @@ largo del nombre.
 - **Respetar la posición de Flash del usuario** (`ImportSettings.flashPosition`). Con `f`,
   Flash siempre va en `spell2Id`; con `d`, siempre en `spell1Id`. Con `auto`, Flash queda en
   el slot donde el jugador local ya lo tiene en la sesión de champ select; si su selección
-  actual no tiene Flash (o no aparece en la sesión), se respeta el orden recomendado.
-  Detectarlo de sus últimas partidas queda para más adelante. Un par sin Flash se envía en
-  su propio orden.
+  actual no tiene Flash (o no aparece en la sesión), se respeta el orden recomendado. Antes,
+  `ImportModel` resuelve `auto` con el slot detectado del historial (§21.1,
+  `OnboardingModel.resolvedFlashSlot(.auto)`, que lee por un lector inyectado desde
+  `AppModel`) y le pasa al importador una copia de los settings con `d` o `f`; solo sin
+  mayoría detectada (sin historial, empate o base ilegible) queda la regla de la sesión. Un
+  par sin Flash se envía en su propio orden.
 - No se envía nada si `importSpells` está apagado o si el par resultante ya es la selección
   actual.
-- Pendiente: override por campeón y por rol (por ejemplo, "en jungla siempre Smite +
-  Flash") y el modo "fijo por rol". Modos: recomendado por datos, fijo por rol o
-  desactivado.
+- El override por campeón y rol (`.fixed`, §13.1 y §21.5) manda `fixedSpells` con la misma
+  regla de Flash. Pendiente: un modo "fijo por rol" para todos los campeones (por ejemplo, "en
+  jungla siempre Smite + Flash").
 
 IDs comunes (verificar con `summoner.json`; hasta entonces el importador fija Flash en 4):
 Flash 4, Ignite 14, Teleport 12, Smite 11, Exhaust 3, Heal 7, Barrier 21, Cleanse 1, Ghost 6.
@@ -2971,15 +3022,15 @@ es un `Form` agrupado en cuatro secciones:
   y se guarda con `PersonalStore.pool(for:)` / `setPool(_:for:)`. El primero es el principal.
   Cada fila tiene subir, bajar y quitar (con etiquetas de VoiceOver); cada cambio guarda el
   pool entero del rol y, si falla, se deshace y se avisa. Si el pool no se puede leer, la
-  edición se apaga. "Agregar campeón…" abre un buscador sobre los campeones del cliente
-  (`GET /lol-game-data/assets/v1/champion-summary.json`, sin el `-1` "None"), sin los que ya
-  están en el pool; sin cliente se deshabilita y el pie explica por qué.
+  edición se apaga. "Agregar campeón…" abre un buscador sobre los campeones del `GameData`
+  compartido (`GameData.allChampions`, §9.3, sin el `-1` "None"), sin los que ya están en el
+  pool; sin datos del cliente se deshabilita y el pie explica por qué.
 - **Flash**: el mismo `app.settings.importing.flashPosition` de §21.4, más una sugerencia
   leída del historial guardado: de las últimas 20 partidas (`PersonalStore.matches`), cuántas
   tenían Flash (4) en D (`spells.first`) y cuántas en F. Las partidas sin Flash no cuentan.
   Se muestra "Detectado: F en 18 de 20 partidas"; con empate o sin partidas con Flash no hay
-  mayoría. `OnboardingModel.resolvedFlashSlot(_:)` resuelve `auto` a la mayoría (o a nada);
-  el importador todavía no lo usa (§13.3).
+  mayoría. `OnboardingModel.resolvedFlashSlot(_:)` resuelve `auto` a la mayoría (o a nada), y
+  el importador la usa para el slot de Flash (§13.3).
 - **Datos**: el picker de "Datos Diamante+" (`diamondPlusData`). La capa todavía no se
   descarga.
 
@@ -3034,9 +3085,17 @@ bindings a `app.settings.importing`, en secciones Runas, Spells, Ítems y Cuánd
 opción dependiente se deshabilita con su toggle apagado (modo y página con "Importar runas",
 Flash con "Importar spells", limpiar sets con "Importar item sets"). Con "Una página elegida"
 aparece un picker con las páginas editables del cliente (`GET /lol-perks/v1/pages`) que guarda
-`reservedRunePageID`; un ID guardado que ya no está en el cliente se muestra como tal. El modo
-de runas, re-importar si cambia el rival y no pisar cambios manuales se guardan pero todavía
-no cambian nada: llegan con los datos del parche (Fases 6–7), y el pie de la sección lo dice.
+`reservedRunePageID`; un ID guardado que ya no está en el cliente se muestra como tal.
+
+- **Modo de runas** (§13.1): "Fijo por campeón" usa la página fija del override del campeón y,
+  si no hay, la general con un aviso en el toast; "General" y "Adaptativo" importan la página
+  general (el adaptativo por matchup llega en la Fase 7). Un override con runas en "General"
+  o "Página fija" gana sobre este; uno en "Adaptativo" lo sigue.
+- **Posición de Flash**: "Automática" usa el slot detectado de las últimas 20 partidas
+  (§21.1); sin mayoría, el slot donde el jugador ya tiene Flash en la sesión (§13.3).
+- Los toggles de importar runas, spells e item sets ganan siempre sobre los overrides.
+- Re-importar si cambia el rival y no pisar cambios manuales se guardan pero todavía no
+  cambian nada (Fase 7); el pie de la sección "Cuándo importar" lo dice.
 
 Los toggles rápidos de la barra de menú (§22.4, `QuickTogglesMenuSection`) escriben los mismos
 settings: "Importar runas", "Importar ítems" y "Auto-accept" (§21.2). Este último está tildado
@@ -3080,8 +3139,17 @@ personal (§17), leído con `overrides()`, guardado con `save(_:)` y borrado con
 - Los valores fijos se conservan aunque el modo no sea fijo, así cambiar de modo no los
   pierde; solo el modo fijo los exige.
 
-Pendiente: que el importador (§13.5) respete los overrides; hasta entonces se guardan pero no
-cambian lo que se importa.
+**En el import (P8-09, §13.1).** El importador lee el override de (campeón, rol) del rol que
+resolvió. Precedencia: los toggles globales de §21.4 ganan siempre (una parte apagada se
+saltea diga lo que diga el override); después el modo del override. En runas, "Página fija"
+manda su página y "General" la general, diga lo que diga el global; "Adaptativo" (el default del
+editor, sin preferencia), un modo desconocido o la falta de override siguen el modo global de
+§21.4, donde "Fijo por campeón" usa la página fija guardada. Fallbacks: una página fija que ya no valida no se envía y el toast
+dice por qué, nunca se cae a la general en silencio; un modo fijo sin valor guardado, o
+"Fijo por campeón" sin página, usa la general y lo dice ("· sin fija guardada, va la
+general"). "No importar" ítems no envía set y deja el set de Mito que hubiera. Las partes que
+salieron del override llevan "· override" en el toast, y cada parte queda en `import_log`.
+Favorito y excluido del pool no cambian el import.
 
 ---
 

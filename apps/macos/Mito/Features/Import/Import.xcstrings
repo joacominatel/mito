@@ -26,7 +26,7 @@
       "comment" : "Menu bar quick toggle: accept ready checks automatically."
     },
     "Automática" : {
-      "comment" : "Flash position option: keep Flash where the player already has it."
+      "comment" : "Flash position option: Flash goes in the slot detected from recent games, or where the player already has it."
     },
     "Botas" : {
       "comment" : "Item set block shown in the League client: boots."
@@ -46,8 +46,8 @@
     "El cliente rechazó el cambio" : {
       "comment" : "Import toast row status: the League client returned an error."
     },
-    "El modo de runas y el re-import llegan más adelante; por ahora Mito importa la build general del parche." : {
-      "comment" : "Settings footer: some import options have no effect yet."
+    "El modo adaptativo y el re-import llegan más adelante; por ahora el adaptativo importa la build general del parche." : {
+      "comment" : "Settings footer of the import timing section: adaptive runes and re-importing are not built yet."
     },
     "F" : {
       "comment" : "Flash position option: the F key."
@@ -109,6 +109,9 @@
     "No pisar cambios manuales" : {
       "comment" : "Settings toggle: do not re-import over changes the user made by hand."
     },
+    "No se importan" : {
+      "comment" : "Import toast row status for items: the champion's override says not to import an item set."
+    },
     "No se pudo importar todo para %@" : {
       "comment" : "Import toast heading and notification title when a part failed; %@ is the champion and role."
     },
@@ -133,8 +136,8 @@
     "Página de Mito" : {
       "comment" : "Rune page target option: the single page named 'Mito · …'."
     },
-    "Página inválida para este parche, no se envió" : {
-      "comment" : "Import toast row status for runes: the page did not match the client's rune trees, so nothing was sent."
+    "Página inválida (%@), no se envió" : {
+      "comment" : "Import toast row status for runes: the page did not match the client's rune trees, so nothing was sent; %@ is the reason."
     },
     "Re-importar si cambia el rival" : {
       "comment" : "Settings toggle: import again when the lane opponent changes."
@@ -166,8 +169,32 @@
     "Ya estaban elegidos" : {
       "comment" : "Import toast row status for spells: the recommended spells were already selected."
     },
+    "la runa %lld ya no va ahí" : {
+      "comment" : "Reason a rune page is invalid, inside the toast row: %lld is the rune's position on the page (1 to 9)."
+    },
+    "las secundarias comparten fila" : {
+      "comment" : "Reason a rune page is invalid, inside the toast row: the two secondary runes come from the same row."
+    },
+    "repite la rama" : {
+      "comment" : "Reason a rune page is invalid, inside the toast row: primary and secondary trees are the same."
+    },
+    "tiene %lld runas y no 9" : {
+      "comment" : "Reason a rune page is invalid, inside the toast row: %lld is how many runes it has."
+    },
+    "una rama cambió de forma" : {
+      "comment" : "Reason a rune page is invalid, inside the toast row: a rune tree's rows changed this patch."
+    },
+    "una rama ya no existe" : {
+      "comment" : "Reason a rune page is invalid, inside the toast row: the client no longer has one of its rune trees."
+    },
     "· muestra baja" : {
       "comment" : "Import toast row suffix: the imported recommendation rests on few games."
+    },
+    "· override" : {
+      "comment" : "Import toast row suffix: this part came from the champion's override, not the general build."
+    },
+    "· sin fija guardada, va la general" : {
+      "comment" : "Import toast row suffix: a fixed choice was asked for but none is saved, so the general build was used."
     },
     "¿Reemplazar tu página actual?" : {
       "comment" : "Import toast row status for runes: asks to overwrite the current rune page, which has no name."

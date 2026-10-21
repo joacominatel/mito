@@ -8,8 +8,9 @@ import MitoImport
 import Observation
 
 /// Imports the local player's general loadout from the open snapshot once per champion and champ
-/// select (§13.1) and reports it as a toast in the main window or, when the window is not in
-/// front, a notification.
+/// select (§13.1), with the champion's override applied (§21.5), and reports it as a toast in the
+/// main window or, when the window is not in front, a notification. Each part goes to the
+/// `import_log` (§17).
 @Observable
 final class ImportModel {
     /// The latest import while the window shows it, and any import waiting on a rune confirmation.
@@ -24,6 +25,8 @@ final class ImportModel {
     private let poster: any NotificationPosting
     private let appIsActive: @MainActor () -> Bool
     private let readStats: @MainActor () -> any StatsProvider
+    private let store: any PersonalStore
+    private let detectedFlash: @MainActor () -> ImportSettings.FlashPosition?
 
     @ObservationIgnored private var imported: Set<ChampionID> = []
     @ObservationIgnored private var toldMissingStats = false
@@ -37,11 +40,16 @@ final class ImportModel {
         catalog: GameDataCatalog,
         settings: @escaping @MainActor () -> ImportSettings = { ImportSettings() },
         stats: @escaping @MainActor () -> any StatsProvider = { NoStats() },
+        store: any PersonalStore = UnavailablePersonalStore(),
+        /// The slot detected from the history, `.d` or `.f`, for `flashPosition == .auto`.
+        detectedFlash: @escaping @MainActor () -> ImportSettings.FlashPosition? = { nil },
         poster: any NotificationPosting = SystemNotificationPoster(),
         appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
     ) {
         self.connection = connection
         readStats = stats
+        self.store = store
+        self.detectedFlash = detectedFlash
         self.catalog = catalog
         self.settings = settings
         self.poster = poster
@@ -84,9 +92,10 @@ final class ImportModel {
         let report = await importer.apply(
             Loadout(runes: pendingRunes.page, spells: nil, itemSet: nil, skillOrder: nil),
             settings: settings(), context: confirmed)
-        guard generation == self.generation else { return }
         var updated = outcome
         updated.report.runes = report.runes
+        await log(updated, parts: [.runes])
+        guard generation == self.generation else { return }
         await present(updated.renumbered(nextID()), runes: (pendingRunes.page, context))
     }
 
@@ -120,10 +129,11 @@ final class ImportModel {
     }
 
     private func handle(_ session: ChampSelectSession) async {
-        let settings = settings()
+        var settings = settings()
         guard let target = Self.target(in: session, onHover: settings.importOnHover),
             imported.insert(target.champion).inserted
         else { return }
+        let generation = generation
         let stats = readStats()
         guard stats.meta != nil else {
             await tellMissingStats(for: target)
@@ -133,13 +143,96 @@ final class ImportModel {
         guard let role = target.role ?? Self.mostPlayedRole(of: target.champion, in: stats)
         else { return }
         let general = LoadoutSelection.general(for: target.champion, role: role, stats: stats)
-        let loadout = Self.withBlockTitles(general.loadout)
+        let override = await championOverride(target.champion, role)
+        guard generation == self.generation else { return }
+        if settings.flashPosition == .auto, let detected = detectedFlash() {
+            settings.flashPosition = detected
+        }
+        let plan = Self.plan(
+            Self.withBlockTitles(general.loadout), override: override, settings: settings)
+        let loadout = plan.loadout
         guard loadout.runes != nil || loadout.spells != nil || loadout.itemSet != nil else {
             return
         }
+        let lowSample = Self.lowSampleParts(general.sampleLevels)
+            .filter { plan.origins[$0] != .override }
         await importLoadout(
-            loadout, lowSample: Self.lowSampleParts(general.sampleLevels),
-            for: (target.champion, role), session: session, settings: settings)
+            plan, lowSample: lowSample, for: (target.champion, role), session: session,
+            settings: settings)
+    }
+
+    /// An unreadable store reads as no override: the general loadout still goes.
+    private func championOverride(_ champion: ChampionID, _ role: Role) async -> ChampionOverride? {
+        let overrides = try? await store.overrides()
+        return overrides?.first { $0.champion == champion && $0.role == role }
+    }
+
+    struct Plan: Equatable {
+        var loadout: Loadout
+        var origins: [ImportOutcome.Part: ImportOutcome.Origin] = [:]
+        /// The override's "no importar": no item set is sent, and the old Mito set stays.
+        var skipsItems = false
+    }
+
+    /// The override's choices over the general loadout (§13.1). A part switched off in Settings is
+    /// left alone: the importer skips it whatever the override says.
+    static func plan(_ general: Loadout, override: ChampionOverride?, settings: ImportSettings)
+        -> Plan
+    {
+        var runes = general.runes
+        var spells = general.spells
+        var itemSet = general.itemSet
+        var plan = Plan(loadout: general)
+
+        if settings.importRunes {
+            let wantsFixedPage =
+                switch override?.runeMode {
+                case .fixed?: true
+                case .general?: false
+                // The editor's default: no preference, so the global mode decides. Its adaptive
+                // (matchup) arrives in Phase 7; until then it imports the general page.
+                case .adaptive?, .unknown?, nil: settings.runeMode == .fixedPerChampion
+                }
+            if wantsFixedPage {
+                if let page = override?.fixedPage {
+                    runes = page
+                    plan.origins[.runes] = .override
+                } else {
+                    plan.origins[.runes] = .noFixedChoice
+                }
+            }
+        }
+
+        if settings.importSpells, override?.spellMode == .fixed {
+            if let pair = override?.fixedSpells {
+                spells = pair
+                plan.origins[.spells] = .override
+            } else {
+                plan.origins[.spells] = .noFixedChoice
+            }
+        }
+
+        if settings.importItemSets, let override {
+            switch override.itemMode {
+            case .fixedSet:
+                if let set = override.fixedItems {
+                    itemSet = set
+                    plan.origins[.items] = .override
+                } else {
+                    plan.origins[.items] = .noFixedChoice
+                }
+            case .skip:
+                itemSet = nil
+                plan.skipsItems = true
+                plan.origins[.items] = .override
+            case .recommended, .unknown:
+                break
+            }
+        }
+
+        plan.loadout = Loadout(
+            runes: runes, spells: spells, itemSet: itemSet, skillOrder: general.skillOrder)
+        return plan
     }
 
     /// Ties go to the earlier role in `Role.allCases`.
@@ -185,10 +278,11 @@ final class ImportModel {
     }
 
     private func importLoadout(
-        _ loadout: Loadout, lowSample: Set<ImportOutcome.Part>,
+        _ plan: Plan, lowSample: Set<ImportOutcome.Part>,
         for target: (champion: ChampionID, role: Role), session: ChampSelectSession,
         settings: ImportSettings
     ) async {
+        let loadout = plan.loadout
         let generation = generation
         async let gameflow = try? connection.send(.gameflowSession)
         async let summoner = try? connection.send(.currentSummoner)
@@ -197,7 +291,9 @@ final class ImportModel {
 
         let map: ItemSetMap? = mapID == ItemSetMap.summonersRift.id ? .summonersRift : nil
         let itemsUnavailable: ImportOutcome.ItemsUnavailable? =
-            if loadout.itemSet == nil || !settings.importItemSets {
+            if plan.skipsItems {
+                .skippedByOverride
+            } else if loadout.itemSet == nil || !settings.importItemSets {
                 nil
             } else if map == nil {
                 .unsupportedMap
@@ -219,11 +315,19 @@ final class ImportModel {
             summonerId: summonerId ?? 0)
 
         let report = await importer.apply(sent, settings: settings, context: context)
-        guard generation == self.generation else { return }
         let outcome = ImportOutcome(
             id: nextID(), champion: target.champion, title: context.title, report: report,
-            itemsUnavailable: itemsUnavailable, lowSample: lowSample)
+            itemsUnavailable: itemsUnavailable, lowSample: lowSample, origins: plan.origins)
+        await log(outcome, parts: ImportOutcome.Part.allCases)
+        guard generation == self.generation else { return }
         await present(outcome, runes: sent.runes.map { ($0, context) })
+    }
+
+    /// The client already holds what was sent, so a log write that fails changes nothing else.
+    private func log(_ outcome: ImportOutcome, parts: [ImportOutcome.Part]) async {
+        for entry in outcome.logEntries(parts, at: .now) {
+            try? await store.appendImportLog(entry)
+        }
     }
 
     // MARK: Feedback
@@ -318,7 +422,7 @@ extension ImportOutcome {
     fileprivate func renumbered(_ id: Int) -> ImportOutcome {
         ImportOutcome(
             id: id, champion: champion, title: title, report: report,
-            itemsUnavailable: itemsUnavailable, lowSample: lowSample,
+            itemsUnavailable: itemsUnavailable, lowSample: lowSample, origins: origins,
             isMissingStats: isMissingStats)
     }
 }

@@ -20,6 +20,16 @@ struct ImportOutcome: Identifiable, Equatable {
         case unsupportedMap
         /// `CurrentSummoner` gave no `summonerId`.
         case noAccount
+        /// The champion's override says not to import an item set (§21.5).
+        case skippedByOverride
+    }
+
+    /// Where a part's choice came from, when it was not the engine's general loadout alone.
+    enum Origin: Equatable {
+        /// The override's fixed page, spells, or set, or its "no importar".
+        case override
+        /// A fixed choice was asked for but none is saved: the general one went instead.
+        case noFixedChoice
     }
 
     enum Part: CaseIterable {
@@ -42,6 +52,7 @@ struct ImportOutcome: Identifiable, Equatable {
         let status: LocalizedStringResource
         /// The recommendation in effect is short of reliable (§17, §18.2).
         var isLowSample = false
+        var origin: Origin?
 
         var id: Part { part }
     }
@@ -54,6 +65,7 @@ struct ImportOutcome: Identifiable, Equatable {
     let itemsUnavailable: ItemsUnavailable?
     /// Parts whose recommendation is "muestra baja".
     var lowSample: Set<Part> = []
+    var origins: [Part: Origin] = [:]
     var isMissingStats = false
 
     var status: Status {
@@ -94,11 +106,12 @@ struct ImportOutcome: Identifiable, Equatable {
             if part == .items, let itemsUnavailable {
                 return Row(
                     part: part, symbol: "minus.circle", tone: .neutral,
-                    status: itemsUnavailable.status)
+                    status: itemsUnavailable.status, origin: origins[part])
             }
             let result = result(of: part)
             var row = Self.row(part, result)
             row.isLowSample = lowSample.contains(part) && result.keepsTheRecommendation
+            row.origin = origins[part]
             return row
         }
     }
@@ -133,11 +146,12 @@ struct ImportOutcome: Identifiable, Equatable {
             Row(
                 part: part, symbol: "exclamationmark.triangle.fill", tone: .attention,
                 status: LocalizedStringResource("No hay una página editable", table: "Import"))
-        case .failed(.invalidRunePage):
+        case .failed(.invalidRunePage(let error)):
             Row(
                 part: part, symbol: "xmark.octagon.fill", tone: .failure,
                 status: LocalizedStringResource(
-                    "Página inválida para este parche, no se envió", table: "Import"))
+                    "Página inválida (\(String(localized: error.reason))), no se envió",
+                    table: "Import"))
         case .failed(.lcu):
             Row(
                 part: part, symbol: "xmark.octagon.fill", tone: .failure,
@@ -152,7 +166,68 @@ struct ImportOutcome: Identifiable, Equatable {
     }
 }
 
+extension ImportOutcome {
+    /// One `import_log` entry per part (§17), with codes for a detail: never a name or an account.
+    func logEntries(_ parts: [Part], at date: Date) -> [ImportLogEntry] {
+        parts.map { part in
+            let (outcome, reason): (ImportLogEntry.Outcome, String?) =
+                if part == .items, let itemsUnavailable {
+                    (.skipped, itemsUnavailable.logCode)
+                } else {
+                    result(of: part).logged
+                }
+            let detail = [reason, origins[part]?.logCode].compactMap(\.self)
+            return ImportLogEntry(
+                timestamp: date, game: nil, champion: champion, part: part.logged,
+                outcome: outcome, detail: detail.isEmpty ? nil : detail.joined(separator: ","))
+        }
+    }
+}
+
+extension ImportOutcome.Part {
+    fileprivate var logged: ImportLogEntry.Part {
+        switch self {
+        case .runes: .runes
+        case .spells: .spells
+        case .items: .items
+        }
+    }
+}
+
+extension ImportOutcome.ItemsUnavailable {
+    fileprivate var logCode: String? {
+        switch self {
+        case .unsupportedMap: "unsupported_map"
+        case .noAccount: "no_account"
+        // The origin already says "override".
+        case .skippedByOverride: nil
+        }
+    }
+}
+
+extension ImportOutcome.Origin {
+    fileprivate var logCode: String {
+        switch self {
+        case .override: "override"
+        case .noFixedChoice: "no_fixed_choice"
+        }
+    }
+}
+
 extension StepResult {
+    fileprivate var logged: (ImportLogEntry.Outcome, String?) {
+        switch self {
+        case .applied: (.applied, nil)
+        case .skipped(.notInLoadout): (.skipped, "not_in_loadout")
+        case .skipped(.disabled): (.skipped, "disabled")
+        case .skipped(.alreadySelected): (.skipped, "already_selected")
+        case .skipped(.noEditablePage): (.skipped, "no_editable_page")
+        case .needsConfirmation: (.skipped, "needs_confirmation")
+        case .failed(.invalidRunePage): (.failed, "invalid_rune_page")
+        case .failed(.lcu): (.failed, "lcu")
+        }
+    }
+
     /// The recommendation is what the client holds, or what the user is asked to accept.
     fileprivate var keepsTheRecommendation: Bool {
         switch self {
@@ -179,6 +254,38 @@ extension ImportOutcome.ItemsUnavailable {
             LocalizedStringResource("No disponible en este mapa", table: "Import")
         case .noAccount:
             LocalizedStringResource("No se pudo leer tu cuenta", table: "Import")
+        case .skippedByOverride:
+            LocalizedStringResource("No se importan", table: "Import")
+        }
+    }
+}
+
+extension ImportOutcome.Origin {
+    var marker: LocalizedStringResource {
+        switch self {
+        case .override: LocalizedStringResource("· override", table: "Import")
+        case .noFixedChoice:
+            LocalizedStringResource("· sin fija guardada, va la general", table: "Import")
+        }
+    }
+}
+
+extension RunePageValidationError {
+    /// Why the client would reject the page, short enough for a toast row.
+    fileprivate var reason: LocalizedStringResource {
+        switch self {
+        case .wrongPerkCount(let count):
+            LocalizedStringResource("tiene \(count) runas y no 9", table: "Import")
+        case .sameStyleTwice:
+            LocalizedStringResource("repite la rama", table: "Import")
+        case .unknownStyle:
+            LocalizedStringResource("una rama ya no existe", table: "Import")
+        case .unexpectedStyleLayout:
+            LocalizedStringResource("una rama cambió de forma", table: "Import")
+        case .perkOutOfPlace(let index, _):
+            LocalizedStringResource("la runa \(index + 1) ya no va ahí", table: "Import")
+        case .secondaryPerksShareARow:
+            LocalizedStringResource("las secundarias comparten fila", table: "Import")
         }
     }
 }

@@ -1,5 +1,5 @@
 import Foundation
-import LCUKit
+import MitoAssets
 import MitoCore
 import Testing
 
@@ -8,7 +8,7 @@ import Testing
 private typealias Fixture = OnboardingFixture
 
 private func model(_ store: PoolTestStore, role: Role = .middle) -> OnboardingModel {
-    let model = OnboardingModel(connection: ScriptedLCUConnection(script: []), store: store)
+    let model = OnboardingModel(store: store)
     model.role = role
     return model
 }
@@ -120,27 +120,18 @@ struct OnboardingPoolTests {
 }
 
 struct OnboardingCatalogTests {
-    @Test func theClientsChampionsAreListedByNameWithoutThePlaceholder() async throws {
-        let connection = ServingLCUConnection(
-            script: [],
-            bodies: [LCUEndpoint.gameDataChampions.path: try Fixture.championSummary()])
-        let model = OnboardingModel(connection: connection, store: PoolTestStore())
-
-        await model.loadCatalog()
+    @Test func theSharedChampionsAreListedByNameWithoutThePlaceholder() {
+        let model = OnboardingModel(store: PoolTestStore(), gameData: Fixture.gameData)
 
         #expect(model.searchResults.map(\.name) == ["Ahri", "Annie"])
         #expect(model.name(of: Fixture.ahri) == "Ahri")
         #expect(model.canAddToPool)
     }
 
-    @Test func searchSkipsThePoolAndMatchesTheName() async throws {
-        let connection = ServingLCUConnection(
-            script: [],
-            bodies: [LCUEndpoint.gameDataChampions.path: try Fixture.championSummary()])
+    @Test func searchSkipsThePoolAndMatchesTheName() async {
         let store = PoolTestStore(pools: [.middle: [Fixture.ahri]])
-        let model = OnboardingModel(connection: connection, store: store)
+        let model = OnboardingModel(store: store, gameData: Fixture.gameData)
         model.role = .middle
-        await model.loadCatalog()
         await model.loadPool()
 
         #expect(model.searchResults.map(\.id) == [Fixture.annie])
@@ -152,10 +143,19 @@ struct OnboardingCatalogTests {
         #expect(model.searchResults.map(\.id) == [Fixture.annie])
     }
 
-    @Test func withoutAClientNothingCanBeAdded() async {
+    @Test func theListFollowsTheSharedDataOnceItLoads() {
+        var shared: GameData?
+        let model = OnboardingModel(store: PoolTestStore(), gameData: shared)
+        #expect(model.catalog == .unavailable)
+
+        shared = Fixture.gameData
+
+        #expect(model.searchResults.map(\.name) == ["Ahri", "Annie"])
+    }
+
+    @Test func withoutClientDataNothingCanBeAdded() async {
         let model = model(PoolTestStore(pools: [.middle: [Fixture.ahri]]))
 
-        await model.loadCatalog()
         await model.loadPool()
 
         #expect(model.catalog == .unavailable)
@@ -166,6 +166,15 @@ struct OnboardingCatalogTests {
 }
 
 struct OnboardingFlashTests {
+    @Test func runDetectsTheSlotWithoutTheTabOpen() async {
+        let model = model(PoolTestStore(history: Fixture.history(d: 1, f: 6)))
+
+        await model.run()
+
+        #expect(model.flash == .loaded(.init(inD: 1, inF: 6)))
+        #expect(model.resolvedFlashSlot(.auto) == .f)
+    }
+
     @Test func countsFlashBySlotOverTheLast20Games() async {
         let store = PoolTestStore(history: Fixture.history(d: 2, f: 18, without: 5))
         let model = model(store)

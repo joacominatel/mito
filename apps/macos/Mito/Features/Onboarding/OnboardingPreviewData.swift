@@ -21,11 +21,20 @@
              {"id": 3, "name": "Galio"}, {"id": 1, "name": "Annie"}, {"id": 61, "name": "Orianna"}]
             """.utf8)
 
+        /// The shared `GameData` loads all five files; only the champions matter here.
+        private static let bodies: [String: Data] = [
+            LCUEndpoint.gameDataChampions.path: champions,
+            LCUEndpoint.gameDataItems.path: Data("[]".utf8),
+            LCUEndpoint.gameDataPerkStyles.path: Data(#"{"styles": []}"#.utf8),
+            LCUEndpoint.gameDataPerks.path: Data("[]".utf8),
+            LCUEndpoint.gameDataSummonerSpells.path: Data("[]".utf8),
+        ]
+
         func send<R: Decodable & Sendable>(_ endpoint: LCUEndpoint<R>) async throws(LCUError)
             -> R
         {
-            guard endpoint.path == LCUEndpoint.gameDataChampions.path else { throw .notConnected }
-            return try endpoint.decode(Self.champions)
+            guard let body = Self.bodies[endpoint.path] else { throw .notConnected }
+            return try endpoint.decode(body)
         }
 
         func events(_ topics: Set<LCUTopic>) -> AsyncStream<LCUEvent> {

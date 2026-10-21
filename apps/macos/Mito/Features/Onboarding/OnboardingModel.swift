@@ -1,10 +1,10 @@
 import Foundation
-import LCUKit
+import MitoAssets
 import MitoCore
 import Observation
 
 /// The General tab (§21.1): the champion pool per role (§19.1) and the Flash position detected
-/// from the stored history (§21.4).
+/// from the stored history (§21.4). The champions come from the shared `GameData` (§9.3).
 @Observable
 final class OnboardingModel {
     enum FlashSlot: Equatable {
@@ -49,20 +49,33 @@ final class OnboardingModel {
     /// The role's pool in priority order: the first is the main.
     private(set) var pool: [ChampionID] = []
     private(set) var poolProblem: PoolProblem?
-    /// The client's champions by name; `.unavailable` without a client.
-    private(set) var catalog: Loading<[Champion]> = .loading
     private(set) var flash: Loading<FlashDetection> = .loading
 
-    private let connection: any LCUConnection
     private let store: any PersonalStore
-    private var names: [ChampionID: String] = [:]
+    private let readGameData: @MainActor () -> GameData?
 
-    init(connection: any LCUConnection, store: any PersonalStore = UnavailablePersonalStore()) {
-        self.connection = connection
+    init(
+        store: any PersonalStore = UnavailablePersonalStore(),
+        gameData: @autoclosure @escaping @MainActor () -> GameData? = nil
+    ) {
         self.store = store
+        readGameData = gameData
     }
 
-    func run() async {}
+    /// The import reads the detected slot, so it is detected here rather than when the tab opens;
+    /// the shell detects again after each history sync.
+    func run() async {
+        await detectFlash()
+    }
+
+    /// The client's champions by name; `.unavailable` until the shared data first loads.
+    var catalog: Loading<[Champion]> {
+        guard let gameData = readGameData() else { return .unavailable }
+        return .loaded(
+            gameData.allChampions
+                .filter { $0.id.rawValue > 0 && !$0.name.isEmpty }
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending })
+    }
 
     var canEditPool: Bool { poolProblem != .readFailed }
 
@@ -82,21 +95,8 @@ final class OnboardingModel {
     }
 
     func name(of champion: ChampionID) -> String {
-        names[champion] ?? String(localized: "Campeón \(champion.rawValue)", table: "Onboarding")
-    }
-
-    /// A failed reload keeps the champions already loaded.
-    func loadCatalog() async {
-        do {
-            let champions = try await connection.send(.gameDataChampions).champions
-                .filter { $0.id.rawValue > 0 && !$0.name.isEmpty }
-                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            names = Dictionary(champions.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
-            catalog = .loaded(champions)
-        } catch {
-            if case .loaded = catalog { return }
-            catalog = .unavailable
-        }
+        if let name = readGameData()?.champion(champion)?.name, !name.isEmpty { return name }
+        return String(localized: "Campeón \(champion.rawValue)", table: "Onboarding")
     }
 
     func loadPool() async {

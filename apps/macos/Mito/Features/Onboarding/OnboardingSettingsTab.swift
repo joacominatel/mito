@@ -72,8 +72,6 @@ struct OnboardingSettingsTab: View {
             }
         }
         .formStyle(.grouped)
-        .task(id: app.connection.isConnected) { await app.onboarding.loadCatalog() }
-        .task { await app.onboarding.detectFlash() }
     }
 }
 
@@ -321,9 +319,12 @@ extension Role {
 }
 
 #Preview("Pool lleno") {
+    let app = AppModel.onboardingPreview
     OnboardingSettingsTab()
-        .environment(AppModel.onboardingPreview)
+        .environment(app)
         .frame(width: 520, height: 720)
+        .task { await app.clientData.run() }
+        .task { await app.onboarding.run() }
 }
 
 #Preview("Sin datos") {
