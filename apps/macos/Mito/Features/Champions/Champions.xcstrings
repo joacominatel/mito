@@ -10,7 +10,7 @@
     "Campeón" : {
       "comment" : "Tier list column: the champion."
     },
-    "Campeón %lld" : {
+    "Campeón %@" : {
       "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
     },
     "JGL" : {

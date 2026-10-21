@@ -169,6 +169,6 @@ struct ChampionNames {
 
     func callAsFunction(_ id: ChampionID) -> String {
         if let name = gameData?.champion(id)?.name, !name.isEmpty { return name }
-        return String(localized: "Campeón \(id.rawValue)", table: "Profile")
+        return String(localized: "Campeón \(String(id.rawValue))", table: "Profile")
     }
 }

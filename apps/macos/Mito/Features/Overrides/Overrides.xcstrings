@@ -37,7 +37,7 @@
     "Campeones" : {
       "comment" : "List section with every champion."
     },
-    "Campeón %lld" : {
+    "Campeón %@" : {
       "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
     },
     "Cancelar" : {
@@ -223,7 +223,7 @@
     "¿Eliminar este override?" : {
       "comment" : "Title of the delete confirmation."
     },
-    "Ítem %lld" : {
+    "Ítem %@" : {
       "comment" : "Fallback name for an item whose static data has not loaded. The argument is the item ID."
     },
     "Ítems" : {

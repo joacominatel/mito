@@ -34,7 +34,7 @@
     "Campeones que tengo" : {
       "comment" : "Candidate mode: every champion the user can pick."
     },
-    "Campeón %lld" : {
+    "Campeón %@" : {
       "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
     },
     "Candidatos" : {
@@ -187,7 +187,7 @@
     "sin datos" : {
       "comment" : "Next to an enemy role guessed without statistics, so it is not read as fact."
     },
-    "Ítem %lld" : {
+    "Ítem %@" : {
       "comment" : "Fallback name for an item whose static data has not loaded. The argument is the numeric item ID."
     }
   },

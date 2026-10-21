@@ -28,7 +28,7 @@
     "Buscar campeón" : {
       "comment" : "Search field placeholder in the add-champion popover."
     },
-    "Campeón %lld" : {
+    "Campeón %@" : {
       "comment" : "Fallback champion name when the client's data has no name for this ID."
     },
     "Con «Automática», Mito usa la posición detectada en tus últimas %lld partidas." : {

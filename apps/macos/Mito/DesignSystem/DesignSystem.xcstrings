@@ -58,7 +58,7 @@
     "CC dirigido" : {
       "comment" : "Enemy trait: point-and-click crowd control."
     },
-    "Campeón %lld" : {
+    "Campeón %@" : {
       "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
     },
     "Curva de poder: early %@, tu equipo %@" : {
@@ -139,7 +139,7 @@
     "sin muestra" : {
       "comment" : "Confidence indicator: below the minimum sample."
     },
-    "Ítem %lld" : {
+    "Ítem %@" : {
       "comment" : "Fallback name for an item whose static data has not loaded. The argument is the numeric item ID."
     },
     "Ítems (%@)" : {

@@ -96,7 +96,7 @@ final class OnboardingModel {
 
     func name(of champion: ChampionID) -> String {
         if let name = readGameData()?.champion(champion)?.name, !name.isEmpty { return name }
-        return String(localized: "Campeón \(champion.rawValue)", table: "Onboarding")
+        return String(localized: "Campeón \(String(champion.rawValue))", table: "Onboarding")
     }
 
     func loadPool() async {

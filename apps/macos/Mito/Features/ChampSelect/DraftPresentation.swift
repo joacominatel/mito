@@ -115,13 +115,13 @@ extension ChampSelectModel {
             champion: championName,
             item: { [gameData] id in
                 if let name = gameData?.item(id)?.name, !name.isEmpty { return name }
-                return String(localized: "Ítem \(id.rawValue)", table: "ChampSelect")
+                return String(localized: "Ítem \(String(id.rawValue))", table: "ChampSelect")
             })
     }
 
     func championName(_ id: ChampionID) -> String {
         if let name = gameData?.champion(id)?.name, !name.isEmpty { return name }
-        return String(localized: "Campeón \(id.rawValue)", table: "ChampSelect")
+        return String(localized: "Campeón \(String(id.rawValue))", table: "ChampSelect")
     }
 
     private func row(for slot: DraftSlot, isMe: Bool, roles: [Int: InferredRole])

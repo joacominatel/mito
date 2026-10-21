@@ -73,7 +73,7 @@ final class OverridesModel {
 
     func name(of champion: ChampionID, in gameData: GameData) -> String {
         if let name = gameData.champion(champion)?.name, !name.isEmpty { return name }
-        return String(localized: "Campeón \(champion.rawValue)", table: "Overrides")
+        return String(localized: "Campeón \(String(champion.rawValue))", table: "Overrides")
     }
 
     /// The spells Summoner's Rift allows, by name.

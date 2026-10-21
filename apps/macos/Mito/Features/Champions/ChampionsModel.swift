@@ -53,7 +53,7 @@ final class ChampionsModel {
 
     func championName(_ id: ChampionID) -> String {
         if let name = readGameData()?.champion(id)?.name, !name.isEmpty { return name }
-        return String(localized: "Campeón \(id.rawValue)", table: "Champions")
+        return String(localized: "Campeón \(String(id.rawValue))", table: "Champions")
     }
 
     func run() async {}

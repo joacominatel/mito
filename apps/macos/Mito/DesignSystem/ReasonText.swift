@@ -8,8 +8,8 @@ struct ReasonNames {
 
     /// Before the client's data loads.
     static let ids = ReasonNames(
-        champion: { String(localized: "Campeón \($0.rawValue)", table: "DesignSystem") },
-        item: { String(localized: "Ítem \($0.rawValue)", table: "DesignSystem") })
+        champion: { String(localized: "Campeón \(String($0.rawValue))", table: "DesignSystem") },
+        item: { String(localized: "Ítem \(String($0.rawValue))", table: "DesignSystem") })
 }
 
 /// The es-AR line, symbol, and tone of every `Reason.Kind` (§18.3, §22.3).

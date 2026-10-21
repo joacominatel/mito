@@ -229,7 +229,7 @@ extension GameData {
 
     func overridesName(of item: ItemID) -> String {
         if let name = self.item(item)?.name, !name.isEmpty { return name }
-        return String(localized: "Ítem \(item.rawValue)", table: "Overrides")
+        return String(localized: "Ítem \(String(item.rawValue))", table: "Overrides")
     }
 }
 

@@ -19,6 +19,11 @@ struct ReasonTextTests {
     nonisolated static let ahri = ChampionID(rawValue: 103)
     nonisolated static let morello = ItemID(rawValue: 3165)
 
+    @Test func idFallbacksPrintTheBareID() {
+        #expect(ReasonNames.ids.item(ItemID(rawValue: 3020)) == "Ítem 3020")
+        #expect(ReasonNames.ids.champion(ChampionID(rawValue: 1000)) == "Campeón 1000")
+    }
+
     @Test(arguments: [
         (
             Reason.Kind.matchup(opponent: zed, delta: 0.021, games: 8212),
