@@ -237,17 +237,26 @@ struct ChampSelectModelTests {
         #expect(model.enemyRows.map(\.pick) == [.locked("Campeón 238"), .empty])
     }
 
-    @Test func championNamesComeFromTheClientOnceConnected() async throws {
-        serveGameData(champions: #"[{"id": 103, "alias": "Ahri", "name": "Ahri"}]"#)
-        let model = makeModel()
-        let run = Task { await model.run() }
+    @Test func championNamesFollowTheSharedDataOnceItLoads() {
+        let shared = SharedData()
+        let model = ChampSelectModel(connection: connection, gameData: shared.gameData)
+        #expect(model.championName(ChampionID(rawValue: 103)) == "Campeón 103")
 
-        connection.enter(.connected)
-        await until { model.gameData != nil }
+        shared.gameData = GameData(champions: [
+            Champion(id: ChampionID(rawValue: 103), alias: "Ahri", name: "Ahri", iconPath: "")
+        ])
 
         #expect(model.championName(ChampionID(rawValue: 103)) == "Ahri")
         #expect(model.championName(ChampionID(rawValue: 238)) == "Campeón 238")
-        await stop(run)
+    }
+
+    @Test func theDraftCarriesThePatchOfTheGameVersion() throws {
+        let model = ChampSelectModel(
+            connection: connection, patch: { Patch(rawValue: "16.21") }, clock: clock)
+
+        model.show(try Fixture.session("ban-pick-in-progress"), queue: .rankedSolo, pickable: [])
+
+        #expect(model.draft?.patch == Patch(rawValue: "16.21"))
     }
 
     @Test func bansAreListedByName() throws {
@@ -293,14 +302,6 @@ struct ChampSelectModelTests {
         ChampSelectModel(connection: connection, clock: clock, now: now, gameData: gameData)
     }
 
-    private func serveGameData(champions: String) {
-        connection.serve(LCUEndpoint.gameDataChampions.path, Data(champions.utf8))
-        connection.serve(LCUEndpoint.gameDataItems.path, Data("[]".utf8))
-        connection.serve(LCUEndpoint.gameDataPerkStyles.path, Data(#"{"styles": []}"#.utf8))
-        connection.serve(LCUEndpoint.gameDataPerks.path, Data("[]".utf8))
-        connection.serve(LCUEndpoint.gameDataSummonerSpells.path, Data("[]".utf8))
-    }
-
     /// Waits until the model has armed `count` debounces in total.
     private func sleeps(_ count: Int) async {
         while clock.sleepCalls < count { await Task.yield() }
@@ -310,6 +311,12 @@ struct ChampSelectModelTests {
         connection.finish()
         await run.value
     }
+}
+
+/// Stands in for the shell's `ClientDataModel`.
+@Observable
+private final class SharedData {
+    var gameData: GameData?
 }
 
 /// The hand-written cases in `fixtures/lcu/cases/`, read in place like `MitoTestSupport` does.

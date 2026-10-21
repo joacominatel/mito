@@ -11,9 +11,9 @@ private let readyCheckPath = LCUEndpoint.readyCheck.path
 private let acceptPath = LCUEndpoint.acceptReadyCheck.path
 private let showing = #"{"state":"InProgress","playerResponse":"None"}"#
 nonisolated private let answered = #"{"state":"InProgress","playerResponse":"Accepted"}"#
-private let found = RecordingPoster.Post(notification: .matchAccepted, title: "Partida encontrada")
+private let found = RecordingPoster.Post(notification: .matchFound, title: "Partida encontrada")
 private let accepted = RecordingPoster.Post(
-    notification: .matchAccepted, title: "Partida encontrada, aceptada")
+    notification: .matchFound, title: "Partida encontrada, aceptada")
 
 private func session(queue: Int) -> String {
     #"{"gameData":{"queue":{"id":\#(queue),"mapId":11}}}"#

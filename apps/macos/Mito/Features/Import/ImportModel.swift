@@ -30,29 +30,25 @@ final class ImportModel {
 
     init(
         connection: any LCUConnection,
+        catalog: GameDataCatalog,
         settings: @escaping @MainActor () -> ImportSettings = { ImportSettings() },
         poster: any NotificationPosting = SystemNotificationPoster(),
         appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
     ) {
         self.connection = connection
+        self.catalog = catalog
         self.settings = settings
         self.poster = poster
         self.appIsActive = appIsActive
         importer = LoadoutImporter(connection: connection)
-        catalog = GameDataCatalog(connection: connection)
     }
 
     /// Returns once the connection's streams finish and every session event is handled.
     func run() async {
         await withDiscardingTaskGroup { group in
             group.addTask { await self.followSession() }
-            for await state in connection.states() {
-                if state == .connected {
-                    // Names for the title; a failure leaves the hand-written ones.
-                    group.addTask { _ = try? await self.catalog.reload() }
-                } else {
-                    reset()
-                }
+            for await state in connection.states() where state != .connected {
+                reset()
             }
         }
     }

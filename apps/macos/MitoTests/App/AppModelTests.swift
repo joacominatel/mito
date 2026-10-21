@@ -1,5 +1,7 @@
 import Foundation
 import LCUKit
+import MitoAssets
+import MitoCore
 import Testing
 
 @testable import Mito
@@ -57,6 +59,49 @@ struct AppModelTests {
 
         #expect(await iterator.next() == "cancelled")
         await running.value
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func featuresShareOneStaticDataLoadPerConnection() async {
+        let connection = ServingLCUConnection(
+            script: [.connected, .searching, .connected], bodies: ClientDataFixture.bodies())
+        let app = AppModel(connection: connection)
+
+        await app.start()
+
+        for path in ClientDataFixture.staticDataPaths {
+            #expect(connection.requests(to: path) == 2, "\(path)")
+        }
+        #expect(app.champSelect.gameData?.champion(ChampionID(rawValue: 103))?.name == "Ahri")
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func theGameVersionReachesTheDraftPatch() async throws {
+        let app = AppModel(
+            connection: ServingLCUConnection(
+                script: [.connected], bodies: ClientDataFixture.bodies()))
+        await app.start()
+
+        app.champSelect.show(
+            try LCUEndpoint.champSelectSession.decode(ImportFixture.data("ban-pick-in-progress")),
+            queue: .rankedSolo, pickable: [])
+
+        #expect(app.champSelect.draft?.patch == Patch(rawValue: "16.21"))
+    }
+
+    @Test(arguments: [true, false])
+    func champSelectOpensTheWindowOnlyWithTheSettingOn(enabled: Bool) throws {
+        let app = AppModel(connection: ScriptedLCUConnection(script: []))
+        app.settings.general.showWindowOnChampSelect = enabled
+        #expect(!app.shouldOpenWindowForChampSelect())
+
+        app.champSelect.show(
+            try LCUEndpoint.champSelectSession.decode(ImportFixture.data("ban-pick-in-progress")),
+            queue: .rankedSolo, pickable: [])
+
+        #expect(app.champSelectPresence.isInChampSelect)
+        #expect(app.shouldOpenWindowForChampSelect() == enabled)
+        #expect(!app.shouldOpenWindowForChampSelect())
     }
 
     #if DEBUG

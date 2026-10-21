@@ -138,7 +138,7 @@ final class GameflowModel {
         }
         guard settings().notifyMatchFound else { return }
         // One identifier for both: the match-found notification of §22.5.
-        await poster.post(.matchAccepted, title: title)
+        await poster.post(.matchFound, title: title)
     }
 }
 

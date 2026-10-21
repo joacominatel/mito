@@ -10,6 +10,8 @@ final class AppModel {
     static let lockfileOverrideKey = "MitoLCULockfilePath"
 
     let connection: ConnectionModel
+    let clientData: ClientDataModel
+    let mainWindow = MainWindowModel()
     let gameflow: GameflowModel
     let champSelect: ChampSelectModel
     let importing: ImportModel
@@ -34,9 +36,14 @@ final class AppModel {
         defaults: UserDefaults = .standard
     ) {
         connection = ConnectionModel(connection: lcu)
+        let clientData = ClientDataModel(connection: lcu)
+        self.clientData = clientData
         gameflow = GameflowModel(connection: lcu, settings: { settings.value.game })
-        champSelect = ChampSelectModel(connection: lcu, settings: { settings.value.champSelect })
-        importing = ImportModel(connection: lcu, settings: { settings.value.importing })
+        champSelect = ChampSelectModel(
+            connection: lcu, settings: { settings.value.champSelect },
+            patch: { clientData.patch }, gameData: clientData.gameData)
+        importing = ImportModel(
+            connection: lcu, catalog: clientData.catalog, settings: { settings.value.importing })
         champions = ChampionsModel()
         analysis = AnalysisModel()
         profile = ProfileModel(connection: lcu)
@@ -60,12 +67,30 @@ final class AppModel {
         gameflow.menuBarSymbol ?? connection.menuBarSymbol
     }
 
+    /// §20.1: `true` when champ select should bring the main window up now. The menu-bar label
+    /// asks on every change of `champSelectPresence`, since it is the only view always alive.
+    func shouldOpenWindowForChampSelect() -> Bool {
+        mainWindow.shouldOpen(
+            isInChampSelect: champSelect.isInChampSelect, phase: gameflow.state,
+            enabled: settings.general.showWindowOnChampSelect)
+    }
+
+    var champSelectPresence: ChampSelectPresence {
+        ChampSelectPresence(isInChampSelect: champSelect.isInChampSelect, phase: gameflow.state)
+    }
+
+    struct ChampSelectPresence: Equatable {
+        let isInChampSelect: Bool
+        let phase: MitoState
+    }
+
     /// Slots start once the persisted settings are in, so none acts on the defaults.
     func start() async {
         await settingsModel.load()
         await withDiscardingTaskGroup { group in
             group.addTask { await self.lifecycle() }
             group.addTask { await self.connection.run() }
+            group.addTask { await self.clientData.run() }
             group.addTask { await self.gameflow.run() }
             group.addTask { await self.champSelect.run() }
             group.addTask { await self.importing.run() }

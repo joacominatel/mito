@@ -14,8 +14,6 @@ final class ChampSelectModel {
     }
 
     static let debounce: Duration = .milliseconds(150)
-    /// LCUKit exposes no game version yet; the snapshot's patch takes over in Phase 6.
-    static let placeholderPatch = Patch(rawValue: "")
     /// What the draft carries when the gameflow session cannot be read.
     static let unknownQueue = QueueType.other(QueueID(rawValue: 0))
 
@@ -26,11 +24,11 @@ final class ChampSelectModel {
     /// The cells whose ban or pick is in progress.
     private(set) var turns: [Int: Turn] = [:]
     private(set) var phaseInterval: ClosedRange<Date>?
-    private(set) var gameData: GameData?
 
     let settings: @MainActor () -> ChampSelectSettings
     private let connection: any LCUConnection
-    private let catalog: GameDataCatalog
+    private let patch: @MainActor () -> Patch
+    private let readGameData: @MainActor () -> GameData?
     private let clock: any Clock<Duration>
     private let now: () -> Date
 
@@ -41,17 +39,21 @@ final class ChampSelectModel {
     init(
         connection: any LCUConnection,
         settings: @escaping @MainActor () -> ChampSelectSettings = { ChampSelectSettings() },
+        patch: @escaping @MainActor () -> Patch = { Patch(rawValue: "") },
         clock: any Clock<Duration> = ContinuousClock(),
         now: @escaping () -> Date = { .now },
-        gameData: GameData? = nil
+        gameData: @autoclosure @escaping @MainActor () -> GameData? = nil
     ) {
         self.connection = connection
         self.settings = settings
+        self.patch = patch
         self.clock = clock
         self.now = now
-        self.gameData = gameData
-        catalog = GameDataCatalog(connection: connection)
+        readGameData = gameData
     }
+
+    /// The shell's shared catalog, read live: names appear once it loads.
+    var gameData: GameData? { readGameData() }
 
     var isInChampSelect: Bool { draft != nil }
 
@@ -61,7 +63,6 @@ final class ChampSelectModel {
             for await state in connection.states() {
                 if state == .connected {
                     group.addTask { await self.refresh() }
-                    group.addTask { await self.loadGameData() }
                 } else {
                     reset()
                 }
@@ -84,7 +85,7 @@ final class ChampSelectModel {
     func show(_ session: ChampSelectSession, queue: QueueType, pickable: Set<ChampionID>) {
         guard
             let draft = session.draftContext(
-                queue: queue, patch: Self.placeholderPatch, pickable: pickable)
+                queue: queue, patch: patch(), pickable: pickable)
         else { return clearDraft() }
         self.draft = draft
         enemyRoles = Self.inferRoles(of: draft.enemies)
@@ -117,10 +118,6 @@ final class ChampSelectModel {
         let inputs = await sessionInputs()
         guard generation == self.generation else { return }
         show(session, queue: inputs.queue, pickable: inputs.pickable)
-    }
-
-    private func loadGameData() async {
-        if let loaded = try? await catalog.reload() { gameData = loaded }
     }
 
     /// Only the newest session write may land.

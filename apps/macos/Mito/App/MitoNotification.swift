@@ -4,14 +4,14 @@ import UserNotifications
 
 /// The system notifications of §22.5. Posting lands with each owning feature.
 enum MitoNotification: Hashable {
-    case matchAccepted
+    case matchFound
     case pickTurn(recommended: ChampionID?)
     case loadoutImported(champion: ChampionID, opponent: ChampionID?)
 
     /// One per kind, so a new notification replaces the last one of its kind.
     var identifier: String {
         switch self {
-        case .matchAccepted: "matchAccepted"
+        case .matchFound: "matchFound"
         case .pickTurn: "pickTurn"
         case .loadoutImported: "loadoutImported"
         }

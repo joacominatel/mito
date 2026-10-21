@@ -443,6 +443,8 @@ fijos.
 @Observable  // MainActor por default en el target de la app (ADR 0001)
 final class AppModel {
     let connection: ConnectionModel
+    let clientData: ClientDataModel
+    let mainWindow: MainWindowModel
     let gameflow: GameflowModel
     let champSelect: ChampSelectModel
     let importing: ImportModel
@@ -467,6 +469,7 @@ final class AppModel {
         await withDiscardingTaskGroup { group in
             group.addTask { await self.lifecycle() }
             group.addTask { await self.connection.run() }
+            group.addTask { await self.clientData.run() }
             group.addTask { await self.gameflow.run() }
             // … un addTask por slot
         }
@@ -503,6 +506,20 @@ final class AppModel {
   `AppModel`. El default devuelve los defaults, para previews y tests. Las pestañas de
   Settings escriben con bindings a `app.settings` desde `@Environment(AppModel.self)`, y eso
   dispara el guardado.
+- **Datos del cliente compartidos:** `ClientDataModel` (en `App/`) tiene el único
+  `GameDataCatalog` (§16.1) y, en cada entrada a `connected`, lo recarga y lee
+  `LCUEndpoint.gameVersion` una vez. Publica `gameData` (lo último que cargó; una recarga
+  fallida lo conserva), `gameVersion` y `patch` (los dos primeros componentes, o `Patch("")`
+  mientras la versión no se pudo leer en esta conexión). `ImportModel` recibe el catálogo en su
+  `init`; `ChampSelectModel` recibe lectores de `gameData` y `patch`, que lee en vivo. Así cada
+  archivo de datos estáticos se pide una vez por conexión, no una por feature. Ninguna feature
+  arma hoy un `IconRequest`; cuando lo haga, `gameVersion.rawValue` es su `gameVersion`.
+- **Ventana principal:** `MainWindowModel` (en `App/`) tiene la selección del sidebar y decide
+  cuándo champ select abre la ventana (§20.1). La etiqueta de la barra de menú
+  (`MenuBarLabel`) es la única vista que vive siempre, con o sin ventana abierta: en cada cambio
+  de `champSelectPresence` (draft presente y fase de gameflow) pregunta
+  `shouldOpenWindowForChampSelect()` y, si da `true`, llama a
+  `openWindow(id: MitoApp.mainWindowID)`.
 - En Debug, `-MitoLCULockfilePath <ruta>` (argumento de lanzamiento o UserDefaults) va a
   apuntar el descubrimiento a `tools/lcu-mock`; por ahora `AppModel` solo lo guarda y
   `LCUClient` no lo recibe (P2-06).
@@ -2628,11 +2645,13 @@ Es el corazón de la v1. Se abre al entrar en champ select y se actualiza en viv
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Estado actual (Fase 3).** `ChampSelectView` muestra solo el draft, sin análisis:
+**Estado actual (Fase 3).** Durante champ select el destino "Ahora" muestra `ChampSelectView`
+(el shell le pasa la vista a `NowView`, así Gameflow no depende de ChampSelect); fuera de champ
+select, "Ahora" muestra la fase. `ChampSelectView` muestra solo el draft, sin análisis:
 
 - Encabezado: cola, fase (Planificación, Bans y picks, Finalización), cuenta regresiva del timer
   y, si te toca, "Tu turno: elegir" o "Tu turno: banear". Todavía no muestra el parche de los
-  datos.
+  datos. El `DraftContext` lleva el parche del cliente (`ClientDataModel.patch`, §9.3).
 - Columnas "Tu equipo" y "Equipo rival" con una fila por celda: candado y nombre para un
   lockeado, mano y nombre en cursiva para un hover, "Sin campeón" si no hay ninguno; "(vos)" en
   tu celda; reloj de arena (pick) o señal de prohibido (ban) en las celdas que están jugando.
@@ -2648,8 +2667,12 @@ Es el corazón de la v1. Se abre al entrar en champ select y se actualiza en viv
   `RecommendationMenuSection` muestra una línea de resumen ("Champ select · tu turno de
   elegir", o "Champ select · N de M lockeados") y queda vacía fuera de champ select.
 - La pestaña "Champ select" de Settings tiene "Mostrar la ventana al entrar en champ select"
-  (`general.showWindowOnChampSelect`, §21.1). Abrir la ventana y ubicar la vista en "Ahora"
-  todavía no están conectados: los hace el shell o la feature Gameflow.
+  (`general.showWindowOnChampSelect`, §21.1). Con el setting on, cuando aparece el draft el shell
+  abre la ventana principal en "Ahora", haya o no una ventana abierta (§9.3). Se abre una sola
+  vez por champ select: un draft que se pierde y vuelve mientras la fase sigue en champ select
+  no la reabre (si la cerraste, queda cerrada), y prender el setting a mitad de un champ select
+  tampoco. Se rearma cuando no hay draft y la fase ya no es champ select. El shell solo pide la
+  ventana: no llama a `NSApp.activate`.
 
 ### 20.2 Pestañas del análisis
 
@@ -2858,10 +2881,12 @@ propio usuario, no de otros jugadores, y no se loguea.
   `.queueNotSelected` o `.unknownQueue` y `notifyMatchFound` está on; es el "solo notificar"
   de `off` (§11.3). Las otras razones (`.alreadyAnswered`, `.notInProgress`,
   `.readyCheckEnded`) y un accept fallido no notifican. Las dos usan
-  `MitoNotification.matchAccepted`, y el auto-accept decide una sola vez por ready check, así
+  `MitoNotification.matchFound`, y el auto-accept decide una sola vez por ready check, así
   que sale como mucho una por ready check.
 - "Te toca elegir. Recomendado: Ahri"
-- "Runas, spells e ítems importados para Ahri vs Zed"
+- "Importado para Ahri MID", "Confirmá las runas para Ahri MID" o "No se pudo importar todo
+  para Ahri MID": el resultado del import (§13.1), como `MitoNotification.loadoutImported`,
+  cuando la ventana principal no está al frente.
 - Acción en la notificación: "Abrir análisis".
 
 Las publica `SystemNotificationPoster` (`App/MitoNotification.swift`) detrás del protocolo

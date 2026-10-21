@@ -27,11 +27,8 @@ struct MitoApp: App {
             MenuBarView()
                 .environment(app)
         } label: {
-            Label {
-                Text(verbatim: "Mito")
-            } icon: {
-                Image(systemName: app.menuBarSymbol)
-            }
+            MenuBarLabel()
+                .environment(app)
         }
         .menuBarExtraStyle(.window)
 

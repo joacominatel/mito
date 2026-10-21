@@ -1,11 +1,13 @@
 import SwiftUI
 
 struct MainWindowView: View {
-    @State private var selection: SidebarDestination? = .now
+    @Environment(AppModel.self) private var app
 
     var body: some View {
+        @Bindable var window = app.mainWindow
         NavigationSplitView {
-            List(SidebarDestination.allCases, id: \.self, selection: $selection) { destination in
+            List(SidebarDestination.allCases, id: \.self, selection: $window.destination) {
+                destination in
                 Label {
                     Text(destination.title)
                 } icon: {
@@ -14,17 +16,21 @@ struct MainWindowView: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
         } detail: {
-            if let selection {
-                detail(for: selection)
-                    .navigationTitle(Text(selection.title))
+            if let destination = window.destination {
+                detail(for: destination)
+                    .navigationTitle(Text(destination.title))
             }
         }
+        .importToast()
     }
 
     @ViewBuilder
     private func detail(for destination: SidebarDestination) -> some View {
         switch destination {
-        case .now: NowView()
+        case .now:
+            NowView(
+                champSelect: app.champSelect.isInChampSelect
+                    ? ChampSelectView(model: app.champSelect) : nil)
         case .champions: ChampionsView()
         case .profile: ProfileView()
         case .overrides: OverridesView()

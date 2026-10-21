@@ -1,5 +1,6 @@
 import Foundation
 import LCUKit
+import MitoAssets
 import MitoCore
 import MitoImport
 import Testing
@@ -19,7 +20,8 @@ private struct Harness {
 
     init(settings: ImportSettings = ImportSettings(), windowInFront: Bool = false) throws {
         model = ImportModel(
-            connection: connection, settings: { settings }, poster: poster, appIsActive: { true })
+            connection: connection, catalog: GameDataCatalog(connection: connection),
+            settings: { settings }, poster: poster, appIsActive: { true })
         if windowInFront { model.windowAppeared() }
         connection.serve(LCUEndpoint.perkStyles.path, try ImportFixture.data("styles", in: "runes"))
         connection.serve(pagesPath, try ImportFixture.data("pages-without-mito-page", in: "runes"))
@@ -247,7 +249,9 @@ struct ImportFeedbackTests {
     @Test func postsANotificationWhileAnotherAppIsInFront() async throws {
         let connection = ImportTestConnection()
         let poster = RecordingPoster()
-        let model = ImportModel(connection: connection, poster: poster, appIsActive: { false })
+        let model = ImportModel(
+            connection: connection, catalog: GameDataCatalog(connection: connection),
+            poster: poster, appIsActive: { false })
         model.windowAppeared()
 
         // No rune data served: the runes fail, which still reports.
@@ -369,7 +373,8 @@ struct ImportSettingsSupportTests {
         connection.serve(
             LCUEndpoint.perkPages.path,
             try ImportFixture.data("pages-without-mito-page", in: "runes"))
-        let model = ImportModel(connection: connection)
+        let model = ImportModel(
+            connection: connection, catalog: GameDataCatalog(connection: connection))
 
         await model.loadEditablePages()
 
