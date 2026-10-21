@@ -146,7 +146,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | FX-01 | MitoKit audit fixes: cancelled accepter, typeless perk rows, Data Dragon host case | lcu + store | `LCUKit/Matchmaking/AutoAccepter.swift`, `LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `MitoStore/DataDragon/DataDragonClient.swift` and their tests | — | — | merged |
 | FX-02 | Personal contract gaps: `ChampionOverride.fixedItems`; `my_match_participants` keyed by `(game_id, slot)` | core + docs (serial) | `MitoCore/Personal/ChampionOverride.swift`, `MITO_CONTEXT.md` §17 | §17 | P8-00 | merged |
 | FX-03 | Hand the personal store to `OnboardingModel` and `OverridesModel` so P8-05 and P8-08 run in parallel without shell edits | shell (serial) | `Mito/App/AppModel.swift`, `Mito/Features/{Onboarding,Overrides}/*Model.swift` | — | P8-04 | merged |
-| FX-04 | `GameData.allChampions/allItems/allSpells` and a public `RunePage.validationError(against:)` for the overrides editor | assets + import | `MitoAssets/GameData/GameData.swift`, `MitoImport/Runes/RunePageValidation.swift` | — | P4-01, P4-03 | in progress |
+| FX-04 | `GameData.allChampions/allItems/allSpells` and a public `RunePage.validationError(against:)` for the overrides editor | assets + import | `MitoAssets/GameData/GameData.swift`, `MitoImport/Runes/RunePageValidation.swift` | — | P4-01, P4-03 | merged |
 
 ## P1 — Connection
 

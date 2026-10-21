@@ -48,4 +48,19 @@ struct GameDataTests {
         let duplicate = Champion(id: Self.ahri.id, alias: "Other", name: "Other", iconPath: "")
         #expect(GameData(champions: [Self.ahri, duplicate]).champion(Self.ahri.id) == Self.ahri)
     }
+
+    @Test func theListsKeepClientOrderWithOneEntryPerID() {
+        let zed = Champion(id: ChampionID(rawValue: 238), alias: "Zed", name: "Zed", iconPath: "")
+        let duplicate = Champion(id: Self.ahri.id, alias: "Other", name: "Other", iconPath: "")
+        let flash = SummonerSpell(
+            id: SummonerSpellID(rawValue: 4), name: "Flash", iconPath: "", gameModes: ["CLASSIC"])
+        let boots = Item(
+            id: ItemID(rawValue: 1001), name: "Boots", totalGold: 300, iconPath: "", itemClass: nil)
+        let data = GameData(
+            champions: [zed, Self.ahri, duplicate], items: [boots], spells: [flash])
+
+        #expect(data.allChampions == [zed, Self.ahri])
+        #expect(data.allItems == [boots])
+        #expect(data.allSpells == [flash])
+    }
 }

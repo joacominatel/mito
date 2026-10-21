@@ -18,7 +18,7 @@ public enum RunePageValidationError: Equatable, Sendable {
 extension RunePage {
     /// Checks the page against the client's styles, row by row: a shard ID can sit in more than
     /// one shard row (`MITO_CONTEXT.md` §16.2), so a perk is never mapped back to "its" row.
-    func validationError(against styles: [PerkStyle]) -> RunePageValidationError? {
+    public func validationError(against styles: [PerkStyle]) -> RunePageValidationError? {
         guard perks.count == 9 else { return .wrongPerkCount(perks.count) }
         guard primaryStyle != subStyle else { return .sameStyleTwice }
         guard let primary = styles.first(where: { $0.id == primaryStyle }) else {

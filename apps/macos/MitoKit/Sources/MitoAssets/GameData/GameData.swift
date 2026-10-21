@@ -4,6 +4,10 @@ public import MitoCore
 public struct GameData: Hashable, Sendable {
     /// In client order.
     public let perkStyles: [PerkStyle]
+    /// In client order, one per ID; for lists and search.
+    public let allChampions: [Champion]
+    public let allItems: [Item]
+    public let allSpells: [SummonerSpell]
     private let champions: [ChampionID: Champion]
     private let items: [ItemID: Item]
     private let perks: [PerkID: Perk]
@@ -18,6 +22,9 @@ public struct GameData: Hashable, Sendable {
         spells: [SummonerSpell] = []
     ) {
         self.perkStyles = perkStyles
+        allChampions = Self.unique(champions, by: \.id)
+        allItems = Self.unique(items, by: \.id)
+        allSpells = Self.unique(spells, by: \.id)
         self.champions = Self.index(champions, by: \.id)
         self.items = Self.index(items, by: \.id)
         self.perks = Self.index(perks, by: \.id)
@@ -30,6 +37,13 @@ public struct GameData: Hashable, Sendable {
     public func perk(_ id: PerkID) -> Perk? { perks[id] }
     public func perkStyle(_ id: PerkStyleID) -> PerkStyle? { stylesByID[id] }
     public func spell(_ id: SummonerSpellID) -> SummonerSpell? { spells[id] }
+
+    private static func unique<ID: Hashable, Value>(_ values: [Value], by id: KeyPath<Value, ID>)
+        -> [Value]
+    {
+        var seen = Set<ID>()
+        return values.filter { seen.insert($0[keyPath: id]).inserted }
+    }
 
     private static func index<ID: Hashable, Value>(_ values: [Value], by id: KeyPath<Value, ID>)
         -> [ID: Value]
