@@ -124,7 +124,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | # | Item | Blocks | Since |
 | --- | --- | --- | --- |
 | Q2 | Create the Cloudflare R2 account and the `mito-data` remote repository | MD5 publish, mito-data CI | 2026-10-21 |
-| Q5 | Generate the Sparkle EdDSA key pair (`generate_keys`, private key stays in your Keychain) and choose where the appcast is hosted (R2 with the snapshots?) | turning updates on in a Release; P10-01 ships with the updater off until the public key and feed URL are set | 2026-10-21 |
+| Q5 | Sparkle public key received (`RZjee+ZzBKqCod/i4IoTCqNSqJg2MjJjwUh1xvpajPw=`, private key in the CEO's Keychain); still open: the R2 bucket and the public host that serves the snapshots and `appcast.xml` | turning updates on in a Release; publishing snapshots | 2026-10-21 |
 
 ## External deliveries
 
