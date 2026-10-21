@@ -1170,6 +1170,33 @@ Casos borde, todos deterministas:
   entrar en champ select.
 - La UI muestra resultados parciales en cuanto los tiene.
 
+**`ChampSelectModel`** (feature `ChampSelect`) sigue la sesión y publica el `DraftContext`:
+
+- Se suscribe a `LCUTopic.champSelectSession`. Cada evento reinicia un debounce de 150 ms
+  (`ChampSelectModel.debounce`, con el reloj inyectado); al vencer se mapea la última sesión
+  recibida. Una ráfaga de eventos produce una sola actualización.
+- Los eventos solo traen cambios, así que al entrar en `connected` (al arrancar y en cada
+  reconexión) lee la sesión una vez con `LCUEndpoint.champSelectSession`, sin debounce. Un 404
+  (fuera de champ select) borra el draft.
+- Un evento `Delete`, una sesión que no se puede decodificar o salir de `connected` borran el
+  draft al instante y cancelan la actualización pendiente. Gana siempre la última escritura:
+  una lectura o un mapeo que termina después de algo más nuevo se descarta.
+- Con la primera sesión de cada champ select pide una vez, en paralelo, la cola
+  (`gameflowSession`) y `pickableChampionIDs`, y los reusa hasta que se borra el draft. Si la
+  cola no se puede leer queda `QueueType.other(0)`; si falla `pickable`, queda vacío.
+- **Parche provisorio:** LCUKit todavía no expone la versión del juego, así que el
+  `DraftContext` lleva `Patch("")` (`ChampSelectModel.placeholderPatch`) hasta que el parche
+  del snapshot lo reemplace (Fase 6).
+- Mapea con `draftContext(queue:patch:pickable:)` (§12.2); si devuelve `nil`, no hay draft y la
+  vista no muestra nada.
+- Los roles de los rivales lockeados sin posición se infieren con `RoleInference` (§12.3) solo
+  para mostrar. Sin snapshot, el `StatsProvider` está vacío: todos salen `isUniformFallback` y
+  la UI los marca como inciertos.
+- Además publica las celdas con un ban o pick en curso y el intervalo del timer de la fase
+  (`adjustedTimeLeftInPhase` contado desde que llega la sesión). Los nombres de campeones salen
+  de un `GameDataCatalog` propio, recargado en cada conexión; sin datos se muestra
+  "Campeón <id>". No loguea la sesión.
+
 ### 12.5 Auto-hover, auto-pick y auto-ban (opcionales)
 
 - **Auto-hover** (default: off): al empezar el turno de pick, hacer hover del pick #1
@@ -2563,6 +2590,29 @@ Es el corazón de la v1. Se abre al entrar en champ select y se actualiza en viv
 │                                              [Importar ahora]  [Editar]      │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Estado actual (Fase 3).** `ChampSelectView` muestra solo el draft, sin análisis:
+
+- Encabezado: cola, fase (Planificación, Bans y picks, Finalización), cuenta regresiva del timer
+  y, si te toca, "Tu turno: elegir" o "Tu turno: banear". Todavía no muestra el parche de los
+  datos.
+- Columnas "Tu equipo" y "Equipo rival" con una fila por celda: candado y nombre para un
+  lockeado, mano y nombre en cursiva para un hover, "Sin campeón" si no hay ninguno; "(vos)" en
+  tu celda; reloj de arena (pick) o señal de prohibido (ban) en las celdas que están jugando.
+- Rol: los aliados muestran su posición asignada (TOP, JG, MID, ADC, SUP). Un rival inferido
+  lleva "?" y su probabilidad ("MID? 82 %"); si la inferencia no tiene datos
+  (`isUniformFallback`), muestra un ícono de pregunta, el rol en gris y "sin datos". Nunca se
+  presenta como un hecho.
+- La columna central "Recomendados" es un placeholder hasta el motor (Fase 7).
+- Abajo, los bans por nombre.
+- Solo campeones, roles y celdas: ningún nombre de jugador (§5). Cada fila es un solo elemento
+  de VoiceOver con su rol, campeón, estado y turno.
+- Fuera de champ select la vista no muestra nada. En la barra de menú,
+  `RecommendationMenuSection` muestra una línea de resumen ("Champ select · tu turno de
+  elegir", o "Champ select · N de M lockeados") y queda vacía fuera de champ select.
+- La pestaña "Champ select" de Settings tiene "Mostrar la ventana al entrar en champ select"
+  (`general.showWindowOnChampSelect`, §21.1). Abrir la ventana y ubicar la vista en "Ahora"
+  todavía no están conectados: los hace el shell o la feature Gameflow.
 
 ### 20.2 Pestañas del análisis
 

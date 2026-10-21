@@ -1,9 +1,16 @@
+import MitoCore
 import SwiftUI
 
 struct ChampSelectSettingsTab: View {
+    @Environment(AppModel.self) private var app
+
     var body: some View {
+        @Bindable var app = app
         Form {
-            Text("Próximamente", tableName: "ChampSelect")
+            // The value lives in `GeneralSettings` (§21.1); opening the window is the shell's job.
+            Toggle(isOn: $app.settings.general.showWindowOnChampSelect) {
+                Text("Mostrar la ventana al entrar en champ select", tableName: "ChampSelect")
+            }
         }
         .formStyle(.grouped)
     }
@@ -11,4 +18,5 @@ struct ChampSelectSettingsTab: View {
 
 #Preview {
     ChampSelectSettingsTab()
+        .environment(AppModel(connection: DisconnectedLCUConnection()))
 }

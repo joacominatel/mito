@@ -1,8 +1,134 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Próximamente" : {
-
+    "%@, en hover" : {
+      "comment" : "VoiceOver: a champion a player is hovering but has not locked. The argument is the champion name."
+    },
+    "%@, lockeado" : {
+      "comment" : "VoiceOver: a champion a player has locked in. The argument is the champion name."
+    },
+    "(vos)" : {
+      "comment" : "Marks the local player's own cell in the team column."
+    },
+    "ADC" : {
+      "comment" : "Short role label for the bottom lane (marksman), as shown in the team columns."
+    },
+    "ARAM" : {
+      "comment" : "Queue name in the champ select header."
+    },
+    "Baneando" : {
+      "comment" : "A player whose ban is in progress."
+    },
+    "Bans" : {
+      "comment" : "Title of the row that lists banned champions."
+    },
+    "Bans y picks" : {
+      "comment" : "Champ select phase: bans and picks in progress."
+    },
+    "Campeón %lld" : {
+      "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
+    },
+    "Champ select · %lld de %lld lockeados" : {
+      "comment" : "Menu bar summary during champ select: locked champions out of all cells, both teams."
+    },
+    "Champ select · tu turno de banear" : {
+      "comment" : "Menu bar summary when it is the user's turn to ban."
+    },
+    "Champ select · tu turno de elegir" : {
+      "comment" : "Menu bar summary when it is the user's turn to pick."
+    },
+    "Eligiendo" : {
+      "comment" : "A player whose pick is in progress."
+    },
+    "Equipo rival" : {
+      "comment" : "Title of the enemy team column."
+    },
+    "Finalización" : {
+      "comment" : "Champ select phase: finalization, after every pick is locked."
+    },
+    "JG" : {
+      "comment" : "Short role label for the jungle."
+    },
+    "Jungla" : {
+      "comment" : "Spoken role name for the jungle."
+    },
+    "Las recomendaciones van a aparecer acá" : {
+      "comment" : "Placeholder title where pick recommendations will appear."
+    },
+    "Llegan con los datos del parche." : {
+      "comment" : "Placeholder detail: recommendations need the patch statistics."
+    },
+    "MID" : {
+      "comment" : "Short role label for the middle lane."
+    },
+    "Mid" : {
+      "comment" : "Spoken role name for the middle lane."
+    },
+    "Mostrar la ventana al entrar en champ select" : {
+      "comment" : "Settings toggle: open the main window when champ select starts."
+    },
+    "Ninguno todavía" : {
+      "comment" : "The bans row before any champion is banned."
+    },
+    "Normal (blind)" : {
+      "comment" : "Queue name in the champ select header."
+    },
+    "Normal (draft)" : {
+      "comment" : "Queue name in the champ select header."
+    },
+    "Otra cola" : {
+      "comment" : "Queue name for any queue Mito does not name."
+    },
+    "Planificación" : {
+      "comment" : "Champ select phase: planning, before bans start."
+    },
+    "Ranked Flex" : {
+      "comment" : "Queue name in the champ select header."
+    },
+    "Ranked Solo/Duo" : {
+      "comment" : "Queue name in the champ select header."
+    },
+    "Recomendados" : {
+      "comment" : "Title of the recommendations column."
+    },
+    "Rol incierto, quizás %@" : {
+      "comment" : "VoiceOver: an enemy role guessed without data. The argument is the role name."
+    },
+    "Rol probable: %@, %@" : {
+      "comment" : "VoiceOver: an enemy role inferred from data. The arguments are the role name and its probability as a percentage."
+    },
+    "SUP" : {
+      "comment" : "Short role label for support."
+    },
+    "Sin campeón" : {
+      "comment" : "A cell with no champion hovered or locked."
+    },
+    "Soporte" : {
+      "comment" : "Spoken role name for support."
+    },
+    "TOP" : {
+      "comment" : "Short role label for the top lane."
+    },
+    "Tirador" : {
+      "comment" : "Spoken role name for the bottom lane (marksman)."
+    },
+    "Top" : {
+      "comment" : "Spoken role name for the top lane."
+    },
+    "Tu equipo" : {
+      "comment" : "Title of the user's team column."
+    },
+    "Tu turno: banear" : {
+      "comment" : "Header badge when it is the user's turn to ban."
+    },
+    "Tu turno: elegir" : {
+      "comment" : "Header badge when it is the user's turn to pick."
+    },
+    "Vos" : {
+      "comment" : "VoiceOver: marks the local player's own cell."
+    },
+    "sin datos" : {
+      "comment" : "Next to an enemy role guessed without statistics, so it is not read as fact."
     }
   },
   "version" : "1.0"
