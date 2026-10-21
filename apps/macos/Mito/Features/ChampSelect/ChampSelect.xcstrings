@@ -127,6 +127,9 @@
     "Recomendados para vos (%@)" : {
       "comment" : "Title of the recommendations column. The argument is the short role label (MID)."
     },
+    "Rol" : {
+      "comment" : "Accessibility label of the blind-pick role picker in the recommendations column."
+    },
     "Rol incierto, quizás %@" : {
       "comment" : "VoiceOver: an enemy role guessed without data. The argument is the role name."
     },
@@ -147,6 +150,9 @@
     },
     "Sin rol asignado" : {
       "comment" : "Title when the user has no role in this champ select (blind pick, ARAM)."
+    },
+    "Sin rol asignado: elegí para qué rol recomendar" : {
+      "comment" : "Tooltip of the blind-pick role picker: there is no assigned role, so the user picks the role to score for."
     },
     "Sin rol no hay contra quién comparar los campeones." : {
       "comment" : "Explains why there are no recommendations without a role."

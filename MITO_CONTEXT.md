@@ -1365,8 +1365,12 @@ Casos borde, todos deterministas:
 - Mapea con `draftContext(queue:patch:pickable:)` (§12.2); si devuelve `nil`, no hay draft y la
   vista no muestra nada.
 - Los roles de los rivales lockeados sin posición se infieren con `RoleInference` (§12.3) solo
-  para mostrar. Sin snapshot, el `StatsProvider` está vacío: todos salen `isUniformFallback` y
-  la UI los marca como inciertos.
+  para mostrar, con el `StatsProvider` del snapshot abierto (`SnapshotModel.provider`).
+  `enemyRoles` se deriva al leerse, así que un snapshot que abre a mitad del draft se aplica al
+  instante. Sin snapshot (o un campeón sin filas en `champion_roles`) sale `isUniformFallback`
+  y la UI lo marca como incierto.
+- **Blind pick:** sin rol asignado (y fuera de ARAM) el modelo elige un rol para puntuar
+  (`scoringRole`, §20.3). La elección manual (`chooseRole`) vale hasta que se borra el draft.
 - Además publica las celdas con un ban o pick en curso y el intervalo del timer de la fase
   (`adjustedTimeLeftInPhase` contado desde que llega la sesión). Los nombres de campeones salen
   del `GameDataCatalog` compartido del shell (`ClientDataModel`, §9.3), recargado en cada
@@ -3264,10 +3268,12 @@ sin el panel de análisis:
   (`isUniformFallback`), muestra un ícono de pregunta, el rol en gris y "sin datos". Nunca se
   presenta como un hecho.
 - La columna central "Recomendados para vos (MID)" lista el top 10 de `PickScoring` (§18.3),
-  cada uno con su score como `DeltaBadge` ("+3,8"), su `ConfidenceIndicator` y hasta 3
-  `ReasonRow` (§22.3). Mientras alguien banea (tu turno de ban o cualquier ban en curso) pasa a
-  "Bans recomendados (MID)" con el top 5 de `BanScoring` (§18.5), sin badge: el `ban_score` no
-  está en puntos de winrate. Son sugerencias: Mito no pickea ni banea (§5).
+  cada uno con su score como `DeltaBadge` ("+3,8"), un `WinrateBar` con el score contra 0, su
+  `ConfidenceIndicator` y hasta 3 `ReasonRow` (§22.3). En la fila, VoiceOver lee el número y la
+  muestra una sola vez, desde la barra. Mientras alguien banea (tu turno de ban o cualquier ban
+  en curso) pasa a "Bans recomendados (MID)" con el top 5 de `BanScoring` (§18.5), sin badge ni
+  barra: el `ban_score` no está en puntos de winrate. Son sugerencias: Mito no pickea ni banea
+  (§5).
 - Debajo de los picks, el slider "Meta ↔ Comfort" y el selector de candidatos (Mi pool /
   Campeones que tengo / Todos) escriben directo en `ChampSelectSettings` (§21.3), así que mueven
   también el setting.
@@ -3283,8 +3289,10 @@ sin el panel de análisis:
   después se descarta como cualquier escritura vieja (§12.4). Un pedido que falla deja esa parte
   vacía. Con historial, `personal` es `PersonalPoints.points(PersonalScoring.score(…))` (§19.3);
   sin historial no hay término personal.
+- En blind pick, arriba de la lista, un selector segmentado de rol (TOP, JG, MID, ADC, SUP)
+  elige para qué rol recomendar (§20.3); con rol asignado no aparece.
 - Estados vacíos de la columna: "Sin estadísticas todavía" sin snapshot (§20.3), "Sin rol
-  asignado" en blind pick y ARAM, "Recomendaciones apagadas" si el setting de picks o de bans
+  asignado" en ARAM, "Recomendaciones apagadas" si el setting de picks o de bans
   está off, y "Ningún candidato" si el modo no deja pasar a nadie.
 - Abajo, los bans por nombre.
 - Solo campeones, roles y celdas: ningún nombre de jugador (§5). Cada fila es un solo elemento
@@ -3323,6 +3331,11 @@ En inicio de parche, el encabezado muestra "Datos 16.21 + 16.20" desde `meta.ble
 ### 20.3 Estados especiales
 
 - **Blind pick / sin roles:** el rol se infiere de tus preferencias o se elige manualmente.
+  Por defecto (`DraftRecommendations.blindRole`): el rol donde tenés más partidas propias con
+  el campeón que lockeaste o tenés en hover; si no hay, el rol con más campeones en tu pool
+  declarado; si tampoco, MIDDLE. Los empates van al rol que se declara antes (top, jungle,
+  middle, bottom, utility). El selector de la columna (§20.1) lo cambia y la elección dura lo que
+  dura el champ select: no se guarda en settings. ARAM queda sin rol.
 - **Flex (440) y Normal Draft (400):** usan el snapshot de la cola 420, sin aviso especial.
 - **ARAM (modo degradado en la v1):** solo datos personales y las páginas fijas del usuario.
   Sin estadísticas de ARAM; llegan después, en un archivo aparte.
@@ -3600,7 +3613,12 @@ Implementados en `Mito/DesignSystem/` (textos en `DesignSystem.xcstrings`):
   favorables y las de loadout neutras. Una razón con muestra debajo de "confiable" lleva la marca
   "muestra baja". Los nombres de campeones e ítems los pasa la feature (`ReasonNames`), con
   "Campeón 103" mientras no cargan.
-- `WinrateBar` todavía no.
+- `WinrateBar(value:baseline:confidence:)`: la distancia `value − baseline` como barra que
+  crece desde una línea central, a la derecha si es favorable y a la izquierda si no, así el
+  lado lleva el signo y el color solo lo acompaña. Media barra son 5 puntos de winrate; más
+  allá se llena. Redondea como `DeltaBadge`, así que lo que da 0,0 no tiene barra. Debajo de
+  "confiable" va en gris. VoiceOver lee "+3,8 puntos de winrate, conf. alta"
+  (`WinrateBar.accessibilityText`, que es lo que se testea).
 
 ### 22.4 Barra de menú
 

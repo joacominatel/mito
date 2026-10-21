@@ -6,6 +6,8 @@ import SwiftUI
 struct RecommendationsColumn: View {
     let list: RecommendationList
     let role: Role?
+    /// Only in blind pick, where the user picks the role to score for (§20.3).
+    var roleSelection: Binding<Role>?
     let names: ReasonNames
 
     static let reasonsShown = 3
@@ -13,6 +15,9 @@ struct RecommendationsColumn: View {
     var body: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 12) {
+                if let roleSelection {
+                    RolePicker(selection: roleSelection)
+                }
                 RecommendationContent(list: list, names: names)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 // The slider and the mode move picks only.
@@ -79,9 +84,14 @@ private struct RankedList: View {
                         if let score = row.score {
                             DeltaBadge(delta: score)
                                 .fixedSize()
+                                .accessibilityHidden(true)
+                            // Reads the score and its confidence for the row.
+                            WinrateBar(value: score, baseline: 0, confidence: row.confidence)
+                                .frame(width: 80)
                         }
                         ConfidenceIndicator(level: row.confidence)
                             .fixedSize()
+                            .accessibilityHidden(row.score != nil)
                     }
                     .accessibilityElement(children: .combine)
                     ForEach(
@@ -154,6 +164,27 @@ private struct UnavailableRecommendations: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: 180)
+    }
+}
+
+private struct RolePicker: View {
+    @Binding var selection: Role
+
+    var body: some View {
+        Picker(selection: $selection) {
+            ForEach(Role.allCases, id: \.self) { role in
+                Text(role.shortLabel)
+                    .accessibilityLabel(Text(role.name))
+                    .tag(role)
+            }
+        } label: {
+            Text("Rol", tableName: "ChampSelect")
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .controlSize(.small)
+        .fixedSize()
+        .help(Text("Sin rol asignado: elegí para qué rol recomendar", tableName: "ChampSelect"))
     }
 }
 
@@ -247,6 +278,16 @@ enum PreviewRecommendations {
         .environment(AppModel(connection: DisconnectedLCUConnection()))
         .frame(width: 460)
         .padding()
+}
+
+#Preview("Blind pick con selector de rol") {
+    @Previewable @State var role = Role.middle
+    RecommendationsColumn(
+        list: PreviewRecommendations.picks, role: role, roleSelection: $role, names: .preview
+    )
+    .environment(AppModel(connection: DisconnectedLCUConnection()))
+    .frame(width: 460)
+    .padding()
 }
 
 #Preview("Fase de bans") {

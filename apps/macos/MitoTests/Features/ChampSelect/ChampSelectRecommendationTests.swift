@@ -44,12 +44,14 @@ struct ChampSelectRecommendationTests {
         #expect(makeModel().recommendations == nil)
     }
 
-    @Test func withoutARoleThereIsNothingToScore() throws {
+    @Test func aramHasNoRoleToScoreNorAPicker() throws {
         let model = makeModel()
 
-        model.show(try Cases.session("blind-pick"), queue: .normalBlind, pickable: [])
+        model.show(try Cases.session("blind-pick"), queue: .aram, pickable: [])
 
         #expect(model.recommendations == .unavailable(.noRole))
+        #expect(model.scoringRole == nil)
+        #expect(!model.canChooseRole)
     }
 
     @Test func aDisabledListSaysSo() throws {
@@ -59,6 +61,107 @@ struct ChampSelectRecommendationTests {
         model.show(try Cases.session("ban-pick-in-progress"), queue: .rankedSolo, pickable: [])
 
         #expect(model.recommendations == .unavailable(.disabled))
+    }
+
+    // MARK: Enemy roles
+
+    @Test func enemyRolesUseTheSnapshotOnceItOpens() throws {
+        let box = StatsBox()
+        let model = ChampSelectModel(
+            connection: connection, clock: clock, stats: { [box] in box.value })
+        model.show(try Cases.session("ban-pick-in-progress"), queue: .rankedSolo, pickable: [])
+        #expect(model.enemyRows.first?.role == .uncertain(.top))
+
+        box.value = stats
+
+        // Zed: 2.746 games in jungle and 2.195 in mid.
+        guard case .inferred(let role, let confidence) = model.enemyRows.first?.role else {
+            Issue.record(
+                "Expected an inferred role, got \(String(describing: model.enemyRows.first))")
+            return
+        }
+        #expect(role == .jungle)
+        #expect(abs(confidence - 2746.0 / 4941.0) < 1e-9)
+        #expect(model.enemyRoles[5]?.isUniformFallback == false)
+    }
+
+    // MARK: Blind pick
+
+    @Test func blindPickDefaultsToTheDocumentedRoleOrder() throws {
+        let lux = 99
+        // Most of the user's games on the hovered champion.
+        #expect(
+            try defaultRole(
+                hover: lux,
+                PersonalInputs(
+                    matches: (1...3).map { MyMatch.played(lux, role: .utility, win: true, id: $0) }
+                        + (4...5).map { MyMatch.played(lux, role: .middle, win: true, id: $0) },
+                    pool: (0...1).map { PoolEntry(role: .top, champion: Self.ahri, priority: $0) }))
+                == .utility)
+        // No games on it: the largest declared pool; other champions' games do not count.
+        #expect(
+            try defaultRole(
+                hover: lux,
+                PersonalInputs(
+                    matches: (1...4).map { MyMatch.played(103, role: .bottom, win: true, id: $0) },
+                    pool: [
+                        PoolEntry(role: .jungle, champion: Self.ahri, priority: 0),
+                        PoolEntry(role: .top, champion: Self.ahri, priority: 0),
+                        PoolEntry(role: .top, champion: Self.lux, priority: 1),
+                    ]))
+                == .top)
+        // A tie goes to the role declared first.
+        #expect(
+            try defaultRole(
+                hover: nil,
+                PersonalInputs(pool: [
+                    PoolEntry(role: .utility, champion: Self.lux, priority: 0),
+                    PoolEntry(role: .jungle, champion: Self.ahri, priority: 0),
+                ]))
+                == .jungle)
+        #expect(try defaultRole(hover: nil, PersonalInputs()) == .middle)
+        #expect(try defaultRole(hover: lux, PersonalInputs()) == .middle)
+    }
+
+    @Test func choosingTheBlindPickRoleRecomputesTheRecommendations() throws {
+        settings.value.candidates = .all
+        let model = makeModel()
+        model.show(try Cases.session("blind-pick"), queue: .normalBlind, pickable: [])
+        #expect(model.canChooseRole)
+        #expect(model.scoringRole == .middle)
+        #expect(Set(pickIDs(model)) == [Self.malzahar, Self.lux, Self.ahri, Self.zed])
+
+        let changed = observesChange(of: model) { model.chooseRole(.bottom) }
+
+        #expect(changed)
+        #expect(model.scoringRole == .bottom)
+        // Ashe (22), the fixture's other ADC, is locked by an ally.
+        #expect(pickIDs(model) == [ChampionID(rawValue: 222)])
+    }
+
+    @Test func theRoleChoiceLastsTheChampSelectAndResetsOnTheNext() async throws {
+        let model = makeModel()
+        model.show(try Cases.session("blind-pick"), queue: .normalBlind, pickable: [])
+        model.chooseRole(.top)
+
+        model.show(try Cases.decode(Cases.blind(hover: 99)), queue: .normalBlind, pickable: [])
+        #expect(model.scoringRole == .top)
+
+        connection.serve(LCUEndpoint.champSelectSession.path, nil)
+        await model.refresh()
+        #expect(model.chosenRole == nil)
+        model.show(try Cases.session("blind-pick"), queue: .normalBlind, pickable: [])
+
+        #expect(model.scoringRole == .middle)
+    }
+
+    @Test func anAssignedRoleOffersNoPicker() throws {
+        let model = makeModel()
+        model.show(try Cases.session("ban-pick-in-progress"), queue: .rankedSolo, pickable: [])
+        model.chooseRole(.top)
+
+        #expect(!model.canChooseRole)
+        #expect(model.scoringRole == .middle)
     }
 
     // MARK: Picks
@@ -309,6 +412,14 @@ struct ChampSelectRecommendationTests {
             gameData: gameData, stats: { [stats] in stats }, store: store)
     }
 
+    private func defaultRole(hover: Int?, _ personal: PersonalInputs) throws -> Role? {
+        let model = makeModel()
+        model.show(
+            try Cases.decode(Cases.blind(hover: hover)), queue: .normalBlind, pickable: [],
+            personal: personal)
+        return model.scoringRole
+    }
+
     private func pickIDs(_ model: ChampSelectModel) -> [ChampionID] {
         guard case .picks(let picks) = model.recommendations else { return [] }
         return picks.map(\.champion)
@@ -334,6 +445,12 @@ struct ChampSelectRecommendationTests {
     private func sleeps(_ count: Int) async {
         while clock.sleepCalls < count { await Task.yield() }
     }
+}
+
+/// Stands in for `SnapshotModel.provider`: no snapshot until a test opens one.
+@Observable
+private final class StatsBox {
+    var value: any StatsProvider = ChampSelectModel.NoStats()
 }
 
 /// Stands in for `SettingsModel`: an observable value the model reads live.
@@ -385,6 +502,18 @@ private enum Cases {
          "bans": {"myTeamBans": [157], "theirTeamBans": [555]},
          "timer": {"phase": "BAN_PICK", "adjustedTimeLeftInPhase": 27000}}
         """
+
+    /// Blind pick with the user's cell hovering `hover`, Ashe locked by an ally.
+    static func blind(hover: Int?) -> String {
+        """
+        {"localPlayerCellId": 0,
+         "myTeam": [{"cellId": 0, "championPickIntent": \(hover ?? 0)},
+           {"cellId": 1, "championId": 22}],
+         "theirTeam": [{"cellId": 5}],
+         "actions": [[{"actorCellId": 0, "type": "pick", "isInProgress": true}]],
+         "timer": {"phase": "BAN_PICK", "adjustedTimeLeftInPhase": 81000}}
+        """
+    }
 
     /// The user's ban is in progress; Lee Sin hovers jungle.
     static let myBanTurn = """

@@ -16,6 +16,9 @@
     "%@ puntos de winrate" : {
       "comment" : "VoiceOver label of a delta badge. The argument is the signed value (+2,1)."
     },
+    "%@ puntos de winrate, %@" : {
+      "comment" : "VoiceOver label of a winrate bar. Arguments: the signed value (+3,8) and the sample level (conf. alta)."
+    },
     "%@ vs %@ (%@ partidas)" : {
       "comment" : "Reason: the delta against the lane opponent. Arguments: signed winrate points, opponent champion, game count."
     },

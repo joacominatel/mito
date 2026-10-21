@@ -20,8 +20,8 @@ final class ChampSelectModel {
 
     /// `nil` outside champ select or while the session has no usable draft (§12.2).
     private(set) var draft: DraftContext?
-    /// Locked enemies without a client role, by cell. Display only: no snapshot yet (§12.3).
-    private(set) var enemyRoles: [Int: InferredRole] = [:]
+    /// The role picked by hand in blind pick; `nil` follows the default (§20.3).
+    private(set) var chosenRole: Role?
     /// The cells whose ban or pick is in progress.
     private(set) var turns: [Int: Turn] = [:]
     private(set) var phaseInterval: ClosedRange<Date>?
@@ -71,8 +71,35 @@ final class ChampSelectModel {
     var recommendations: RecommendationList? {
         guard let draft else { return nil }
         return DraftRecommendations.list(
-            for: draft, isBanPhase: isBanPhase, settings: settings(), stats: readStats(),
-            personal: personal, now: now())
+            for: draft, role: scoringRole, isBanPhase: isBanPhase, settings: settings(),
+            stats: readStats(), personal: personal, now: now())
+    }
+
+    /// Locked enemies without a client role, by cell, inferred from the open snapshot for
+    /// display (§12.3). Derived on read, so a snapshot that opens mid-draft applies at once.
+    var enemyRoles: [Int: InferredRole] {
+        guard let draft else { return [:] }
+        return Self.inferRoles(of: draft.enemies, stats: readStats())
+    }
+
+    /// The role the recommendations score for: the assigned one, or in blind pick the user's
+    /// choice or its default (§20.3). ARAM has none.
+    var scoringRole: Role? {
+        guard let draft else { return nil }
+        if let role = draft.myRole { return role }
+        guard canChooseRole else { return nil }
+        return chosenRole ?? DraftRecommendations.blindRole(for: draft, personal: personal)
+    }
+
+    /// Blind pick: no assigned role, and not ARAM.
+    var canChooseRole: Bool {
+        guard let draft else { return false }
+        return draft.myRole == nil && draft.queue != .aram
+    }
+
+    /// Kept until the champ select ends (§20.3).
+    func chooseRole(_ role: Role) {
+        chosenRole = role
     }
 
     var isBanPhase: Bool {
@@ -114,7 +141,6 @@ final class ChampSelectModel {
         else { return clearDraft() }
         self.draft = draft
         if self.personal != personal { self.personal = personal }
-        enemyRoles = Self.inferRoles(of: draft.enemies)
         turns = Self.turns(in: session)
         phaseInterval = session.timer?.adjustedTimeLeftInPhase.map { milliseconds in
             let start = now()
@@ -163,7 +189,7 @@ final class ChampSelectModel {
 
     private func clearDraft() {
         draft = nil
-        enemyRoles = [:]
+        chosenRole = nil
         turns = [:]
         phaseInterval = nil
         personal = PersonalInputs()
@@ -216,12 +242,14 @@ final class ChampSelectModel {
         func roleGames(for champion: ChampionID) -> [Role: Int] { [:] }
     }
 
-    private static func inferRoles(of enemies: [DraftSlot]) -> [Int: InferredRole] {
+    private static func inferRoles(of enemies: [DraftSlot], stats: some StatsProvider)
+        -> [Int: InferredRole]
+    {
         let locked = enemies.filter { $0.role == nil && $0.champion != nil }
         let inferred = RoleInference.infer(
             enemies: locked.compactMap(\.champion),
             takenRoles: Set(enemies.compactMap(\.role)),
-            stats: NoStats())
+            stats: stats)
         return Dictionary(
             zip(locked.map(\.cellId), inferred), uniquingKeysWith: { first, _ in first })
     }

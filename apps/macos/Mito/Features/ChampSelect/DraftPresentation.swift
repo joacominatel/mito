@@ -64,11 +64,12 @@ struct DraftSlotRow: Identifiable, Hashable {
 extension ChampSelectModel {
     var allyRows: [DraftSlotRow] {
         guard let draft else { return [] }
-        return draft.allies.map { row(for: $0, isMe: $0.cellId == draft.myCellId) }
+        return draft.allies.map { row(for: $0, isMe: $0.cellId == draft.myCellId, roles: [:]) }
     }
 
     var enemyRows: [DraftSlotRow] {
-        draft?.enemies.map { row(for: $0, isMe: false) } ?? []
+        let roles = enemyRoles
+        return draft?.enemies.map { row(for: $0, isMe: false, roles: roles) } ?? []
     }
 
     var bannedNames: [String] {
@@ -123,7 +124,9 @@ extension ChampSelectModel {
         return String(localized: "Campeón \(id.rawValue)", table: "ChampSelect")
     }
 
-    private func row(for slot: DraftSlot, isMe: Bool) -> DraftSlotRow {
+    private func row(for slot: DraftSlot, isMe: Bool, roles: [Int: InferredRole])
+        -> DraftSlotRow
+    {
         let pick: DraftSlotRow.Pick =
             if let champion = slot.champion {
                 .locked(championName(champion))
@@ -135,7 +138,7 @@ extension ChampSelectModel {
         let role: DraftSlotRow.RoleLabel =
             if let assigned = slot.role {
                 .assigned(assigned)
-            } else if let inferred = enemyRoles[slot.cellId], let guess = inferred.role {
+            } else if let inferred = roles[slot.cellId], let guess = inferred.role {
                 inferred.isUniformFallback
                     ? .uncertain(guess) : .inferred(guess, confidence: inferred.roleConfidence)
             } else {

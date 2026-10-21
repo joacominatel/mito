@@ -246,7 +246,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 | P7-09 | Engine refinements: `CompFit` exposes a bonus per reason (drop the duplicated constants in `PickScoring`); matchup falls back to the enemy profile when the lane matchup is missing (§18.1, §12.3 point 6) | engine | `MitoKit/Sources/MitoEngine/Composition/**`, `MitoKit/Sources/MitoEngine/Pick/**`, tests | §18.3, §18.4 | P7-04 | merged |
 | P7-10 | Import uses `LoadoutSelection.adapted` (lane opponent, enemy profile, enemies) with the "Situacionales" block title and the adapted reasons in the toast | import-ui | `Mito/Features/Import/**`, `MitoTests/Features/Import/**` | §13.1, §18.6–§18.8 | P7-06 | merged |
 | P7-11 | Re-import (§13.1): when the lane opponent or enemy profile changes, re-send what changed (runes, spells, situationals) if `reimportOnOpponentChange`; `preserveManualChanges` by comparing with what Mito sent; never override a pending rune confirmation; log with a `reimport` detail | import-ui | `Mito/Features/Import/**`, `MitoTests/Features/Import/**` | §13.1, §21.4 | P7-10 | merged |
-| P7-12 | Champ select polish: enemy roles inferred with the real snapshot (§12.4), a role choice for blind pick (§20.3), `WinrateBar` in the pick rows | champ-select + design | `Mito/Features/ChampSelect/**`, `Mito/DesignSystem/**`, tests | §12.4, §20.1, §20.3 | P7-07 | in progress |
+| P7-12 | Champ select polish: enemy roles inferred with the real snapshot (§12.4), a role choice for blind pick (§20.3), `WinrateBar` in the pick rows | champ-select + design | `Mito/Features/ChampSelect/**`, `Mito/DesignSystem/**`, tests | §12.4, §20.1, §20.3 | P7-07 | merged |
 
 ## P8 — Personal layer
 

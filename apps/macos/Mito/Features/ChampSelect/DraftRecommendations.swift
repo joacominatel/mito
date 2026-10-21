@@ -16,7 +16,7 @@ enum RecommendationList: Equatable {
     enum Unavailable: Equatable {
         /// No snapshot open: the degraded mode of §20.3.
         case noSnapshot
-        /// Blind pick and ARAM: no role to score.
+        /// ARAM: no role to score.
         case noRole
         /// The setting for this list is off (§21.3).
         case disabled
@@ -62,11 +62,11 @@ enum DraftRecommendations {
     static let poolMinimumGames = 5
 
     static func list(
-        for draft: DraftContext, isBanPhase: Bool, settings: ChampSelectSettings,
+        for draft: DraftContext, role: Role?, isBanPhase: Bool, settings: ChampSelectSettings,
         stats: some StatsProvider, personal: PersonalInputs, now: Date
     ) -> RecommendationList {
         guard stats.meta != nil else { return .unavailable(.noSnapshot) }
-        guard let role = draft.myRole else { return .unavailable(.noRole) }
+        guard let role else { return .unavailable(.noRole) }
         let pool = pool(for: role, personal: personal)
 
         if isBanPhase {
@@ -81,6 +81,28 @@ enum DraftRecommendations {
                 owned: draft.pickable, stats: stats,
                 weights: PickWeights(metaComfortBalance: settings.metaComfortBalance),
                 personal: personalPoints(personal, stats: stats, now: now)))
+    }
+
+    /// Blind pick's default (§20.3): the role with most of the user's games on the champion
+    /// they locked or hover, else the role with the largest declared pool, else MIDDLE. Ties go
+    /// to the role declared first.
+    static func blindRole(for draft: DraftContext, personal: PersonalInputs) -> Role {
+        let me = draft.allies.first { $0.cellId == draft.myCellId }
+        if let champion = me?.champion ?? me?.hover {
+            var games: [Role: Int] = [:]
+            for match in personal.matches where match.champion == champion {
+                if let role = match.role { games[role, default: 0] += 1 }
+            }
+            if let role = mostCommon(games) { return role }
+        }
+        var declared: [Role: Int] = [:]
+        for entry in personal.pool { declared[entry.role, default: 0] += 1 }
+        return mostCommon(declared) ?? .middle
+    }
+
+    private static func mostCommon(_ counts: [Role: Int]) -> Role? {
+        Role.allCases.filter { counts[$0, default: 0] > 0 }
+            .max { counts[$0, default: 0] < counts[$1, default: 0] }
     }
 
     /// The role's declared pool by priority, then champions with `poolMinimumGames` games there

@@ -20,7 +20,9 @@ struct ChampSelectView: View {
                         title: Text("Tu equipo", tableName: "ChampSelect"), rows: model.allyRows)
                     if let list = model.recommendations {
                         RecommendationsColumn(
-                            list: list, role: draft.myRole, names: model.reasonNames)
+                            list: list, role: model.scoringRole,
+                            roleSelection: model.canChooseRole ? roleSelection : nil,
+                            names: model.reasonNames)
                     }
                     TeamColumn(
                         title: Text("Equipo rival", tableName: "ChampSelect"), rows: model.enemyRows
@@ -31,6 +33,10 @@ struct ChampSelectView: View {
             .padding()
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+    }
+
+    private var roleSelection: Binding<Role> {
+        Binding(get: { model.scoringRole ?? .middle }, set: model.chooseRole)
     }
 }
 
