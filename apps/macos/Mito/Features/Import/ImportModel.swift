@@ -28,10 +28,11 @@ final class ImportModel {
     private let readStats: @MainActor () -> any StatsProvider
     private let store: any PersonalStore
     private let detectedFlash: @MainActor () -> ImportSettings.FlashPosition?
+    private let scoringRole: @MainActor () -> Role?
 
     @ObservationIgnored private var imported: Set<ChampionID> = []
     @ObservationIgnored private var lastImports: [ChampionID: LastImport] = [:]
-    @ObservationIgnored private var toldMissingStats = false
+    @ObservationIgnored private var toldNothingToImport = false
     @ObservationIgnored private var pendingRunes: (page: RunePage, context: LoadoutImportContext)?
     @ObservationIgnored private var windows = 0
     @ObservationIgnored private var generation = 0
@@ -45,6 +46,8 @@ final class ImportModel {
         store: any PersonalStore = UnavailablePersonalStore(),
         /// The slot detected from the history, `.d` or `.f`, for `flashPosition == .auto`.
         detectedFlash: @escaping @MainActor () -> ImportSettings.FlashPosition? = { nil },
+        /// The champ-select selector's role (§20.3), which blind pick imports for.
+        scoringRole: @escaping @MainActor () -> Role? = { nil },
         poster: any NotificationPosting = SystemNotificationPoster(),
         appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
     ) {
@@ -52,6 +55,7 @@ final class ImportModel {
         readStats = stats
         self.store = store
         self.detectedFlash = detectedFlash
+        self.scoringRole = scoringRole
         self.catalog = catalog
         self.settings = settings
         self.poster = poster
@@ -141,24 +145,26 @@ final class ImportModel {
             return
         }
         let generation = generation
+        // Only blind pick needs the queue: ARAM has no assigned roles.
+        let queue =
+            target.role == nil
+            ? (try? await connection.send(.gameflowSession))?.queueType : nil
+        guard generation == self.generation else { return }
+        let isARAM = queue == .aram
         let stats = readStats()
-        guard stats.meta != nil else {
-            await tellMissingStats(for: (target.champion, target.role))
+        guard isARAM || stats.meta != nil else {
+            await tellNothingToImport(.stats, for: (target.champion, target.role))
             return
         }
-        // Blind pick: the champion's most played role, or nothing without data.
-        guard let role = target.role ?? Self.mostPlayedRole(of: target.champion, in: stats)
-        else { return }
-        let opponent = Self.laneOpponent(among: target.draft.enemies, in: role, stats: stats)
-        let profile = Composition.enemyProfile(in: target.draft, stats: stats)
         guard
             let prepared = await prepare(
-                target.champion, role: role, against: (opponent, profile), in: target.draft,
-                stats: stats, settings: settings),
+                target.champion, queue: queue ?? target.draft.queue,
+                role: target.role ?? scoringRole(), in: target.draft, stats: stats,
+                settings: settings),
             generation == self.generation
         else { return }
-        let loadout = prepared.plan.loadout
-        guard loadout.runes != nil || loadout.spells != nil || loadout.itemSet != nil else {
+        guard !prepared.plan.isEmpty else {
+            if isARAM { await tellNothingToImport(.aramBuild, for: (target.champion, nil)) }
             return
         }
         await importLoadout(prepared, session: session)
@@ -167,163 +173,46 @@ final class ImportModel {
     /// What one import of a champion is built from, before anything reaches the client.
     private struct Prepared {
         let champion: ChampionID
-        let role: Role
+        /// `nil` in ARAM.
+        let role: Role?
         let opponent: ChampionID?
         let profile: Set<EnemyProfile>
-        let plan: Plan
+        let plan: ImportPlan
         let lowSample: Set<ImportOutcome.Part>
         let reasons: [Reason]
         /// With `flashPosition` resolved.
         let settings: ImportSettings
     }
 
+    /// `nil` without a role to import for (§13.1).
     private func prepare(
-        _ champion: ChampionID, role: Role,
-        against enemy: (opponent: ChampionID?, profile: Set<EnemyProfile>), in draft: DraftContext,
+        _ champion: ChampionID, queue: QueueType, role: Role?, in draft: DraftContext,
         stats: any StatsProvider, settings: ImportSettings
     ) async -> Prepared? {
         let generation = generation
-        let general = LoadoutSelection.general(for: champion, role: role, stats: stats)
-        let adapted = LoadoutSelection.adapted(
-            for: champion, role: role, opponent: enemy.opponent, enemyProfile: enemy.profile,
-            enemies: draft.enemies.compactMap(\.champion), stats: stats)
-        let override = await championOverride(champion, role)
-        guard generation == self.generation else { return nil }
+        // An unreadable store reads as no override: the general loadout still goes.
+        let overrides = (try? await store.overrides()) ?? []
+        guard generation == self.generation,
+            let decided = ImportTarget.decide(
+                for: champion, queue: queue, role: role, enemies: draft.enemies, stats: stats,
+                overrides: overrides, settings: settings)
+        else { return nil }
         var settings = settings
         if settings.flashPosition == .auto, let detected = detectedFlash() {
             settings.flashPosition = detected
         }
-        let plan = Self.plan(
-            general: Self.withBlockTitles(general.loadout),
-            adapted: Self.withBlockTitles(adapted.loadout), override: override, settings: settings)
+        var plan = decided.plan
+        // The override's set keeps the user's block titles.
+        if plan.origins[.items] != .override { plan.loadout = Self.withBlockTitles(plan.loadout) }
         let lowSample = ImportOutcome.Part.allCases.filter { part in
             plan.origins[part] != .override
-                && (plan.general.contains(part) ? general : adapted).sampleLevels[part]?
-                    .isLowSample == true
+                && (plan.general.contains(part) ? decided.general : decided.adapted)
+                    .sampleLevels[part]?.isLowSample == true
         }
         return Prepared(
-            champion: champion, role: role, opponent: enemy.opponent, profile: enemy.profile,
-            plan: plan, lowSample: Set(lowSample), reasons: adapted.loadout.explanation,
-            settings: settings)
-    }
-
-    /// At least even odds, so a coin-toss guess never picks the matchup (§12.3).
-    static let minimumLaneOdds = 0.5
-
-    /// The enemy assigned to `role` or, among the locked enemies without a role, the likeliest one
-    /// in it, from `minimumLaneOdds` up (§12.3).
-    static func laneOpponent(
-        among enemies: [DraftSlot], in role: Role, stats: some StatsProvider
-    ) -> ChampionID? {
-        if let assigned = enemies.first(where: { $0.role == role && $0.champion != nil }) {
-            return assigned.champion
-        }
-        let inferred = RoleInference.infer(
-            enemies: enemies.filter { $0.role == nil }.compactMap(\.champion),
-            takenRoles: Set(enemies.compactMap(\.role)), stats: stats)
-        guard
-            let likeliest = inferred.max(by: {
-                $0.roleProbabilities[role, default: 0] < $1.roleProbabilities[role, default: 0]
-            }), likeliest.roleProbabilities[role, default: 0] >= minimumLaneOdds
-        else { return nil }
-        return likeliest.champion
-    }
-
-    /// An unreadable store reads as no override: the general loadout still goes.
-    private func championOverride(_ champion: ChampionID, _ role: Role) async -> ChampionOverride? {
-        let overrides = try? await store.overrides()
-        return overrides?.first { $0.champion == champion && $0.role == role }
-    }
-
-    struct Plan: Equatable {
-        var loadout: Loadout
-        var origins: [ImportOutcome.Part: ImportOutcome.Origin] = [:]
-        /// Parts sent from the general loadout instead of the adapted one.
-        var general: Set<ImportOutcome.Part> = []
-        /// The override's "no importar": no item set is sent, and the old Mito set stays.
-        var skipsItems = false
-    }
-
-    /// The override's choices over the adapted loadout (§13.1). The rune mode "general" sends the
-    /// general page, and a fixed mode with nothing saved sends the general part, as its marker
-    /// says. A part switched off in Settings is left alone: the importer skips it whatever the
-    /// override says.
-    static func plan(
-        general: Loadout, adapted: Loadout, override: ChampionOverride?, settings: ImportSettings
-    ) -> Plan {
-        var runes = adapted.runes
-        var spells = adapted.spells
-        var itemSet = adapted.itemSet
-        var plan = Plan(loadout: adapted)
-
-        func useGeneral(_ part: ImportOutcome.Part, saying origin: ImportOutcome.Origin? = nil) {
-            plan.general.insert(part)
-            plan.origins[part] = origin
-            switch part {
-            case .runes: runes = general.runes
-            case .spells: spells = general.spells
-            case .items: itemSet = general.itemSet
-            }
-        }
-
-        if settings.importRunes {
-            // `.adaptive` is the editor's default, "sin preferencia": the global mode decides.
-            let mode: ImportSettings.RuneMode =
-                switch override?.runeMode {
-                case .fixed?: .fixedPerChampion
-                case .general?: .general
-                case .adaptive?, .unknown?, nil: settings.runeMode
-                }
-            switch mode {
-            case .fixedPerChampion:
-                if let page = override?.fixedPage {
-                    runes = page
-                    plan.origins[.runes] = .override
-                } else {
-                    useGeneral(.runes, saying: .noFixedChoice)
-                }
-            case .general: useGeneral(.runes)
-            case .adaptive: break
-            }
-        }
-
-        if settings.importSpells, override?.spellMode == .fixed {
-            if let pair = override?.fixedSpells {
-                spells = pair
-                plan.origins[.spells] = .override
-            } else {
-                useGeneral(.spells, saying: .noFixedChoice)
-            }
-        }
-
-        if settings.importItemSets, let override {
-            switch override.itemMode {
-            case .fixedSet:
-                if let set = override.fixedItems {
-                    itemSet = set
-                    plan.origins[.items] = .override
-                } else {
-                    useGeneral(.items, saying: .noFixedChoice)
-                }
-            case .skip:
-                itemSet = nil
-                plan.skipsItems = true
-                plan.origins[.items] = .override
-            case .recommended, .unknown:
-                break
-            }
-        }
-
-        plan.loadout = Loadout(
-            runes: runes, spells: spells, itemSet: itemSet, skillOrder: adapted.skillOrder)
-        return plan
-    }
-
-    /// Ties go to the earlier role in `Role.allCases`.
-    static func mostPlayedRole(of champion: ChampionID, in stats: some StatsProvider) -> Role? {
-        let games = stats.roleGames(for: champion)
-        return Role.allCases.filter { games[$0, default: 0] > 0 }
-            .max { games[$0, default: 0] < games[$1, default: 0] }
+            champion: champion, role: decided.role, opponent: decided.opponent?.champion,
+            profile: decided.enemyProfile, plan: plan, lowSample: Set(lowSample),
+            reasons: decided.adapted.loadout.explanation, settings: settings)
     }
 
     /// The §12.2 mapping decides what is locked; the hover counts only with `importOnHover`.
@@ -341,9 +230,11 @@ final class ImportModel {
     }
 
     /// Once per champ select: every champion would say the same thing.
-    private func tellMissingStats(for target: (champion: ChampionID, role: Role?)) async {
-        guard !toldMissingStats else { return }
-        toldMissingStats = true
+    private func tellNothingToImport(
+        _ missing: ImportOutcome.Missing, for target: (champion: ChampionID, role: Role?)
+    ) async {
+        guard !toldNothingToImport else { return }
+        toldNothingToImport = true
         let generation = generation
         let name = await championName(target.champion)
         guard generation == self.generation else { return }
@@ -352,7 +243,7 @@ final class ImportModel {
             report: ImportReport(
                 runes: .skipped(.notInLoadout), spells: .skipped(.notInLoadout),
                 items: .skipped(.notInLoadout)),
-            itemsUnavailable: nil, isMissingStats: true)
+            itemsUnavailable: nil, missing: missing)
         await present(outcome, runes: nil)
     }
 
@@ -428,7 +319,8 @@ final class ImportModel {
 
     /// What an import left in the client, and the context it was adapted to (§13.1).
     private struct LastImport {
-        let role: Role
+        /// `nil` in ARAM, whose fixed choices never change with the context.
+        let role: Role?
         var opponent: ChampionID?
         var profile: Set<EnemyProfile>
         /// Its session is stale: a re-import sends the current one.
@@ -448,12 +340,14 @@ final class ImportModel {
     ) async {
         let current = settings()
         guard current.reimportOnOpponentChange, var last = lastImports[target.champion],
+            let role = last.role,
             Self.target(in: session, onHover: false)?.champion == target.champion
         else { return }
         let generation = generation
         let stats = readStats()
         guard stats.meta != nil else { return }
-        let opponent = Self.laneOpponent(among: target.draft.enemies, in: last.role, stats: stats)
+        let opponent = ImportTarget.laneOpponent(
+            among: target.draft.enemies, in: role, stats: stats)?.champion
         let profile = Composition.enemyProfile(in: target.draft, stats: stats)
         guard opponent != last.opponent || profile != last.profile else { return }
         let previousOpponent = last.opponent
@@ -464,7 +358,7 @@ final class ImportModel {
 
         guard
             let prepared = await prepare(
-                target.champion, role: last.role, against: (opponent, profile), in: target.draft,
+                target.champion, queue: target.draft.queue, role: role, in: target.draft,
                 stats: stats, settings: current),
             generation == self.generation
         else { return }
@@ -646,7 +540,7 @@ final class ImportModel {
         generation += 1
         imported = []
         lastImports = [:]
-        toldMissingStats = false
+        toldNothingToImport = false
         pendingRunes = nil
         outcome = nil
     }
@@ -714,7 +608,7 @@ extension ImportOutcome {
         ImportOutcome(
             id: id, champion: champion, opponent: opponent, title: title, report: report,
             itemsUnavailable: itemsUnavailable, lowSample: lowSample, origins: origins,
-            adaptations: adaptations, isMissingStats: isMissingStats, reimport: reimport)
+            adaptations: adaptations, missing: missing, reimport: reimport)
     }
 }
 

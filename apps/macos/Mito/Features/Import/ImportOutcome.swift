@@ -1,5 +1,6 @@
 import Foundation
 import MitoCore
+import MitoEngine
 import MitoImport
 
 /// One finished import, as the toast and the notification show it.
@@ -12,6 +13,14 @@ struct ImportOutcome: Identifiable, Equatable {
         case unchanged
         /// No snapshot is open, so nothing was imported (§20.3).
         case noStats
+        /// ARAM without a fixed choice for the champion: nothing was imported (§20.3).
+        case noARAMBuild
+    }
+
+    /// Why nothing was imported, told once per champ select.
+    enum Missing: Equatable {
+        case stats
+        case aramBuild
     }
 
     /// Why the loadout's item set was left out before reaching the importer.
@@ -24,13 +33,7 @@ struct ImportOutcome: Identifiable, Equatable {
         case skippedByOverride
     }
 
-    /// Where a part's choice came from, when it was not the engine's general loadout alone.
-    enum Origin: Equatable {
-        /// The override's fixed page, spells, or set, or its "no importar".
-        case override
-        /// A fixed choice was asked for but none is saved: the general one went instead.
-        case noFixedChoice
-    }
+    typealias Origin = ImportOrigin
 
     /// Why a part left the general loadout (§18.6–§18.8), with the names already resolved.
     enum Adaptation: Hashable {
@@ -56,11 +59,7 @@ struct ImportOutcome: Identifiable, Equatable {
         let manual: Set<Part>
     }
 
-    enum Part: CaseIterable {
-        case runes
-        case spells
-        case items
-    }
+    typealias Part = ImportPart
 
     enum Tone: Equatable {
         case done
@@ -101,11 +100,15 @@ struct ImportOutcome: Identifiable, Equatable {
     var origins: [Part: Origin] = [:]
     /// Only for the parts that went adapted, neither general nor from the override.
     var adaptations: [Part: [Adaptation]] = [:]
-    var isMissingStats = false
+    var missing: Missing?
     var reimport: Reimport?
 
     var status: Status {
-        if isMissingStats { return .noStats }
+        switch missing {
+        case .stats?: return .noStats
+        case .aramBuild?: return .noARAMBuild
+        case nil: break
+        }
         if case .needsConfirmation(let pageID, let pageName) = report.runes {
             return .needsConfirmation(pageID: pageID, pageName: pageName)
         }
@@ -139,6 +142,9 @@ struct ImportOutcome: Identifiable, Equatable {
         case .noStats:
             LocalizedStringResource(
                 "Sin estadísticas del parche: no se importó nada para \(title)", table: "Import")
+        case .noARAMBuild:
+            LocalizedStringResource(
+                "Sin build de ARAM: no se importó nada para \(title)", table: "Import")
         }
     }
 
@@ -148,7 +154,7 @@ struct ImportOutcome: Identifiable, Equatable {
     }
 
     var rows: [Row] {
-        guard !isMissingStats else { return [] }
+        guard missing == nil else { return [] }
         return (reimport?.parts ?? Part.allCases).map { part in
             if reimport?.manual.contains(part) == true {
                 return Row(

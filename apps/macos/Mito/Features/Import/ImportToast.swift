@@ -1,5 +1,6 @@
 import LCUKit
 import MitoCore
+import MitoEngine
 import MitoImport
 import SwiftUI
 
@@ -158,13 +159,13 @@ extension ImportOutcome {
         runes: StepResult = .applied, spells: StepResult = .applied, items: StepResult = .applied,
         itemsUnavailable: ItemsUnavailable? = nil, lowSample: Set<Part> = [],
         origins: [Part: Origin] = [:], adaptations: [Part: [Adaptation]] = [:],
-        isMissingStats: Bool = false
+        missing: Missing? = nil
     ) -> ImportOutcome {
         ImportOutcome(
             id: 1, champion: ChampionID(rawValue: 103), title: "Ahri MID",
             report: ImportReport(runes: runes, spells: spells, items: items),
             itemsUnavailable: itemsUnavailable, lowSample: lowSample, origins: origins,
-            adaptations: adaptations, isMissingStats: isMissingStats)
+            adaptations: adaptations, missing: missing)
     }
 }
 
@@ -209,7 +210,7 @@ private struct ToastPreview: View {
     ToastPreview(
         outcome: .preview(
             runes: .skipped(.notInLoadout), spells: .skipped(.notInLoadout),
-            items: .skipped(.notInLoadout), isMissingStats: true))
+            items: .skipped(.notInLoadout), missing: .stats))
 }
 
 #Preview("Con partes omitidas") {

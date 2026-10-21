@@ -79,6 +79,9 @@
     "JG" : {
       "comment" : "Short name of the jungle role in the Build tab heading."
     },
+    "Lo fijo de %@" : {
+      "comment" : "Heading of the Build tab in ARAM, over the fixed runes, spells, or items saved for the champion. The argument is the champion name."
+    },
     "Lo que se importa cuando lockees a %@" : {
       "comment" : "Build tab, champion only hovered: the loadout is imported once the user locks it. The argument is the champion name."
     },
@@ -113,7 +116,7 @@
       "comment" : "Build tab, champion only recommended, not picked: conditional. The argument is the champion name."
     },
     "Sin build de ARAM" : {
-      "comment" : "Title of the Build tab in ARAM when the champion has no fixed rune page saved."
+      "comment" : "Title of the Build tab in ARAM when the champion has no fixed runes, spells, or items saved."
     },
     "Sin campeón todavía" : {
       "comment" : "Title of the Build tab when there is no champion locked, hovered, or recommended."
@@ -121,8 +124,8 @@
     "Sin datos de %@" : {
       "comment" : "Title of the Build tab when the stats have no build for the champion. The argument is the champion name."
     },
-    "Sin estadísticas de ARAM: solo tu página guardada." : {
-      "comment" : "Note under the ARAM fixed rune page in the Build tab."
+    "Sin estadísticas de ARAM: solo lo que guardaste." : {
+      "comment" : "Note under the ARAM heading in the Build tab: only the fixed choices saved in the champion's override are imported."
     },
     "Sin fija guardada: va la general" : {
       "comment" : "Build tab: the override asks for a fixed choice it does not have, so the general one is imported."
@@ -142,11 +145,8 @@
     "TOP" : {
       "comment" : "Short name of the top role in the Build tab heading."
     },
-    "Todavía no hay estadísticas de ARAM. Si guardás una página fija para %@, aparece acá." : {
-      "comment" : "Description of the Build tab in ARAM without a fixed page. The argument is the champion name."
-    },
-    "Tu página fija de %@" : {
-      "comment" : "Heading of the Build tab in ARAM, over the user's saved rune page. The argument is the champion name."
+    "Todavía no hay estadísticas de ARAM. Si guardás runas, spells o ítems fijos para %@, aparecen acá." : {
+      "comment" : "Description of the Build tab in ARAM without fixed choices. The argument is the champion name."
     },
     "Ítems" : {
       "comment" : "Build tab: items section title."

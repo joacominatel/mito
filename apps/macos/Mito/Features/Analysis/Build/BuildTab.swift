@@ -27,20 +27,25 @@ struct BuildView: View {
                 title: Text("Sin campeón todavía", tableName: "Build"),
                 description: Text(
                     "Lockeá o elegí un campeón para ver su build.", tableName: "Build"))
-        case .aram(nil):
+        case .aram([]):
             Empty(
                 title: Text("Sin build de ARAM", tableName: "Build"),
                 description: Text(
-                    "Todavía no hay estadísticas de ARAM. Si guardás una página fija para \(content.champion), aparece acá.",
+                    "Todavía no hay estadísticas de ARAM. Si guardás runas, spells o ítems fijos para \(content.champion), aparecen acá.",
                     tableName: "Build"))
-        case .aram(let page?):
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Tu página fija de \(content.champion)", tableName: "Build")
-                    .font(.headline)
-                Text("Sin estadísticas de ARAM: solo tu página guardada.", tableName: "Build")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                OptionRow(option: page, names: names, isChosen: true)
+        case .aram(let parts):
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Lo fijo de \(content.champion)", tableName: "Build")
+                        .font(.headline)
+                    Text("Sin estadísticas de ARAM: solo lo que guardaste.", tableName: "Build")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                ForEach(parts) { part in
+                    PartSection(part: part, opponent: nil, names: names)
+                }
             }
         case .noData:
             Empty(
@@ -357,12 +362,31 @@ extension Role {
     .frame(width: 700)
 }
 
-#Preview("ARAM sin página") {
+#Preview("ARAM sin fijos") {
     BuildView(
         content: BuildContent(
             champion: "Ahri", role: nil, framing: .imports, opponent: nil, profiles: [],
-            state: .aram(fixedPage: nil)),
+            state: .aram([])),
         names: .preview
     )
+    .frame(width: 700)
+}
+
+#Preview("ARAM con página fija") {
+    BuildView(
+        content: BuildContent(
+            champion: "Ahri", role: nil, framing: .imports, opponent: nil, profiles: [],
+            state: .aram([
+                BuildPart(
+                    id: .runes, title: "Runas", source: .override, isImported: true,
+                    chosen: [
+                        BuildOption(
+                            id: "a", title: "Cometa arcano", subtitle: "Brujería + Dominación",
+                            level: nil, reasons: [])
+                    ], alternatives: [])
+            ])),
+        names: .preview
+    )
+    .padding()
     .frame(width: 700)
 }

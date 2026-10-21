@@ -1427,16 +1427,22 @@ pendiente. Una sesión que no se puede decodificar se ignora.
 - **Loadout del snapshot (P6-06).** `ImportModel` recibe en su `init` un lector
   `stats: @MainActor () -> any StatsProvider` (el de `SnapshotModel`, §9.3) y elige con
   `LoadoutSelection.general(for:role:stats:)` (§18.6–§18.9) la build general (`opp_id = 0`)
-  de (campeón, rol). El rol es el `assignedPosition` del jugador local; en blind pick o sin rol
-  es el rol con más `roleGames` de ese campeón en el snapshot (empate: el primero en
-  `Role.allCases`), y si no tiene ninguno no se importa nada ni se avisa. Tampoco se avisa si
-  el campeón no tiene datos en ese rol (las tres partes vacías). Los bloques del item set
+  de (campeón, rol). Rol, rival de lane, perfil rival, override y plan los decide una sola
+  función pura, `ImportTarget.decide` (`MitoEngine/Import/`), la misma que usa la pestaña Build
+  (§20.2), así lo que se muestra y lo que se importa no se separan. El rol es el
+  `assignedPosition` del jugador local; en blind pick es el del selector de la columna
+  (`ChampSelectModel.scoringRole`, §20.3: la elección del usuario o su default), que
+  `ImportModel` lee con el `scoringRole` de su `init`. Si el selector todavía no tiene rol, va
+  el rol con más `roleGames` de ese campeón en el snapshot (empate: el primero en
+  `Role.allCases`), y si no tiene ninguno no se importa nada ni se avisa. Sin rol asignado,
+  `ImportModel` lee la cola de `GET /lol-gameflow/v1/session` para separar blind pick de ARAM
+  (abajo). No se avisa si el campeón no tiene datos en ese rol (las tres partes vacías). Los bloques del item set
   llegan titulados con el `BuildLayer` (o `situational`) y la app los traduce (§13.4) antes de
   dárselos a `LoadoutImporter`. El skill order no se importa (el cliente no tiene API).
 - **Loadout adaptado (P7-10).** Con el mismo rol, `ImportModel` arma también
   `LoadoutSelection.adapted(for:role:opponent:enemyProfile:enemies:stats:)` (§18.6–§18.8) con
   la sesión que ya tiene, y esa es la build que se importa por defecto:
-  - **Rival de lane** (`ImportModel.laneOpponent`): el rival lockeado con ese rol asignado; si
+  - **Rival de lane** (`ImportTarget.laneOpponent`): el rival lockeado con ese rol asignado; si
     no hay, entre los rivales lockeados sin rol, el de mayor `roleProbabilities[rol]` de
     `RoleInference` (§12.3, con los roles asignados de rivales como ocupados), solo si esa
     probabilidad es **≥ 0,5** (`minimumLaneOdds`). Debajo de 0,5 la adivinanza es una moneda al
@@ -1462,10 +1468,19 @@ pendiente. Una sesión que no se puede decodificar se ignora.
 - **Sin snapshot** (§20.3): no se importa nada, no se manda nada al cliente, y se avisa **una
   vez por champ select** con el título "Sin estadísticas del parche: no se importó nada para
   Ahri MID", sin filas.
+- **ARAM** (§20.3, modo degradado): sin estadísticas de ARAM, del snapshot no se manda nada.
+  Va solo lo fijo del campeón: el primer override en orden de `Role` cuyo plan manda una
+  página, un par de spells o un set fijos (con las mismas reglas de modos y toggles de abajo;
+  una página guardada con runas en "Adaptativo" no cuenta). No necesita snapshot. El título es
+  solo el campeón (`Mito · Ahri`), el item set no se envía porque el mapa no es la Grieta, y
+  las partes sin fija quedan "Sin recomendación". Sin nada fijo no se importa ni se registra
+  nada, y se avisa **una vez por champ select** (el mismo aviso único que sin snapshot):
+  "Sin build de ARAM: no se importó nada para Ahri". No hay re-import en ARAM: lo fijo no
+  cambia con el contexto.
 - **Overrides por campeón (P8-09, §21.5).** Antes de armar el loadout, `ImportModel` lee el
   `ChampionOverride` de (campeón, rol) con `PersonalStore.overrides()`, con el mismo rol que ya
-  resolvió (asignado, o el más jugado en blind). Si la base no se puede leer, se importa como
-  sin override. `ImportModel.plan(_:override:settings:)` aplica, en este orden:
+  resolvió (asignado, o el del selector en blind). Si la base no se puede leer, se importa como
+  sin override. `ImportTarget.plan(general:adapted:override:settings:)` aplica, en este orden:
   - **Los toggles globales ganan.** Con `importRunes`, `importSpells` o `importItemSets`
     apagado, esa parte queda como estaba y el importador la saltea (`disabled`), diga lo que
     diga el override.
@@ -3487,11 +3502,12 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
    winrate, muestra y motivo.
 
    Implementado (P9-03, `Features/Analysis/Build/`). Muestra lo que importaría el importador
-   (§13.1), calculado igual: el rol asignado o, sin rol, el más jugado del campeón; el rival de
-   línea de `ImportModel.laneOpponent` (asignado, o inferido con al menos 50 %); el perfil del
-   equipo rival; las builds general y adaptada de §18.6–§18.9; el override de (campeón, rol)
-   que `ChampSelectModel` leyó al empezar el champ select, y `ImportModel.plan` con los
-   settings de §21.4. `BuildContent.derive` arma el contenido y `BuildTab` solo lo dibuja.
+   (§13.1) con su misma decisión, `ImportTarget.decide` (MitoEngine): el rol del análisis (el
+   asignado, o el del selector en blind pick, §20.3); el rival de línea (asignado, o inferido
+   con al menos 50 %); el perfil del equipo rival; las builds general y adaptada de
+   §18.6–§18.9; el override de (campeón, rol) que `ChampSelectModel` leyó al empezar el champ
+   select, y el plan con los settings de §21.4. `BuildContent.derive` arma el contenido y
+   `BuildTab` solo lo dibuja.
    - Encabezado: campeón y rol; "Lo que se va a importar" (lockeado, o en hover con "Importar
      al hacer hover"), "Lo que se importa cuando lockees a Ahri" (hover) o "Si elegís Ahri, se
      importaría esto" (recomendación). Debajo, a qué se adaptó lo que se importa: "Adaptado a
@@ -3511,8 +3527,9 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
    - Nombres del `GameData`; mientras carga, "Runa 8112", "Rama 8100", "Spell 4" y los de
      `ReasonNames` para campeones e ítems. Todavía sin íconos.
    - Estados: sin campeón, "Sin campeón todavía"; sin rol con datos o sin fila del campeón,
-     "Sin datos de Ahri"; ARAM, la página fija del campeón si algún override la tiene (el primer
-     rol en orden), si no "Sin build de ARAM".
+     "Sin datos de Ahri"; ARAM, lo fijo que mandaría el importador ("Lo fijo de Ahri": página,
+     spells o set del primer override en orden de rol que fija algo, §13.1), si no "Sin build de
+     ARAM".
    - No tiene "Importar ahora" ni "Editar": la acción vive en Import (P9-06/P9-07).
 4. **Mi historial:** tu rendimiento con ese campeón, vs ese rival y en ese rol. Implementado
    (`PersonalHistory.read` en `MitoEngine/Analysis/History/`, sobre `PersonalMetrics`;
@@ -3556,10 +3573,13 @@ En inicio de parche, el encabezado muestra "Datos 16.21 + 16.20" desde `meta.ble
   el campeón que lockeaste o tenés en hover; si no hay, el rol con más campeones en tu pool
   declarado; si tampoco, MIDDLE. Los empates van al rol que se declara antes (top, jungle,
   middle, bottom, utility). El selector de la columna (§20.1) lo cambia y la elección dura lo que
-  dura el champ select: no se guarda en settings. ARAM queda sin rol.
+  dura el champ select: no se guarda en settings. El importador y la pestaña Build usan ese
+  mismo rol (§13.1). ARAM queda sin rol.
 - **Flex (440) y Normal Draft (400):** usan el snapshot de la cola 420, sin aviso especial.
 - **ARAM (modo degradado en la v1):** solo datos personales y las páginas fijas del usuario.
-  Sin estadísticas de ARAM; llegan después, en un archivo aparte.
+  Sin estadísticas de ARAM; llegan después, en un archivo aparte. El importador manda solo lo
+  fijo del campeón en sus overrides, aun sin snapshot, y si no hay nada fijo no importa nada y
+  lo avisa una vez (§13.1); la pestaña Build muestra lo mismo.
 - **Rival de lane desconocido:** se muestran recomendaciones "seguras" (mejor promedio
   contra los rivales más probables del rol, ponderado por pick rate).
 - **Sin snapshot descargado:** modo degradado. Funcionan el auto-accept, las páginas fijas

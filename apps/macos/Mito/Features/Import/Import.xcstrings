@@ -166,6 +166,9 @@
     "SUP" : {
       "comment" : "Short role name in the rune page and item set title: support."
     },
+    "Sin build de ARAM: no se importó nada para %@" : {
+      "comment" : "Import toast heading and notification title in ARAM when the champion has no fixed runes, spells, or items saved; %@ is the champion."
+    },
     "Sin estadísticas del parche: no se importó nada para %@" : {
       "comment" : "Import toast heading and notification title when no stats snapshot is open; %@ is the champion and role."
     },

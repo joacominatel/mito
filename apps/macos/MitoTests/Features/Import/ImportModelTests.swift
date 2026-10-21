@@ -2,6 +2,7 @@ import Foundation
 import LCUKit
 import MitoAssets
 import MitoCore
+import MitoEngine
 import MitoImport
 import MitoStore
 import Testing
@@ -30,7 +31,8 @@ private struct Harness {
         settings: ImportSettings = ImportSettings(), windowInFront: Bool = false,
         stats: (any StatsProvider)? = nil, overrides: [ChampionOverride] = [],
         detectedFlash: ImportSettings.FlashPosition? = nil,
-        personal: (any PersonalStore)? = nil, servesGameData: Bool = true
+        personal: (any PersonalStore)? = nil, servesGameData: Bool = true,
+        scoringRole: @escaping @MainActor () -> Role? = { nil }
     ) throws {
         let stats = stats ?? ImportStats()
         let store = ImportTestStore(overrides: overrides)
@@ -38,7 +40,8 @@ private struct Harness {
         model = ImportModel(
             connection: connection, catalog: GameDataCatalog(connection: connection),
             settings: { settings }, stats: { stats }, store: personal ?? store,
-            detectedFlash: { detectedFlash }, poster: poster, appIsActive: { true })
+            detectedFlash: { detectedFlash }, scoringRole: scoringRole, poster: poster,
+            appIsActive: { true })
         if windowInFront { model.windowAppeared() }
         if servesGameData {
             for (path, body) in ImportFixture.gameData { connection.serve(path, body) }
@@ -350,16 +353,17 @@ struct ImportSnapshotTests {
         harness.connection.emit(try ImportFixture.lockedSession(champion: 1, position: ""))
         await harness.stop(run)
 
-        #expect(harness.connection.requests.isEmpty)
+        // Blind pick reads the queue to tell it from ARAM; nothing reaches the client.
+        #expect(harness.writes.isEmpty)
         #expect(harness.model.outcome == nil)
     }
 
     @Test func mostPlayedRoleBreaksTiesInRoleOrder() {
         let stats = ImportStats()
 
-        #expect(ImportModel.mostPlayedRole(of: zed, in: stats) == .jungle)
-        #expect(ImportModel.mostPlayedRole(of: ChampionID(rawValue: 1), in: stats) == nil)
-        #expect(ImportModel.mostPlayedRole(of: ahri, in: TiedStats()) == .top)
+        #expect(ImportTarget.mostPlayedRole(of: zed, in: stats) == .jungle)
+        #expect(ImportTarget.mostPlayedRole(of: ChampionID(rawValue: 1), in: stats) == nil)
+        #expect(ImportTarget.mostPlayedRole(of: ahri, in: TiedStats()) == .top)
     }
 
     @Test func withoutASnapshotImportsNothingAndSaysSoOnce() async throws {
@@ -818,9 +822,9 @@ struct ImportOverrideTests {
             runes: fixedPage, spells: teleportAndFlash, itemSet: fixedItems, skillOrder: nil)
 
         #expect(
-            ImportModel.plan(
+            ImportTarget.plan(
                 general: general, adapted: adapted, override: nil, settings: ImportSettings())
-                == ImportModel.Plan(loadout: adapted))
+                == ImportPlan(loadout: adapted))
     }
 }
 
@@ -1288,15 +1292,16 @@ struct ImportLaneOpponentTests {
         let stats = ImportStats()
 
         #expect(
-            ImportModel.laneOpponent(
-                among: [slot(5, darius), slot(6, 238, .middle)], in: .middle, stats: stats) == zed)
+            ImportTarget.laneOpponent(
+                among: [slot(5, darius), slot(6, 238, .middle)], in: .middle, stats: stats)?
+                .champion == zed)
     }
 
     @Test func aRoleHeldByAnEnemyStillPickingHasNoOpponent() throws {
         let stats = ImportStats()
 
         #expect(
-            ImportModel.laneOpponent(
+            ImportTarget.laneOpponent(
                 among: [slot(5, 238), slot(6, nil, .middle)], in: .middle, stats: stats) == nil)
     }
 
@@ -1304,8 +1309,10 @@ struct ImportLaneOpponentTests {
         let stats = ImportStats()
 
         // Zed: 56 % JUNGLE, 44 % MIDDLE.
-        #expect(ImportModel.laneOpponent(among: [slot(5, 238)], in: .jungle, stats: stats) == zed)
-        #expect(ImportModel.laneOpponent(among: [slot(5, 238)], in: .middle, stats: stats) == nil)
+        #expect(
+            ImportTarget.laneOpponent(among: [slot(5, 238)], in: .jungle, stats: stats)?.champion
+                == zed)
+        #expect(ImportTarget.laneOpponent(among: [slot(5, 238)], in: .middle, stats: stats) == nil)
     }
 }
 
@@ -1633,5 +1640,207 @@ struct ImportReimportTests {
         // The next champ select's pick is a fresh import, never a re-import.
         #expect(harness.model.outcome?.reimport == nil)
         #expect(await harness.store.log.allSatisfy { $0.detail?.contains("reimport") != true })
+    }
+}
+
+/// §20.3: blind pick imports for the role the champ-select selector shows.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportBlindRoleTests {
+    /// Zed's blind lock in a champ select the selector follows, with nothing assigned.
+    private func importZed(_ choose: (ChampSelectModel) -> Void = { _ in }, pool: [PoolEntry] = [])
+        async throws -> Harness
+    {
+        let champSelect = ChampSelectModel(connection: ImportTestConnection())
+        let session = try ImportFixture.lockedSession(champion: 238, position: "")
+        champSelect.show(
+            try LCUEndpoint.champSelectSession.decode(session), queue: .normalBlind, pickable: [],
+            personal: PersonalInputs(pool: pool))
+        choose(champSelect)
+        let harness = try Harness(
+            windowInFront: true, scoringRole: { champSelect.scoringRole })
+        let run = harness.start()
+        harness.connection.emit(session)
+        await harness.stop(run)
+        return harness
+    }
+
+    @Test func followsTheSelectorsDefaultRoleOverTheMostPlayedOne() async throws {
+        // Zed's most played role is JUNGLE; with no history or pool the default is MIDDLE.
+        let harness = try await importZed()
+
+        #expect(harness.model.outcome?.title == "Zed MID")
+        #expect(try harness.sentRunePage()?["name"] as? String == "Mito · Zed MID")
+    }
+
+    @Test func followsTheRoleTheUserChose() async throws {
+        let harness = try await importZed(
+            { $0.chooseRole(.middle) }, pool: [PoolEntry(role: .jungle, champion: zed, priority: 0)]
+        )
+
+        #expect(harness.model.outcome?.title == "Zed MID")
+    }
+
+    @Test func anAssignedRoleIgnoresTheSelector() async throws {
+        let harness = try Harness(windowInFront: true, scoringRole: { .top })
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        #expect(harness.model.outcome?.title == "Ahri MID")
+    }
+}
+
+/// §20.3: ARAM has no stats, so only the champion's fixed choices are imported.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportARAMTests {
+    private func importInARAM(
+        overrides: [ChampionOverride] = [], stats: (any StatsProvider)? = nil
+    ) async throws -> Harness {
+        let harness = try Harness(windowInFront: true, stats: stats, overrides: overrides)
+        harness.connection.serve(
+            LCUEndpoint.gameflowSession.path,
+            try ImportFixture.data("session-aram", in: "gameflow-lobby"))
+        let run = harness.start()
+        harness.connection.emit(try ImportFixture.lockedSession(position: ""))
+        await harness.stop(run)
+        return harness
+    }
+
+    @Test func aFixedPageIsAllThatIsSent() async throws {
+        let harness = try await importInARAM(
+            overrides: [ahriOverride(spellMode: .recommended, itemMode: .recommended)])
+
+        let page = try #require(try harness.sentRunePage())
+        #expect(page["name"] as? String == "Mito · Ahri")
+        #expect(
+            page["selectedPerkIds"] as? [Int]
+                == [8112, 8139, 8140, 8135, 8226, 8210, 5008, 5008, 5001])
+        let outcome = try #require(harness.model.outcome)
+        #expect(outcome.origins == [.runes: .override])
+        #expect(outcome.report.spells == .skipped(.notInLoadout))
+        #expect(harness.spellWrites == 0)
+        #expect(!harness.connection.requests.contains { $0.path.hasPrefix("/lol-item-sets") })
+    }
+
+    @Test func fixedSpellsGoTooAndTheSetHasNoARAMMap() async throws {
+        let harness = try await importInARAM(overrides: [ahriOverride()])
+
+        let outcome = try #require(harness.model.outcome)
+        #expect(outcome.report.runes == .applied)
+        #expect(Set(try #require(try harness.sentSpells()).values) == [4, 12])
+        #expect(outcome.itemsUnavailable == .unsupportedMap)
+    }
+
+    @Test func theFixedChoicesNeedNoSnapshot() async throws {
+        let harness = try await importInARAM(overrides: [ahriOverride()], stats: NoStats())
+
+        #expect(harness.model.outcome?.report.runes == .applied)
+    }
+
+    @Test func withoutAFixedChoiceNothingIsImportedAndItSaysSoOnce() async throws {
+        let harness = try Harness(stats: ImportStats())
+        harness.connection.serve(
+            LCUEndpoint.gameflowSession.path,
+            try ImportFixture.data("session-aram", in: "gameflow-lobby"))
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession(position: ""))
+        harness.connection.emit(try ImportFixture.lockedSession(champion: 238, position: ""))
+        await harness.stop(run)
+
+        #expect(harness.writes.isEmpty)
+        #expect(
+            harness.poster.posts.map(\.title) == ["Sin build de ARAM: no se importó nada para Ahri"]
+        )
+        #expect(await harness.store.log.isEmpty)
+    }
+
+    @Test func withoutAFixedChoiceTheToastHasNoRows() async throws {
+        let harness = try await importInARAM()
+
+        let outcome = try #require(harness.model.outcome)
+        #expect(outcome.status == .noARAMBuild)
+        #expect(outcome.rows.isEmpty)
+    }
+}
+
+/// §20.2: the Build tab shows what the importer sends, from the same decision.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportBuildAgreementTests {
+    private func build(
+        _ session: Data, queue: QueueType, role: Role?, overrides: [ChampionOverride] = []
+    ) throws -> BuildContent {
+        let draft = try #require(
+            try LCUEndpoint.champSelectSession.decode(session)
+                .draftContext(queue: queue, patch: Patch(rawValue: "16.21"), pickable: []))
+        let subject = AnalysisSubject.derive(
+            draft: draft, role: role, enemyRoles: [:], topPick: { nil }, stats: ImportStats(),
+            personal: PersonalInputs(overrides: overrides), names: .ids)
+        return BuildContent.derive(subject, settings: ImportSettings())
+    }
+
+    private func imported(
+        _ session: Data, aram: Bool = false, role: Role? = nil,
+        overrides: [ChampionOverride] = []
+    ) async throws -> Harness {
+        let harness = try Harness(
+            windowInFront: true, overrides: overrides, scoringRole: { role })
+        if aram {
+            harness.connection.serve(
+                LCUEndpoint.gameflowSession.path,
+                try ImportFixture.data("session-aram", in: "gameflow-lobby"))
+        }
+        let run = harness.start()
+        harness.connection.emit(session)
+        await harness.stop(run)
+        return harness
+    }
+
+    private func runes(_ content: BuildContent) -> String? {
+        let parts: [BuildPart] =
+            switch content.state {
+            case .loadout(let parts), .aram(let parts): parts
+            case .noChampion, .noData: []
+            }
+        return parts.first { $0.id == .runes }?.chosen.first?.id
+    }
+
+    private func sentRunes(_ harness: Harness) throws -> String? {
+        (try harness.sentRunePage()?["selectedPerkIds"] as? [Int])?
+            .map(String.init).joined(separator: "-")
+    }
+
+    @Test func againstAnAssignedLaneOpponent() async throws {
+        let session = try ImportFixture.lockedSession(enemies: [(238, "middle")])
+        let harness = try await imported(session)
+        let content = try build(session, queue: .rankedSolo, role: .middle)
+
+        #expect(harness.model.outcome?.title == "Ahri MID")
+        #expect(content.role == .middle)
+        #expect(harness.model.outcome?.opponent == zed)
+        #expect(content.opponent?.isInferred == false)
+        #expect(try runes(content) == sentRunes(harness))
+    }
+
+    @Test func inBlindPickWithTheSelectorsRole() async throws {
+        let session = try ImportFixture.lockedSession(champion: 238, position: "")
+        let harness = try await imported(session, role: .middle)
+        let content = try build(session, queue: .normalBlind, role: .middle)
+
+        #expect(harness.model.outcome?.title == "Zed MID")
+        #expect(content.role == .middle)
+        #expect(try runes(content) == sentRunes(harness))
+    }
+
+    @Test func inARAMWithAFixedPage() async throws {
+        let session = try ImportFixture.lockedSession(position: "")
+        let overrides = [ahriOverride()]
+        let harness = try await imported(session, aram: true, overrides: overrides)
+        let content = try build(session, queue: .aram, role: nil, overrides: overrides)
+
+        #expect(content.role == nil)
+        #expect(try runes(content) == sentRunes(harness))
+        #expect(runes(content) != nil)
     }
 }

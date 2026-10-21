@@ -8,8 +8,8 @@ import MitoEngine
 struct BuildContent: Equatable {
     enum State: Equatable {
         case noChampion
-        /// ARAM has no build data (§20.3): only a fixed page from the champion's overrides.
-        case aram(fixedPage: BuildOption?)
+        /// ARAM has no build data (§20.3): only the fixed choices the importer sends, maybe none.
+        case aram([BuildPart])
         /// No role to import for, or no `champ_role_stats` row for it.
         case noData
         case loadout([BuildPart])
@@ -89,8 +89,7 @@ struct BuildOption: Identifiable, Equatable {
 }
 
 extension BuildContent {
-    /// Follows `ImportModel`: the client-assigned role or the champion's most played one, its lane
-    /// opponent and enemy profile, the override of (champion, role), and `ImportModel.plan`.
+    /// The importer's own decision, `ImportTarget`, for the subject's champion and role.
     static func derive(_ subject: AnalysisSubject, settings: ImportSettings) -> BuildContent {
         let names = BuildNames(gameData: subject.gameData, reasonNames: subject.names)
         guard let champion = subject.champion else {
@@ -110,58 +109,34 @@ extension BuildContent {
                 opponent: nil, profiles: [], state: state)
         }
 
-        if subject.queue == .aram {
-            // ARAM has no role: the first role, in `Role` order, with a fixed page saved.
-            let page = Role.allCases.lazy.compactMap { role in
-                subject.personal.overrides.first {
-                    $0.champion == champion.id && $0.role == role
-                }?.fixedPage
-            }.first
-            return content(role: nil, state: .aram(fixedPage: page.map { names.option(fixed: $0) }))
-        }
-
         let stats = subject.stats
-        let enemies = subject.enemies.map(\.draftSlot)
-        let me = subject.allies.first(where: \.isMe)
         guard
-            let role = me?.role?.assignedRole
-                ?? ImportModel.mostPlayedRole(of: champion.id, in: stats)
+            let target = ImportTarget.decide(
+                for: champion.id, queue: subject.queue, role: subject.role,
+                enemies: subject.enemies.map(\.draftSlot), stats: stats,
+                overrides: subject.personal.overrides, settings: settings)
         else { return content(role: nil, state: .noData) }
-
-        let opponent = ImportModel.laneOpponent(among: enemies, in: role, stats: stats)
-        let profile = Composition.enemyProfile(
-            of: Composition.teamProfile(
-                of: Composition.members(of: enemies, stats: stats), stats: stats),
-            rules: stats.meta?.profileRules)
-        let general = LoadoutSelection.general(for: champion.id, role: role, stats: stats)
-        let adapted = LoadoutSelection.adapted(
-            for: champion.id, role: role, opponent: opponent, enemyProfile: profile,
-            enemies: subject.enemies.compactMap(\.champion), stats: stats)
-        let override = subject.personal.overrides.first {
-            $0.champion == champion.id && $0.role == role
-        }
-        let plan = ImportModel.plan(
-            general: general.loadout, adapted: adapted.loadout, override: override,
-            settings: settings)
-        let loadout = plan.loadout
-        guard loadout.runes != nil || loadout.spells != nil || loadout.itemSet != nil else {
-            return content(role: role, state: .noData)
-        }
-
+        let plan = target.plan
         let parts = BuildParts(
-            names: names, settings: settings, plan: plan, adapted: adapted,
-            generalBreakdown: LoadoutSelection.breakdown(
-                of: general, for: champion.id, role: role, enemyProfile: [], stats: stats),
-            adaptedBreakdown: LoadoutSelection.breakdown(
-                of: adapted, for: champion.id, role: role, enemyProfile: profile, stats: stats)
+            names: names, settings: settings, plan: plan, adapted: target.adapted,
+            generalBreakdown: target.role.map {
+                LoadoutSelection.breakdown(
+                    of: target.general, for: champion.id, role: $0, enemyProfile: [], stats: stats)
+            },
+            adaptedBreakdown: target.role.map {
+                LoadoutSelection.breakdown(
+                    of: target.adapted, for: champion.id, role: $0,
+                    enemyProfile: target.enemyProfile, stats: stats)
+            }
         ).all()
+        guard let role = target.role else { return content(role: nil, state: .aram(parts)) }
+        guard !plan.isEmpty else { return content(role: role, state: .noData) }
 
         let imported = parts.filter(\.isImported).map(\.source)
-        let adaptedOpponent = opponent.flatMap { id -> Opponent? in
+        let adaptedOpponent = target.opponent.flatMap { opponent -> Opponent? in
             guard imported.contains(.adaptedToOpponent) else { return nil }
-            let slot = subject.enemies.first { $0.champion == id }
             return Opponent(
-                name: names.champion(id), isInferred: slot?.role?.assignedRole != role)
+                name: names.champion(opponent.champion), isInferred: opponent.isInferred)
         }
         var profiles: [EnemyProfile] = []
         for case .adaptedToProfiles(let adaptedProfiles) in imported {
@@ -179,21 +154,21 @@ extension BuildContent {
 private struct BuildParts {
     let names: BuildNames
     let settings: ImportSettings
-    let plan: ImportModel.Plan
+    let plan: ImportPlan
     let adapted: GeneralLoadout
-    let generalBreakdown: LoadoutBreakdown
-    let adaptedBreakdown: LoadoutBreakdown
+    /// `nil` in ARAM, which has only the override's fixed parts.
+    let generalBreakdown: LoadoutBreakdown?
+    let adaptedBreakdown: LoadoutBreakdown?
 
     func all() -> [BuildPart] {
         [runes(), spells()].compactMap(\.self) + items() + [skillOrder()].compactMap(\.self)
     }
 
-    private func breakdown(_ part: ImportOutcome.Part) -> LoadoutBreakdown {
+    private func breakdown(_ part: ImportPart) -> LoadoutBreakdown? {
         plan.general.contains(part) ? generalBreakdown : adaptedBreakdown
     }
 
-    private func source(_ part: ImportOutcome.Part, _ loadoutPart: LoadoutPart) -> BuildPart.Source
-    {
+    private func source(_ part: ImportPart, _ loadoutPart: LoadoutPart) -> BuildPart.Source {
         switch plan.origins[part] {
         case .override?: return .override
         case .noFixedChoice?: return .generalWithoutFixed
@@ -219,7 +194,7 @@ private struct BuildParts {
                 id: .runes, title: title, source: source, isImported: settings.importRunes,
                 chosen: [names.option(fixed: page)], alternatives: [])
         }
-        return breakdown(.runes).runes.map {
+        return breakdown(.runes)?.runes.map {
             part(.runes, title, source, settings.importRunes, $0, .runes, names.option)
         }
     }
@@ -232,7 +207,7 @@ private struct BuildParts {
                 id: .spells, title: title, source: source, isImported: settings.importSpells,
                 chosen: [names.option(fixed: pair)], alternatives: [])
         }
-        return breakdown(.spells).spells.map {
+        return breakdown(.spells)?.spells.map {
             part(.spells, title, source, settings.importSpells, $0, .spells, names.option)
         }
     }
@@ -256,7 +231,7 @@ private struct BuildParts {
                     alternatives: [])
             }
         }
-        let breakdown = breakdown(.items)
+        guard let breakdown = breakdown(.items) else { return [] }
         return itemSet.blocks.compactMap { block -> BuildPart? in
             if block.title == LoadoutSelection.situationalBlockTitle {
                 return situational(block, isImported: isImported)
@@ -288,7 +263,7 @@ private struct BuildParts {
     }
 
     private func skillOrder() -> BuildPart? {
-        adaptedBreakdown.skillOrder.map {
+        adaptedBreakdown?.skillOrder.map {
             part(
                 .skillOrder, String(localized: "Habilidades", table: "Build"), .general, false, $0,
                 .skillOrder, names.option)

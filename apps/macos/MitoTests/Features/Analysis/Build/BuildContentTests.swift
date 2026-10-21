@@ -30,21 +30,39 @@ struct BuildContentTests {
     @Test func aramWithoutAFixedPageSaysThereIsNoBuild() {
         let content = derive(queue: .aram, role: nil)
 
-        #expect(content.state == .aram(fixedPage: nil))
+        #expect(content.state == .aram([]))
     }
 
     @Test func aramShowsTheFixedPageOfTheChampionsOverride() {
         let personal = PersonalInputs(overrides: [
-            ChampionOverride(champion: Stats.ahri, role: .middle, fixedPage: Stats.conqueror)
+            ChampionOverride(
+                champion: Stats.ahri, role: .middle, runeMode: .fixed, fixedPage: Stats.conqueror)
         ])
         let content = derive(queue: .aram, role: nil, personal: personal)
 
-        guard case .aram(let page?) = content.state else {
+        guard case .aram(let parts) = content.state, let page = parts.first?.chosen.first else {
             Issue.record("Expected the fixed page, got \(content.state)")
             return
         }
+        #expect(parts.map(\.id) == [.runes])
+        #expect(parts.first?.source == .override)
         #expect(page.title == "Runa 8010")
         #expect(page.level == nil)
+    }
+
+    @Test func aramLeavesOutAPageSavedUnderAnotherMode() {
+        // Saved under "adaptativo", the importer does not send it in ARAM.
+        let personal = PersonalInputs(overrides: [
+            ChampionOverride(champion: Stats.ahri, role: .middle, fixedPage: Stats.conqueror)
+        ])
+
+        #expect(derive(queue: .aram, role: nil, personal: personal).state == .aram([]))
+    }
+
+    @Test func blindPickShowsTheSelectorsRoleOverTheMostPlayedOne() {
+        let content = derive(role: nil, selectorRole: .top)
+
+        #expect(content.role == .top)
     }
 
     // MARK: General and adapted
@@ -260,6 +278,8 @@ struct BuildContentTests {
         champion: ChampionID? = Stats.ahri,
         source: AnalysisSubject.Champion.Source = .locked,
         role: Role? = .middle,
+        /// Blind pick: the selector's role, with no role assigned to you.
+        selectorRole: Role? = nil,
         enemies: [AnalysisSubject.Slot] = [],
         personal: PersonalInputs = PersonalInputs(),
         gameData: GameData? = nil,
@@ -272,7 +292,8 @@ struct BuildContentTests {
         let subject = AnalysisSubject(
             queue: queue,
             champion: champion.map { AnalysisSubject.Champion(id: $0, source: source) },
-            role: role, laneOpponent: nil, allies: [me], enemies: enemies, stats: Stats(),
+            role: selectorRole ?? role, laneOpponent: nil, allies: [me], enemies: enemies,
+            stats: Stats(),
             personal: personal, names: .ids, gameData: gameData)
         return BuildContent.derive(subject, settings: settings)
     }
