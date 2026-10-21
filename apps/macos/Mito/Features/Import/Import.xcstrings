@@ -1,11 +1,167 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Próximamente" : {
-
+    "ADC" : {
+      "comment" : "Short role name in the rune page and item set title: bottom lane."
     },
-    "Toggles rápidos: próximamente" : {
-
+    "Adaptativo (según el matchup)" : {
+      "comment" : "Rune mode option: adapted to the lane matchup."
+    },
+    "Ahora no" : {
+      "comment" : "Import confirmation button: keep the user's rune page."
+    },
+    "Apagado en Settings" : {
+      "comment" : "Import toast row status: the user turned this part off in Settings."
+    },
+    "Auto-accept" : {
+      "comment" : "Menu bar quick toggle: accept ready checks automatically."
+    },
+    "Automática" : {
+      "comment" : "Flash position option: keep Flash where the player already has it."
+    },
+    "Cerrar" : {
+      "comment" : "Import toast button (icon only, read by VoiceOver): dismiss the toast."
+    },
+    "Confirmá las runas para %@" : {
+      "comment" : "Import toast heading and notification title when replacing the user's rune page needs their OK; %@ is the champion and role."
+    },
+    "Cuándo importar" : {
+      "comment" : "Settings section header: when imports happen."
+    },
+    "D" : {
+      "comment" : "Flash position option: the D key."
+    },
+    "El cliente rechazó el cambio" : {
+      "comment" : "Import toast row status: the League client returned an error."
+    },
+    "El modo de runas y el re-import llegan con los datos del parche; hasta entonces Mito importa builds fijas de cinco campeones." : {
+      "comment" : "Settings footer: some import options have no effect until patch data arrives."
+    },
+    "F" : {
+      "comment" : "Flash position option: the F key."
+    },
+    "Fijo por campeón" : {
+      "comment" : "Rune mode option: a fixed page per champion."
+    },
+    "General" : {
+      "comment" : "Rune mode option: the champion's general page."
+    },
+    "Importado para %@" : {
+      "comment" : "Import toast heading and notification title; %@ is the champion and role, e.g. 'Ahri MID'."
+    },
+    "Importar al hacer hover" : {
+      "comment" : "Settings toggle: import when hovering a champion, before locking it."
+    },
+    "Importar item sets" : {
+      "comment" : "Settings toggle: import item sets."
+    },
+    "Importar runas" : {
+      "comment" : "Settings toggle and menu bar quick toggle: import rune pages."
+    },
+    "Importar spells" : {
+      "comment" : "Settings toggle: import summoner spells."
+    },
+    "Importar ítems" : {
+      "comment" : "Menu bar quick toggle: import item sets."
+    },
+    "Inicio" : {
+      "comment" : "Item set block shown in the League client: starting items."
+    },
+    "JGL" : {
+      "comment" : "Short role name in the rune page and item set title: jungle."
+    },
+    "La página actual" : {
+      "comment" : "Rune page target option: whatever page is current."
+    },
+    "Limpiar sets viejos de Mito" : {
+      "comment" : "Settings toggle: remove Mito's item sets for other champions."
+    },
+    "Listo" : {
+      "comment" : "Import toast row status: this part was imported."
+    },
+    "MID" : {
+      "comment" : "Short role name in the rune page and item set title: middle lane."
+    },
+    "Modo de runas" : {
+      "comment" : "Settings picker label: how Mito chooses runes."
+    },
+    "Ninguna" : {
+      "comment" : "Reserved rune page option: none chosen."
+    },
+    "No disponible en este mapa" : {
+      "comment" : "Import toast row status for items: item sets are only imported on Summoner's Rift."
+    },
+    "No hay una página editable" : {
+      "comment" : "Import toast row status for runes: no rune page Mito may write to."
+    },
+    "No pisar cambios manuales" : {
+      "comment" : "Settings toggle: do not re-import over changes the user made by hand."
+    },
+    "No se pudo importar todo para %@" : {
+      "comment" : "Import toast heading and notification title when a part failed; %@ is the champion and role."
+    },
+    "No se pudo leer tu cuenta" : {
+      "comment" : "Import toast row status for items: the signed-in account could not be read."
+    },
+    "Núcleo" : {
+      "comment" : "Item set block shown in the League client: core items."
+    },
+    "Posición de Flash" : {
+      "comment" : "Settings picker label: which key Flash goes on."
+    },
+    "Página" : {
+      "comment" : "Settings picker label: the rune page Mito overwrites."
+    },
+    "Página %@ (no está en el cliente)" : {
+      "comment" : "Reserved rune page option: the saved page ID is not among the client's pages; %@ is the ID."
+    },
+    "Página a usar" : {
+      "comment" : "Settings picker label: which rune page Mito writes to."
+    },
+    "Página de Mito" : {
+      "comment" : "Rune page target option: the single page named 'Mito · …'."
+    },
+    "Página inválida para este parche, no se envió" : {
+      "comment" : "Import toast row status for runes: the page did not match the client's rune trees, so nothing was sent."
+    },
+    "Re-importar si cambia el rival" : {
+      "comment" : "Settings toggle: import again when the lane opponent changes."
+    },
+    "Reemplazar" : {
+      "comment" : "Import confirmation button: overwrite the user's current rune page with Mito's."
+    },
+    "Runas" : {
+      "comment" : "Import part name (toast row, Settings section header)."
+    },
+    "SUP" : {
+      "comment" : "Short role name in the rune page and item set title: support."
+    },
+    "Sin recomendación" : {
+      "comment" : "Import toast row status: Mito has nothing to import for this part."
+    },
+    "Situacionales" : {
+      "comment" : "Item set block shown in the League client: situational items."
+    },
+    "Spells" : {
+      "comment" : "Import part name: summoner spells (toast row, Settings section header)."
+    },
+    "TOP" : {
+      "comment" : "Short role name in the rune page and item set title: top lane."
+    },
+    "Una página elegida" : {
+      "comment" : "Rune page target option: a page the user picks."
+    },
+    "Ya estaban elegidos" : {
+      "comment" : "Import toast row status for spells: the recommended spells were already selected."
+    },
+    "¿Reemplazar tu página actual?" : {
+      "comment" : "Import toast row status for runes: asks to overwrite the current rune page, which has no name."
+    },
+    "¿Reemplazar «%@»?" : {
+      "comment" : "Import toast row status for runes: asks to overwrite the user's current rune page; %@ is its name."
+    },
+    "Ítems" : {
+      "comment" : "Import part name: item sets (toast row, Settings section header)."
     }
   },
   "version" : "1.0"

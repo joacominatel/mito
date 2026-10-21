@@ -1219,11 +1219,44 @@ Casos borde, todos deterministas:
 ### 13.1 Cuándo se importa
 
 - Trigger principal: **cuando tu campeón queda lockeado**.
-- Trigger opcional: al hacer hover (configurable). Importa una versión preliminar y la
-  actualiza al lockear.
+- Trigger opcional: al hacer hover (`importOnHover`, apagado por defecto). Importa una versión
+  preliminar y la actualiza al lockear.
 - Re-import automático si cambia el contexto relevante: se revela el oponente de lane o la
   composición rival cambia los situacionales. Solo si el usuario no tocó la página a mano
   (se detecta comparando la página actual con la que puso Mito).
+
+**Implementado hoy (Fase 4, `Features/Import/ImportModel`).** El modelo sigue los eventos de
+`LCUTopic.champSelectSession` y decide con el mismo mapeo de §12.2
+(`ChampSelectSession.draftContext`): el slot del jugador local cuenta como lockeado solo con
+una acción `pick` completada (o sin acciones de pick para su celda); su hover cuenta solo con
+`importOnHover`. Cada campeón se importa **una vez por champ select**: un hover que ya importó
+no se repite al lockear, y el re-import queda para la Fase 7. Un evento `Delete` de la sesión
+(fin del champ select) o una desconexión lo resetea, junto con cualquier confirmación
+pendiente. Una sesión que no se puede decodificar se ignora.
+
+- **Contexto** (`LoadoutImportContext`): título `<Campeón> <ROL>` (`Ahri MID`; el rol corto es
+  TOP, JGL, MID, ADC o SUP y falta en blind/ARAM), con el nombre del campeón de
+  `GameDataCatalog` en el locale del cliente o, si no cargó, el nombre de la build. El mapa
+  sale de `mapID` de `GET /lol-gameflow/v1/session`: `11` es Summoner's Rift; cualquier otro
+  mapa (o una sesión ilegible) no tiene código conocido, así que el item set **no se envía**
+  y el toast lo dice. Igual si `CurrentSummoner` no trae `summonerId`. Runas y spells siguen.
+- **Builds fijas (provisorias hasta P6-06).** `HandWrittenBuilds` trae un `Loadout` escrito a
+  mano para cinco campeones, uno por rol: Darius (TOP), Lee Sin (JUNGLE), Ahri (MIDDLE), Jinx
+  (BOTTOM) y Lux (UTILITY), con IDs verificados contra CommunityDragon `latest` (16.20). Sin
+  skill order. Cualquier otro campeón recibe un `Loadout` vacío y no se importa nada ni se
+  avisa. Se reemplazan por los datos del snapshot en la Fase 6.
+- **Feedback.** El `ImportReport` se muestra como toast arriba de la ventana principal si
+  está abierta y Mito está en primer plano (`NSApp.isActive`); se cierra solo a los 6 s y
+  VoiceOver lo anuncia. Si no, va como notificación `.loadoutImported` (§22.5) con el mismo
+  título: "Importado para Ahri MID", "Confirmá las runas para Ahri MID" o "No se pudo
+  importar todo para Ahri MID". Si todas las partes se saltearon, no se avisa nada.
+  La ventana lo aloja con el modificador `.importToast()`, que además le avisa al modelo
+  cuándo está abierta; mientras el shell no lo aplique en `MainWindowView`, todo import se
+  avisa por notificación.
+- **Confirmación de runas.** Un `.needsConfirmation` queda pendiente en el toast (no se cierra
+  solo) y en la sección de toggles de la barra de menú, con "Reemplazar" y "Ahora no". Nunca se
+  confirma solo. "Reemplazar" vuelve a aplicar **solo las runas** con
+  `confirmedReplacement` = ese `pageID`; spells e ítems no se reenvían.
 
 ### 13.2 Runas
 
@@ -2716,6 +2749,20 @@ puede leer, queda desconocida y "solo colas elegidas" no acepta (§11.3).
 | Importar al hacer hover | bool | off |
 | Re-importar si cambia el rival | bool | on |
 | No pisar cambios manuales | bool | on |
+
+La pestaña "Importación" (`Features/Import/ImportSettingsTab`) es un `Form` agrupado con
+bindings a `app.settings.importing`, en secciones Runas, Spells, Ítems y Cuándo importar. Cada
+opción dependiente se deshabilita con su toggle apagado (modo y página con "Importar runas",
+Flash con "Importar spells", limpiar sets con "Importar item sets"). Con "Una página elegida"
+aparece un picker con las páginas editables del cliente (`GET /lol-perks/v1/pages`) que guarda
+`reservedRunePageID`; un ID guardado que ya no está en el cliente se muestra como tal. El modo
+de runas, re-importar si cambia el rival y no pisar cambios manuales se guardan pero todavía
+no cambian nada: llegan con los datos del parche (Fases 6–7), y el pie de la sección lo dice.
+
+Los toggles rápidos de la barra de menú (§22.4, `QuickTogglesMenuSection`) escriben los mismos
+settings: "Importar runas", "Importar ítems" y "Auto-accept" (§21.2). Este último está tildado
+con cualquier modo distinto de `off`; destildarlo pone `off` y volver a tildarlo pone `siempre`.
+Las colas elegidas quedan guardadas para la pestaña "Partida".
 
 ### 21.5 Overrides por campeón
 
