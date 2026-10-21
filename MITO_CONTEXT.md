@@ -274,7 +274,7 @@ siempre del lado seguro. Estado conocido a octubre de 2026:
 
 | Pieza | Elección | Notas |
 |---|---|---|
-| Lenguaje | Swift 6 | Strict concurrency activada |
+| Lenguaje | Swift 6 | Strict concurrency. App: `MainActor` por defecto + approachable concurrency; MitoKit: nonisolated (ADR 0001) |
 | UI | SwiftUI + AppKit puntual | AppKit para el panel del overlay (v2) y algunos detalles de ventana |
 | Target | macOS 15+ | Adoptar Liquid Glass y APIs nuevas con `if #available` |
 | Estado | `@Observable` (Observation) | Sin Combine salvo donde haga falta |
@@ -286,6 +286,8 @@ siempre del lado seguro. Estado conocido a octubre de 2026:
 | Updates | Sparkle | La app no va al Mac App Store |
 | Tests | Swift Testing + XCTest para UI | Mock LCU server para integración |
 | Logs | `os.Logger` | Categorías por módulo |
+| Build settings | `.xcconfig` en `apps/macos/Config/` | Debug (`com.joacominatel.mito.debug`, "Mito Dev") y Release (ADR 0002) |
+| Formato | `swift-format` (incluido en el toolchain) | Config en `apps/macos/.swift-format` |
 
 ### mito-data
 
@@ -313,10 +315,11 @@ Monorepo:
 mito/
 ├── README.md
 ├── MITO_CONTEXT.md              ← este documento
-├── LICENSE
+├── LICENSE.md                   ← PolyForm Shield 1.0.0 (ADR 0003)
 ├── apps/
 │   └── macos/
-│       ├── Mito.xcodeproj
+│       ├── Mito.xcodeproj       ← grupo sincronizado, sin settings propios
+│       ├── Config/              ← Base/Debug/Release/Version .xcconfig
 │       ├── Mito/                ← target de la app (UI, App, Scenes)
 │       │   ├── MitoApp.swift
 │       │   ├── Scenes/
@@ -332,12 +335,15 @@ mito/
 │       │   │   └── Onboarding/
 │       │   ├── DesignSystem/
 │       │   └── Resources/
-│       └── Packages/
-│           ├── MitoCore/        ← modelos de dominio, IDs, enums (sin dependencias)
-│           ├── LCUKit/          ← conexión, REST, WAMP, endpoints tipados
-│           ├── MitoStore/       ← GRDB, snapshot, datos personales, settings
-│           ├── MitoEngine/      ← recomendador (puro, testeable)
-│           └── MitoAssets/      ← carga y caché de íconos
+│       └── MitoKit/             ← un paquete local, un target por módulo (ADR 0002)
+│           ├── Package.swift
+│           ├── Sources/
+│           │   ├── MitoCore/    ← modelos de dominio, IDs, enums (sin dependencias)
+│           │   ├── LCUKit/      ← conexión, REST, WAMP, endpoints tipados
+│           │   ├── MitoStore/   ← GRDB, snapshot, datos personales, settings
+│           │   ├── MitoEngine/  ← recomendador (puro, testeable)
+│           │   └── MitoAssets/  ← carga y caché de íconos
+│           └── Tests/           ← <Módulo>Tests por cada módulo
 ├── data/
 │   ├── pyproject.toml
 │   ├── uv.lock
@@ -354,6 +360,7 @@ mito/
 │   │   └── publish/             ← subida + manifest
 │   ├── sql/                     ← queries de agregación versionadas
 │   └── tests/
+├── .github/workflows/          ← CI: tests de MitoKit en main/dev
 ├── tools/
 │   ├── lcu-mock/                ← servidor fake de LCU (Python) para testear la app
 │   └── lcu-recorder/            ← graba eventos WAMP reales a fixtures
@@ -2008,6 +2015,12 @@ aceptada solo en builds de debug.
   agregaciones sobre un dataset chico fijo y validación del schema exportado.
 - **Contrato snapshot ↔ app:** test que abre un snapshot generado por el pipeline con el
   código Swift y verifica `schema_version` y las consultas principales.
+- **Cómo se corren:** `swift test --package-path apps/macos/MitoKit --enable-code-coverage`.
+  La CI (GitHub Actions, runner `xcode-27`) corre solo esos tests, con warnings como errores,
+  en cada push a `main`/`dev` y en PRs hacia ellas. Antes de la beta se suma un test plan con
+  configuraciones de Thread y Address Sanitizer.
+- **Agente de tests:** `.claude/agents/test-engineer.md` audita cada función contra su
+  propósito, agrega solo los tests que faltan y mide coverage.
 
 ### 23.4 Calidad de las recomendaciones (offline)
 
@@ -2023,7 +2036,15 @@ Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10
 
 - **Fuera del Mac App Store**: la app necesita leer fuera de su contenedor (lockfile,
   `ps`), así que el App Sandbox está **desactivado**.
-- Firma con **Developer ID** + **notarización** de Apple + Hardened Runtime.
+- Firma con **Developer ID** + **notarización** de Apple + Hardened Runtime (solo en
+  Release; Debug va sin hardened runtime porque se firma ad-hoc).
+- **Sin entitlements**: sin sandbox, ni localhost ni leer los argumentos de un proceso del
+  mismo usuario necesitan excepciones del hardened runtime.
+- `LSUIElement = YES`: arranca solo en la barra de menú y pasa a `.regular` mientras la
+  ventana principal o Settings están abiertas, según el toggle de Dock (§21.1).
+- Debug y Release conviven: bundle IDs distintos, así que todo lo que se guarda por instalación
+  se nombra a partir del bundle ID.
+- La beta es un Release publicado en el canal `beta` de Sparkle, no otra configuración.
 - Actualizaciones con **Sparkle** (appcast firmado con EdDSA).
 - Instalación por DMG. Opcional: cask de Homebrew.
 - Permisos de macOS: notificaciones. No hace falta Accesibilidad ni Grabación de pantalla
