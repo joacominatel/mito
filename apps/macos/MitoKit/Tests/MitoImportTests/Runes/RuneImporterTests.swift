@@ -168,6 +168,29 @@ struct RuneImporterStrategyTests {
         #expect(lcu.writes.isEmpty)
     }
 
+    @Test func pagesWithoutADeletableFlagTakeACustomSlot() async throws {
+        let pages = [
+            #"{"id": 201, "name": "Mine", "current": true, "isEditable": true}"#,
+            #"{"id": 203, "name": "Also mine", "isEditable": true}"#,
+        ]
+        let lcu = try connection(
+            pagesJSON: "[\(pages.joined(separator: ","))]", inventoryJSON: #"{"ownedPageCount": 2}"#
+        )
+        let result = await apply(on: lcu)
+
+        #expect(result == .needsConfirmation(pageID: 201, pageName: "Mine"))
+        #expect(lcu.writes.isEmpty)
+    }
+
+    @Test func aMitoPageWithoutAnEditableFlagIsNotEdited() async throws {
+        let pages = [page(201, "Mine", current: true), #"{"id": 204, "name": "Mito · old"}"#]
+        let lcu = try connection(pagesJSON: "[\(pages.joined(separator: ","))]")
+        let result = await apply(on: lcu)
+
+        #expect(result == .created)
+        #expect(writeRoutes(lcu) == ["POST /lol-perks/v1/pages"])
+    }
+
     @Test func noPageIsAvailableWhenFullAndTheCurrentPageIsLocked() async throws {
         let pages = [
             page(101, "Domination: The Hunter", current: true, editable: false, deletable: false),

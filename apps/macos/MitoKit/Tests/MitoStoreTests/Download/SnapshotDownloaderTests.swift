@@ -361,6 +361,32 @@ struct SnapshotDownloaderTests {
         }
     }
 
+    @Test func aLeftoverOlderPatchNeverShadowsTheNewerOne() async throws {
+        try await withCaches { caches in
+            let downloader = try downloader(caches)
+            try Self.serve(
+                manifest: Self.manifest(
+                    currentPatch: "16.9", entries: [Self.fixtureEntry(["patch": "16.9"])]))
+            let old = try await downloader.installCurrent(
+                queue: Self.rankedSolo, bracket: .emeraldPlus)
+            // A locked folder stands in for a cleanup that failed.
+            let oldFolder = old.fileURL.deletingLastPathComponent()
+            try Self.setImmutable(true, oldFolder)
+            defer { try? Self.setImmutable(false, oldFolder) }
+            try Self.serve(
+                manifest: Self.manifest(
+                    currentPatch: "16.10", entries: [Self.fixtureEntry(["patch": "16.10"])]))
+
+            let new = try await downloader.installCurrent(
+                queue: Self.rankedSolo, bracket: .emeraldPlus)
+
+            try #require(FileManager.default.fileExists(atPath: old.fileURL.path))
+            #expect(
+                await downloader.installedSnapshot(queue: Self.rankedSolo, bracket: .emeraldPlus)
+                    == new)
+        }
+    }
+
     @Test func replacingOneBracketLeavesTheOtherBracketAlone() async throws {
         try await withCaches { caches in
             let downloader = try downloader(caches)
@@ -491,6 +517,10 @@ struct SnapshotDownloaderTests {
         } catch {
             return error
         }
+    }
+
+    private static func setImmutable(_ immutable: Bool, _ item: URL) throws {
+        try FileManager.default.setAttributes([.immutable: immutable], ofItemAtPath: item.path)
     }
 
     private static func snapshotsRoot(_ caches: URL) -> URL {

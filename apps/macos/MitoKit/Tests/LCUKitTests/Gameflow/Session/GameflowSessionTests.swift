@@ -37,7 +37,10 @@ struct GameflowSessionTests {
         #expect(session.mapID == 30)
     }
 
-    @Test(arguments: ["{}", #"{"gameData":null}"#, #"{"gameData":{"queue":null}}"#])
+    @Test(arguments: [
+        "{}", #"{"gameData":null}"#, #"{"gameData":{"queue":null}}"#,
+        #"{"gameData":{"queue":{"id":null,"mapId":null}}}"#,
+    ])
     func anAbsentGameDataOrQueueDecodesAsNil(_ json: String) throws {
         #expect(try LCUEndpoint.gameflowSession.decode(Data(json.utf8)) == GameflowSession())
     }
@@ -56,7 +59,10 @@ struct GameflowSessionTests {
         #expect(Mirror(reflecting: session).children.compactMap(\.label) == ["queueID", "mapID"])
     }
 
-    @Test(arguments: ["", "null", #""ChampSelect""#, "[]", #"{"gameData":{"queue":{"id":"420"}}}"#])
+    @Test(arguments: [
+        "", "null", #""ChampSelect""#, "[]", #"{"gameData":{"queue":{"id":"420"}}}"#,
+        #"{"gameData":{"queue":{"id":420,"mapId":"11"}}}"#,
+    ])
     func aMalformedBodyIsADecodingError(_ json: String) {
         #expect {
             try LCUEndpoint.gameflowSession.decode(Data(json.utf8))

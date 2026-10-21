@@ -51,6 +51,21 @@ struct ItemSetsEndpointTests {
         #expect(String(decoding: body, as: UTF8.self).contains("9007199254740993"))
     }
 
+    // NSNumber equality says `true == 1`, so the round trip above cannot tell these apart.
+    @Test(arguments: [
+        ("true", LCUItemSets.Value.bool(true)), ("false", .bool(false)), ("1", .integer(1)),
+        ("0", .integer(0)), ("-5", .integer(-5)), ("2.5", .double(2.5)),
+        ("18446744073709551615", .unsigned(.max)), (#""1""#, .string("1")), ("null", .null),
+    ])
+    func eachScalarKeepsItsJSONType(json: String, value: LCUItemSets.Value) throws {
+        let endpoint = LCUEndpoint.itemSets(summonerId: 42)
+        let decoded = try endpoint.decode(Data(#"{"itemSets":[{"field":\#(json)}]}"#.utf8))
+        let body = try #require(try LCUEndpoint.replaceItemSets(decoded, summonerId: 42).body)
+
+        #expect(decoded.itemSets == [["field": value]])
+        #expect(try endpoint.decode(body) == decoded)
+    }
+
     @Test func aMissingListDecodesAsEmpty() throws {
         let decoded = try LCUEndpoint.itemSets(summonerId: 42)
             .decode(Data(#"{"accountId": 1}"#.utf8))

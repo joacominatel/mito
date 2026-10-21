@@ -104,6 +104,19 @@ struct LoadoutImporterTests {
         #expect(writeRoutes(lcu) == [runeWrite, spellWrite, itemSetWrite])
     }
 
+    @Test func spellAndItemSetFailuresAreReportedAsLCUFailures() async throws {
+        let lcu = FakeLCUConnection(responses: [
+            .init(method: .patch, path: mySelectionPath, status: 500),
+            .init(method: .get, path: setsPath, status: 503),
+        ])
+        let report = await LoadoutImporter(connection: lcu).apply(
+            loadout(runes: nil), settings: ImportSettings(), context: context())
+
+        #expect(report.spells == .failed(.lcu(.http(status: 500, body: Data()))))
+        #expect(report.items == .failed(.lcu(.http(status: 503, body: Data()))))
+        #expect(writeRoutes(lcu) == [spellWrite])
+    }
+
     @Test func everyStepIsSkippedAndNothingSentWhenEveryImportIsOff() async throws {
         let lcu = try connection()
         let settings = ImportSettings(

@@ -164,6 +164,26 @@ struct ChampSelectSessionTests {
         #expect(session.timer?.phase == .banPick)
     }
 
+    @Test func nullCollectionsDecodeAsEmpty() throws {
+        let json =
+            #"{"myTeam":null,"theirTeam":null,"actions":null,"bans":{"myTeamBans":null,"theirTeamBans":null}}"#
+        #expect(try LCUEndpoint.champSelectSession.decode(Data(json.utf8)) == Session())
+    }
+
+    @Test func nullScalarsDecodeAsNilAndKeepTheirElement() throws {
+        let member =
+            #"{"cellId":2,"championId":null,"championPickIntent":null,"assignedPosition":null,"spell1Id":null,"spell2Id":null,"team":null}"#
+        let action =
+            #"{"id":11,"actorCellId":null,"championId":null,"type":null,"isInProgress":null,"completed":null,"isAllyAction":null}"#
+        let json =
+            #"{"localPlayerCellId":null,"myTeam":[\#(member)],"actions":[[\#(action)]],"timer":{"phase":null,"adjustedTimeLeftInPhase":null}}"#
+        #expect(
+            try LCUEndpoint.champSelectSession.decode(Data(json.utf8))
+                == Session(
+                    myTeam: [Member(cellId: 2)], actions: [[Action(id: 11)]], timer: Session.Timer()
+                ))
+    }
+
     @Test(arguments: ["null", "[]", "\"ChampSelect\"", ""])
     func aBodyThatIsNotAnObjectIsADecodingError(_ json: String) {
         #expect {

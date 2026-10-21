@@ -356,6 +356,45 @@ struct LCUClientTests {
         await stop(running)
     }
 
+    @Test func losingAClientResetsTheBackoffToTwoSeconds() async {
+        let socket = FakeWAMPSocket()
+        let client = client(
+            discovery: [nil, nil, nil, Self.first, nil], sockets: FakeSockets([socket]))
+        var states = client.states().makeAsyncIterator()
+        let running = start(client)
+        var grown: [Duration] = []
+        for _ in 0..<3 {
+            guard let interval = await nextSleep() else { break }
+            grown.append(interval)
+            clock.advance()
+        }
+        #expect(grown == [.seconds(2), .seconds(3), .seconds(4)])
+        #expect(await Self.next(3, of: &states) == [.searching, .connecting, .connected])
+
+        socket.close()
+
+        #expect(await states.next() == .searching)
+        #expect(await nextSleep() == .seconds(2))
+        clock.advance()
+        #expect(await nextSleep() == .seconds(3))
+        await stop(running)
+    }
+
+    @Test func neverRepublishesTheStateItIsAlreadyIn() async {
+        let client = client(discovery: [nil, Self.first])
+        var states = client.states().makeAsyncIterator()
+        #expect(await states.next() == .searching)
+        let searching = start(client)
+        #expect(await nextSleep() == LCUClient.searchInterval)
+
+        // Cancelled while searching, the run ends in `.searching` again: no new state.
+        await stop(searching)
+        let running = start(client)
+
+        #expect(await Self.next(2, of: &states) == [.connecting, .connected])
+        await stop(running)
+    }
+
     @Test func verifiesTheNewCredentialsWhenTheyChangeDuringVerification() async {
         let rest = FakeREST([Self.first.port: [FakeREST.notFound], Self.second.port: [FakeREST.ok]])
         let sockets = FakeSockets([FakeWAMPSocket()])
