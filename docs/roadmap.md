@@ -179,7 +179,7 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P3-05 | Typed gameflow-session (queue) and pickable/bannable champion endpoints | lcu | `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Gameflow.swift`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift`, `MitoKit/Sources/LCUKit/Gameflow/Session/**`, `fixtures/lcu/cases/gameflow-lobby/session-*`, `fixtures/lcu/cases/champ-select/pickable-*` | §10.6, §11.1 | P3-01 | merged |
 | P3-04 | Champ-select view and model with 150 ms debounce | champ-select | `Mito/Features/ChampSelect/**` | §12.4, §20.1 | P3-02, P3-05, P2-07 | merged |
 | P3-06 | Shared `GameDataCatalog`/`IconLoader` slot in `AppModel`; show `ChampSelectView` in "Ahora" during champ select; open the window on champ select when `showWindowOnChampSelect` is on | shell (serial) + gameflow `NowView` (authorized) | `Mito/App/**`, `Mito/MitoApp.swift`, `Mito/Scenes/**`, `MitoTests/App/**`, `Mito/Features/Gameflow/NowView.swift` | §9.3, §20.1 | P3-04, P2-04 | todo |
-| P3-07 | Typed game-version endpoint (`/lol-patch/v1/game-version`) mapped to `Patch` | lcu | `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Patch.swift`, `MitoKit/Tests/LCUKitTests/Endpoints/Patch/**`, `fixtures/lcu/cases/session/game-version*` | §10.6 | P1-02 | ready |
+| P3-07 | Typed game-version endpoint (`/lol-patch/v1/game-version`) mapped to `Patch` | lcu | `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Patch.swift`, `MitoKit/Tests/LCUKitTests/Endpoints/Patch/**`, `fixtures/lcu/cases/session/game-version*` | §10.6 | P1-02 | in progress |
 
 ## P4 — Importer with fixed data
 
@@ -192,7 +192,7 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P4-04 | Item set importer that keeps the user's sets | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/ItemSets/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ItemSets.swift`, `fixtures/lcu/cases/item-sets/**` | §13.4, lcu-endpoints: Item sets | P4-00 | merged |
 | P4-05 | Summoner spell importer | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/Spells/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift` | §13.3 | P0-C | merged |
 | P4-06 | `LoadoutImporter` and `ImportReport` | import | `MitoKit/Sources/MitoImport/*.swift` | §13.5 | P4-03, P4-04, P4-05 | merged |
-| P4-07 | Import feature: trigger on lock, toast, "Importación" tab, hand-written builds for 5 champions | import-ui | `Mito/Features/Import/**` | §13.1, §21.4 | P4-06, P3-02, P3-05, P2-07, P2-04 | todo |
+| P4-07 | Import feature: trigger on lock, toast, "Importación" tab, hand-written builds for 5 champions | import-ui | `Mito/Features/Import/**` | §13.1, §21.4 | P4-06, P3-02, P3-05, P2-07, P2-04 | in progress |
 | P4-08 | Data Dragon transport for the icon fallback (HTTPS to `ddragon.leagueoflegends.com` only) | store | `MitoKit/Sources/MitoStore/DataDragon/**` | §9.2, §16.1 | P4-02 | merged |
 
 ## P5 — Pipeline MVP
