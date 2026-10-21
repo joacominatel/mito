@@ -446,17 +446,19 @@ final class AppModel {
     let profile: ProfileModel
     let onboarding: OnboardingModel
     let overrides: OverridesModel
-    var settings: MitoSettings
+    let settingsModel: SettingsModel
+    var settings: MitoSettings { get set }  // reenvía a settingsModel.value
 
     init(
         connection: any LCUConnection,
         lifecycle: @escaping @Sendable () async -> Void = {},
-        settings: MitoSettings = MitoSettings(), ...
+        settings: SettingsModel = SettingsModel(), ...
     )
 
     var menuBarSymbol: String { gameflow.menuBarSymbol ?? connection.menuBarSymbol }
 
     func start() async {
+        await settingsModel.load()
         await withDiscardingTaskGroup { group in
             group.addTask { await self.lifecycle() }
             group.addTask { await self.connection.run() }
@@ -482,6 +484,20 @@ final class AppModel {
   conexión (§10.2). En tests y previews el default `{}` termina al instante.
 - Las vistas leen `@Environment(AppModel.self)` y toman el slot que necesitan; los call sites
   del shell no cambian cuando una feature crece.
+- **Settings** (§21): `SettingsModel` (en `App/`) tiene el `MitoSettings` vivo. `MitoApp` le
+  pasa `SettingsStore()` (ruta por bundle ID); bajo XCTest no le pasa nada, así los tests nunca
+  tocan el archivo real, y sin persistencia (previews, tests) no carga ni guarda. `start()`
+  carga primero y recién después arranca los slots; hasta entonces se ven los defaults, y un
+  cambio hecho antes de que termine la carga se pisa y no se guarda. Cargar no reescribe el
+  archivo. Cada cambio posterior de `app.settings` agenda un guardado con debounce de 300 ms
+  (gana el último valor) que corre en el actor `SettingsStore`; si falla, `SettingsStore` lo
+  loguea sin el contenido y el valor en memoria queda.
+- **Lectura desde las features:** `GameflowModel`, `ChampSelectModel` e `ImportModel` reciben en
+  su `init` un closure `@MainActor` que devuelve su parte actual (`GameSettings`,
+  `ChampSelectSettings`, `ImportSettings`) y lo exponen como `settings()`; no dependen de
+  `AppModel`. El default devuelve los defaults, para previews y tests. Las pestañas de
+  Settings escriben con bindings a `app.settings` desde `@Environment(AppModel.self)`, y eso
+  dispara el guardado.
 - En Debug, `-MitoLCULockfilePath <ruta>` (argumento de lanzamiento o UserDefaults) va a
   apuntar el descubrimiento a `tools/lcu-mock`; por ahora `AppModel` solo lo guarda y
   `LCUClient` no lo recibe (P2-06).
@@ -2584,7 +2600,7 @@ no comparten datos (§24). Cada guardado es atómico y no se intercalan: gana el
 cargar, un archivo ausente da los defaults y una clave faltante o desconocida se tolera; un
 archivo corrupto o ilegible también da los defaults, pero antes se mueve a
 `settings.corrupt-<timestamp>.json` en la misma carpeta, nunca se borra. El contenido nunca se
-loguea.
+loguea. `AppModel` lo carga al arrancar y guarda cada cambio con debounce (§9.3).
 
 ### 21.1 General
 

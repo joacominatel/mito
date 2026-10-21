@@ -18,7 +18,7 @@ final class AppModel {
     let profile: ProfileModel
     let onboarding: OnboardingModel
     let overrides: OverridesModel
-    var settings: MitoSettings
+    let settingsModel: SettingsModel
 
     private let lifecycle: @Sendable () async -> Void
 
@@ -30,23 +30,29 @@ final class AppModel {
     init(
         connection lcu: any LCUConnection,
         lifecycle: @escaping @Sendable () async -> Void = {},
-        settings: MitoSettings = MitoSettings(),
+        settings: SettingsModel = SettingsModel(),
         defaults: UserDefaults = .standard
     ) {
         connection = ConnectionModel(connection: lcu)
-        gameflow = GameflowModel(connection: lcu)
-        champSelect = ChampSelectModel(connection: lcu)
-        importing = ImportModel(connection: lcu)
+        gameflow = GameflowModel(connection: lcu, settings: { settings.value.game })
+        champSelect = ChampSelectModel(connection: lcu, settings: { settings.value.champSelect })
+        importing = ImportModel(connection: lcu, settings: { settings.value.importing })
         champions = ChampionsModel()
         analysis = AnalysisModel()
         profile = ProfileModel(connection: lcu)
         onboarding = OnboardingModel(connection: lcu)
         overrides = OverridesModel()
         self.lifecycle = lifecycle
-        self.settings = settings
+        settingsModel = settings
         #if DEBUG
             lockfileOverridePath = defaults.string(forKey: Self.lockfileOverrideKey)
         #endif
+    }
+
+    /// Settings tabs bind here; every write is saved (§21).
+    var settings: MitoSettings {
+        get { settingsModel.value }
+        set { settingsModel.value = newValue }
     }
 
     /// §22.4: gameflow overrides the connection symbol once it knows the phase.
@@ -54,7 +60,9 @@ final class AppModel {
         gameflow.menuBarSymbol ?? connection.menuBarSymbol
     }
 
+    /// Slots start once the persisted settings are in, so none acts on the defaults.
     func start() async {
+        await settingsModel.load()
         await withDiscardingTaskGroup { group in
             group.addTask { await self.lifecycle() }
             group.addTask { await self.connection.run() }
