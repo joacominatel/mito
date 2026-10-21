@@ -1,0 +1,45 @@
+{
+  "accountId": 1111111111,
+  "timestamp": 1760000000000,
+  "futureTopLevelField": { "version": 2 },
+  "itemSets": [
+    {
+      "uid": "0f9c2a4e-0000-4000-8000-000000000001",
+      "title": "Test build A",
+      "type": "custom",
+      "map": "SR",
+      "mode": "any",
+      "associatedChampions": [103],
+      "associatedMaps": [11, 12],
+      "sortrank": 3,
+      "startedFrom": "blank",
+      "preferredItemSlots": [{ "id": "3020", "preferredItemSlot": 1 }],
+      "blocks": [
+        {
+          "type": "Start",
+          "hideIfSummonerSpell": "",
+          "showIfSummonerSpell": "SummonerSmite",
+          "items": [{ "id": "1056", "count": 1, "futureItemField": true }],
+          "futureBlockField": [1, 2.5, null, "x"]
+        }
+      ],
+      "futureSetField": { "nested": { "flag": false, "ratio": 0.125 } },
+      "largeIntegerField": 9007199254740993,
+      "nullField": null
+    },
+    {
+      "uid": "0f9c2a4e-0000-4000-8000-000000000002",
+      "title": "Test build B",
+      "type": "custom",
+      "map": "any",
+      "mode": "any",
+      "associatedChampions": [],
+      "associatedMaps": [],
+      "sortrank": 0,
+      "startedFrom": "blank",
+      "preferredItemSlots": [],
+      "blocks": [],
+      "notes": "Unicode survives: ñ · 🛡"
+    }
+  ]
+}

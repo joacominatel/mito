@@ -1219,9 +1219,23 @@ Flash 4, Ignite 14, Teleport 12, Smite 11, Exhaust 3, Heal 7, Barrier 21, Cleans
 
 - Se envía la lista **completa** de sets del usuario: hay que leer, quitar los sets de
   Mito, agregar el nuevo y hacer `PUT`. Nunca pisar los sets propios del usuario.
-- Los sets de Mito se identifican por `title` con prefijo `Mito ·` y `uid` con prefijo
-  `mito-`.
-- Opción "limpiar sets de Mito viejos": dejar solo el del campeón actual o uno por campeón.
+- Lo hace `ItemSetImporter` en `MitoImport` con `LCUEndpoint.itemSets(summonerId:)` (GET) y
+  `LCUEndpoint.replaceItemSets(_:summonerId:)` (PUT); el `summonerId` sale de
+  `CurrentSummoner`. Devuelve `ItemSetImportResult`: `.applied`, `.disabled` (si
+  `importItemSets` está apagado no se envía nada) o `.failed(LCUError)`, sin reintentos.
+- La lista se modela como objetos JSON crudos (`LCUItemSets`): cada set que no es de Mito
+  vuelve en el `PUT` tal cual llegó, con los campos que Mito no modela, en el mismo orden.
+  Lo mismo los miembros de primer nivel (`accountId`, `timestamp`, …). Si el `GET` falla o
+  la lista no se puede leer entera, **no se hace `PUT`**: una lista parcial borraría los
+  sets del usuario.
+- Los sets de Mito se identifican por `title` con prefijo `Mito ·` **y** `uid` con prefijo
+  `mito-`; hacen falta los dos. Un título que solo contiene "Mito" es del usuario.
+- Opción "limpiar sets de Mito viejos" (`cleanOldItemSets`): prendida, se quitan todos los
+  sets de Mito y queda solo el del campeón actual; apagada, se quitan solo los sets de Mito
+  cuyo `associatedChampions` incluye al campeón actual, así queda uno por campeón.
+- El set nuevo va al final de la lista, con `uid` `mito-<championId>` y `title`
+  `Mito · <texto>` (el texto lo arma quien llama). Pendiente: validar los ítems contra
+  `items.json` del parche antes de enviar.
 
 Estructura:
 
@@ -1231,7 +1245,7 @@ Estructura:
   "timestamp": 1760000000000,
   "itemSets": [
     {
-      "uid": "mito-103-middle",
+      "uid": "mito-103",
       "title": "Mito · Ahri MID vs Zed",
       "type": "custom",
       "map": "SR",
