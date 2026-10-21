@@ -2195,6 +2195,13 @@ El cliente no clasifica ítems: el `Item` que arma `GameDataCatalog` desde `item
 `itemClass` en `nil`, y la clase se cruza desde `item_classes` del snapshot cuando está
 disponible (§16.2).
 
+Botas tier 3 (Spellslinger's, Crimson Lucidity, Gunmetal y demás mejoras tardías): siguen
+clasificadas como `boots_t2` en `item_classes`, pero al leer ítems finales (`item_vs_profile`,
+incluida la línea base `'any'`, y el fallback de core y botas) el pipeline las cuenta como su
+botas tier 2 de origen, la que se compra y la que champ select puede recomendar. Así ítems
+finales y timeline hablan de los mismos ids. Decidido antes de publicar el primer snapshot,
+sin subir `schema_version`; un cambio así después de publicar sí lo sube.
+
 ---
 
 ## 17. Modelo de datos del snapshot
