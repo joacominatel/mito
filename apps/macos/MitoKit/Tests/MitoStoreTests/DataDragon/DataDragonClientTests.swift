@@ -47,6 +47,15 @@ struct DataDragonClientTests {
         #expect(received[0].httpMethod == "GET")
     }
 
+    @Test func anUpperCaseHostIsTheSameHost() async throws {
+        let url = try #require(
+            URL(string: "https://DDragon.LeagueOfLegends.com/cdn/16.21.1/img/x.png"))
+        let bytes = Data([1, 2, 3])
+        #expect(
+            try await client(replying: .response(status: 200, body: bytes)).data(from: url) == bytes
+        )
+    }
+
     @Test(arguments: [404, 500])
     func aNon2xxStatusThrowsWithTheStatus(_ status: Int) async throws {
         let client = client(replying: .response(status: status, body: Data("nope".utf8)))

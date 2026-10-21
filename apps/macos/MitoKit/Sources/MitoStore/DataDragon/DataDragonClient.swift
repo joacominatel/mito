@@ -48,7 +48,7 @@ public struct DataDragonClient: Sendable {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
             return false
         }
-        return components.scheme == "https" && components.percentEncodedHost == host
+        return components.scheme == "https" && components.percentEncodedHost?.lowercased() == host
             && components.port == nil && components.percentEncodedUser == nil
             && components.percentEncodedPassword == nil
     }

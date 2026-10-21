@@ -73,8 +73,9 @@ public struct PerkStyles: Decodable, Hashable, Sendable {
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             slot = PerkStyle.Slot(
+                // A row without a type is skipped, as for perkstyles.json (§16.1).
                 kind: PerkStyle.Slot.Kind(
-                    lcuType: (try? container.decodeIfPresent(String.self, forKey: .type)) ?? ""),
+                    lcuType: try container.decode(String.self, forKey: .type)),
                 perks: container.decodeLossyArray(Int.self, forKey: .perks).map(PerkID.init))
         }
     }

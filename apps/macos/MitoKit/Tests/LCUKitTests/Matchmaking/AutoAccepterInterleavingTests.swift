@@ -155,9 +155,7 @@ struct AutoAccepterInterleavingTests {
         recheck.open()
         await run.value
 
-        withKnownIssue("AutoAccepter checks cancellation only in the delay, not before the POST") {
-            #expect(stepped.writes.isEmpty)
-            #expect(stepped.reports.values.isEmpty)
-        }
+        #expect(stepped.writes.isEmpty)
+        #expect(stepped.reports.values.isEmpty)
     }
 }

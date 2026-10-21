@@ -143,7 +143,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| FX-01 | MitoKit audit fixes: cancelled accepter, typeless perk rows, Data Dragon host case | lcu + store | `LCUKit/Matchmaking/AutoAccepter.swift`, `LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `MitoStore/DataDragon/DataDragonClient.swift` and their tests | — | — | in progress |
+| FX-01 | MitoKit audit fixes: cancelled accepter, typeless perk rows, Data Dragon host case | lcu + store | `LCUKit/Matchmaking/AutoAccepter.swift`, `LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `MitoStore/DataDragon/DataDragonClient.swift` and their tests | — | — | merged |
 
 ## P1 — Connection
 

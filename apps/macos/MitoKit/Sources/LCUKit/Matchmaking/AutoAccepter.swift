@@ -148,6 +148,7 @@ private actor AutoAcceptSession {
             return await settle(token, .skipped(reason))
         }
 
+        guard !Task.isCancelled else { return }
         // Committed: from here on nothing withdraws this accept.
         waiting = nil
         switch await send(.acceptReadyCheck) {

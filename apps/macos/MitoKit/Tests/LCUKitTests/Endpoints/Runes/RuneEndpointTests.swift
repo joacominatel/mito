@@ -51,15 +51,14 @@ struct PerkStylesDecodingTests {
             ])
     }
 
-    @Test func anUnrecognizedSlotTypeIsKeptAsUnknown() throws {
+    @Test func anUnrecognizedSlotTypeIsKeptAsUnknownAndAMissingOneIsSkipped() throws {
         let body =
             #"[{"id": 1, "slots": [{"type": "kSomethingNew", "perks": [7]}, {"perks": [8]}]}]"#
         let styles = try LCUEndpoint.perkStyles.decode(Data(body.utf8)).styles
 
         #expect(
             styles.first?.slots == [
-                .init(kind: .unknown("kSomethingNew"), perks: ids([7])),
-                .init(kind: .unknown(""), perks: ids([8])),
+                .init(kind: .unknown("kSomethingNew"), perks: ids([7]))
             ])
     }
 
