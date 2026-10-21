@@ -136,7 +136,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | MD-FX | Contract fixture snapshot (`uv run mito-data fixture`) | mito-data | — | — | MD0 | done (mito-data ef55706, `fixtures/snapshot/`) |
 | KEY | Personal API key from the Riot Developer Portal | CEO | — | — | — | development key in the Keychain (expires every 24 h); personal key required before publishing, application pending |
 | MD5 | `mito-data` pipeline MVP: crawl, normalize, P5 aggregations, export, R2 publish | mito-data | — | — | MD0, KEY | in progress (publishes to a local R2-shaped directory until the R2 account exists) |
-| MD7 | `mito-data` Phase 7 aggregations, curated flags, `meta.profile_rules` | mito-data | — | — | MD5 | todo |
+| MD7 | `mito-data` Phase 7 aggregations, curated flags, `meta.profile_rules` | mito-data | — | — | MD5 | in progress (Phase 7 fixture first) |
 | MD-tips | Curated es-AR tips file published by `mito-data` | mito-data | — | — | MD5 | todo |
 
 ## Fixes
@@ -174,7 +174,7 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P2-03 | Settings persistence in Application Support, named from the bundle id | store | `MitoKit/Sources/MitoStore/Settings/**` | §21 (intro) | P0-C | merged |
 | P2-04 | Gameflow feature: menu section, notification, "Partida" settings tab | gameflow (+ shell notification poster, authorized) | `Mito/Features/Gameflow/**`, `MitoTests/Features/Gameflow/**`, `Mito/App/MitoNotification.swift` | §21.2, §22.5 | P2-01, P2-02, P2-07, P3-05 | merged |
 | P2-05 | `tools/lcu-mock` with synthetic test scenarios; the recorded ready-check scenario follows Q3 | tools-lcu-mock | `tools/lcu-mock/**` | §23.1 | P1-07 | merged |
-| P2-06 | Debug lockfile override (`-MitoLCULockfilePath`) on `LCUClient` and in `AppModel`, to point discovery at `tools/lcu-mock` | lcu + shell (serial) | `MitoKit/Sources/LCUKit/Connection/**`, `Mito/App/**` | §9.3, §10.2 | P1-08, P2-05 | todo |
+| P2-06 | Debug lockfile override (`-MitoLCULockfilePath`) on `LCUClient` and in `AppModel`, to point discovery at `tools/lcu-mock` | lcu + shell (serial) | `MitoKit/Sources/LCUKit/Connection/**`, `Mito/App/**` | §9.3, §10.2 | P1-08, P2-05 | in progress |
 | P2-07 | Load and save `MitoSettings` through `SettingsStore` in `AppModel`; give feature models read access to the current settings | shell (serial) | `Mito/App/**`, `Mito/MitoApp.swift`, `MitoTests/App/**` | §9.3, §21 | P2-03 | merged |
 | P2-08 | "Solo notificar" (§11.3): when a ready check is not auto-accepted and `notifyMatchFound` is on, post "Partida encontrada" | gameflow | `Mito/Features/Gameflow/**`, `MitoTests/Features/Gameflow/**` | §11.3, §22.5 | P2-04 | merged |
 
