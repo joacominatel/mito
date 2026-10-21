@@ -214,7 +214,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 | --- | --- | --- | --- | --- | --- | --- |
 | P5-01 | Bring in the snapshot fixture from `mito-data` | store (serial, snapshot contract) | `fixtures/snapshot/**` | §17 | MD-FX | merged |
 | P5-02 | Refresh the contract fixture to mito-data `74df9cf` (Udyr 4-letter max order, §14.12 loadout rules, current rune trees), add Inspiration to the recorded-shape styles case, and expose the `champ_role_stats` kills/deaths/assists/cs/minutes sums in `ChampionRoleStats` and the reader (§19.2) | store + core (serial, snapshot contract) | `fixtures/snapshot/**`, `fixtures/lcu/cases/runes/**`, `MitoKit/Sources/MitoCore/Stats/ChampionRoleStats.swift`, `MitoKit/Sources/MitoStore/Snapshot/**`, `MitoKit/Tests/**`, `MitoTests/**` | §17, §19.2 | P6-06 | merged |
-| P5-03 | Refresh the contract fixture to mito-data `91d57de` (no later layer repeats the core, final-item rate ≥ timeline core share, tier-3 boots fold) and update fixture-based tests | store (serial, snapshot contract) + tests | `fixtures/snapshot/**`, fixture-based tests | §17 | P7-02 | todo |
+| P5-03 | Refresh the contract fixture to mito-data `91d57de` (no later layer repeats the core, final-item rate ≥ timeline core share, tier-3 boots fold) and update fixture-based tests | store (serial, snapshot contract) + tests | `fixtures/snapshot/**`, fixture-based tests | §17 | P7-04, P7-06 | todo |
 
 ## P6 — The app consumes the snapshot
 
@@ -239,7 +239,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 | P7-05 | Ban score | engine | `MitoKit/Sources/MitoEngine/Ban/**` | §18.5 | P7-00 | merged |
 | P7-06 | Matchup-adapted runes, items, and spells | engine | `MitoKit/Sources/MitoEngine/Loadout/**` | §18.6–§18.8 | P7-03, P6-04 | in progress |
 | P7-07 | Recommendations UI, `ReasonRow`, recommended pick in the menu | champ-select + design | `Mito/Features/ChampSelect/**`, `Mito/DesignSystem/**` | §20.1, §22.3 | P7-00, P7-04 | todo |
-| P7-08 | Power curve (§18.4): `duration_curves` accessor in `StatsProvider` + reader + `team_early` and the `powerCurve` reason in comp fit | core + store + engine (serial, contract) | `MitoKit/Sources/MitoCore/**`, `MitoKit/Sources/MitoStore/Snapshot/**`, `MitoKit/Sources/MitoEngine/Composition/**`, tests | §17, §18.4 | P7-02, P7-03 | todo |
+| P7-08 | Contract gaps: `duration_curves` and `item_classes` (class, antiheal) accessors in `StatsProvider` + reader; power curve (`team_early`, `powerCurve` reason) in comp fit; antiheal rule wired to `item_classes` | core + store + engine (serial, contract) | `MitoKit/Sources/MitoCore/**`, `MitoKit/Sources/MitoStore/Snapshot/**`, `MitoKit/Sources/MitoEngine/Composition/**`, tests | §17, §18.4 | P7-02, P7-03 | todo |
 
 ## P8 — Personal layer
 
