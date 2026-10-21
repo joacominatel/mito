@@ -677,24 +677,35 @@ Suscripciones de v1:
 | `OnJsonApiEvent_lol-lobby_v2_lobby` | Estado del lobby y roles asignados |
 | `OnJsonApiEvent_lol-summoner_v1_current-summoner` | Cambio de cuenta |
 
+Stream (`LCUKit/Events/Stream/`, interno al módulo): `LCUEventStream` abre un socket a
+`wss://127.0.0.1:<port>/` con `Authorization: Basic base64("riot:<token>")` y
+`Sec-WebSocket-Protocol: wamp`, y reusa el `LCUTrustDelegate` de §10.3 (no hay un segundo
+camino de trust). El socket queda detrás de un seam interno (`WAMPSocket`: enviar un frame de
+texto, recibir el próximo, cerrar) para que los tests usen un socket en memoria.
+
+- **Un stream por suscriptor:** `events(_ topics:)` devuelve un `AsyncStream<LCUEvent>` propio
+  que recibe solo los eventos de esos topics, como pide `LCUConnection.events(_:)`.
+- **Suscripciones por conteo:** el socket está suscripto a la unión de los topics en uso. Un
+  topic manda `[5, …]` cuando aparece su primer suscriptor y `[6, …]` cuando se va el último;
+  dos suscriptores que comparten un topic generan un solo subscribe. Los frames salen por una
+  cola FIFO, así que un subscribe y un unsubscribe del mismo topic llegan en orden.
+- **Liberación:** cancelar la tarea que itera un stream, o soltar el stream, libera sus topics.
+  Después de eso no le llega ningún evento.
+- **Buffer `.unbounded`:** `yield` nunca bloquea al lector del socket y no se pierde ningún
+  cambio de fase; cinco topics puntuales son poco volumen.
+- **Ciclo de vida:** `run()` maneja el socket (lector y escritor) y vuelve cuando el socket se
+  cierra o falla, cuando falla un envío, o cuando se cancela la tarea que lo llama. Al volver,
+  todos los streams abiertos terminan limpios y la instancia queda gastada: `events(_:)` devuelve
+  un stream ya terminado. Reconectar es crear otra instancia; eso lo decide el `LCUClient` de
+  P1-05 (§10.2).
+- **Privacidad:** no se loguean frames, payloads ni el token.
+
 ```swift
-func events() -> AsyncStream<LCUEvent> {
-    AsyncStream { continuation in
-        Task {
-            var req = URLRequest(url: URL(string: "wss://127.0.0.1:\(port)/")!)
-            req.setValue(authHeader, forHTTPHeaderField: "Authorization")
-            req.setValue("wamp", forHTTPHeaderField: "Sec-WebSocket-Protocol")
-            let ws = session.webSocketTask(with: req)
-            ws.resume()
-            for topic in Self.topics {
-                try await ws.send(.string(#"[5,"\#(topic)"]"#))
-            }
-            while true {
-                let msg = try await ws.receive()
-                if let event = LCUEvent.parse(msg) { continuation.yield(event) }
-            }
-        }
-    }
+final class LCUEventStream: Sendable {
+    init(credentials: LCUCredentials, configuration: URLSessionConfiguration = .ephemeral)
+        throws(LCUError)
+    func events(_ topics: Set<LCUTopic>) -> AsyncStream<LCUEvent>
+    func run() async
 }
 ```
 
