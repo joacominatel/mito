@@ -127,6 +127,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | Q2 | Create the Cloudflare R2 account and the `mito-data` remote repository | MD5 publish, mito-data CI | 2026-10-21 |
 | Q3 | Record LCU fixtures with `tools/lcu-recorder` (`champ-select`, `ready-check`, `lobby-to-game`) | verifying every LCU field name; P2-05 mock scenarios | 2026-10-21 |
 | Q4 | Menu item wording: "Settings…" (§22.4) or the macOS Spanish "Ajustes…" | nothing; "Settings…" stays until answered | 2026-10-20 |
+| Q5 | Generate the Sparkle EdDSA key pair (`generate_keys`, private key stays in your Keychain) and choose where the appcast is hosted (R2 with the snapshots?) | turning updates on in a Release; P10-01 ships with the updater off until the public key and feed URL are set | 2026-10-21 |
 
 ## External deliveries
 
