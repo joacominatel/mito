@@ -1401,7 +1401,8 @@ Casos borde, todos deterministas:
 (`ChampSelectSession.draftContext`): el slot del jugador local cuenta como lockeado solo con
 una acción `pick` completada (o sin acciones de pick para su celda); su hover cuenta solo con
 `importOnHover`. Cada campeón se importa **una vez por champ select**: un hover que ya importó
-no se repite al lockear, y el re-import queda para la Fase 7. Un evento `Delete` de la sesión
+no se repite al lockear. El re-import (rival revelado después, composición que cambia) no está
+implementado: el import usa el rival y los rivales que se conocen en ese momento. Un evento `Delete` de la sesión
 (fin del champ select) o una desconexión lo resetea, junto con cualquier confirmación
 pendiente. Una sesión que no se puede decodificar se ignora.
 
@@ -1418,8 +1419,30 @@ pendiente. Una sesión que no se puede decodificar se ignora.
   es el rol con más `roleGames` de ese campeón en el snapshot (empate: el primero en
   `Role.allCases`), y si no tiene ninguno no se importa nada ni se avisa. Tampoco se avisa si
   el campeón no tiene datos en ese rol (las tres partes vacías). Los bloques del item set
-  llegan titulados con el `BuildLayer` y la app los traduce (§13.4) antes de dárselos a
-  `LoadoutImporter`. El skill order no se importa (el cliente no tiene API).
+  llegan titulados con el `BuildLayer` (o `situational`) y la app los traduce (§13.4) antes de
+  dárselos a `LoadoutImporter`. El skill order no se importa (el cliente no tiene API).
+- **Loadout adaptado (P7-10).** Con el mismo rol, `ImportModel` arma también
+  `LoadoutSelection.adapted(for:role:opponent:enemyProfile:enemies:stats:)` (§18.6–§18.8) con
+  la sesión que ya tiene, y esa es la build que se importa por defecto:
+  - **Rival de lane** (`ImportModel.laneOpponent`): el rival lockeado con ese rol asignado; si
+    no hay, entre los rivales lockeados sin rol, el de mayor `roleProbabilities[rol]` de
+    `RoleInference` (§12.3, con los roles asignados de rivales como ocupados), solo si esa
+    probabilidad es **≥ 0,5** (`minimumLaneOdds`). Debajo de 0,5 la adivinanza es una moneda al
+    aire: se pasa `nil` y la build se adapta solo al perfil (no se mezclan matchups ponderados
+    como en el score de pick). Un rol ocupado por un rival que todavía no lockeó no tiene rival.
+    En el fixture, Zed solo (44 % MIDDLE) no cuenta; Zed con Lee Sin (solo JUNGLE) sí.
+  - **Perfil rival**: `Composition.enemyProfile(in:stats:)` (§18.4) sobre la sesión.
+  - **Rivales**: los campeones rivales lockeados, para los flags de §18.7.
+  - El rival también va en la notificación (`.loadoutImported(champion:opponent:)`); el título
+    de la página y del set sigue siendo `Ahri MID`, sin "vs Zed".
+  - **Toast.** Cada fila cuya parte salió adaptada suma un marcador corto en una sola fila:
+    "· vs Zed" (`adaptedToOpponent`), "· vs mucho AD" (`adaptedToProfile`; también mucho AP,
+    mucho CC y daño mixto), y en ítems además cada flag ("· Morellonomicon: 2 rivales con
+    curación alta") y cada situacional ("· Zhonya vs mucho AD"), sin repetidos y en el orden de
+    `Loadout.explanation`. Los nombres salen de `GameDataCatalog` (o el ID sin catálogo). Como
+    "· muestra baja", solo si la recomendación quedó en el cliente o espera confirmación; una
+    parte que salió del override o de la general no lleva marcador. "· muestra baja" usa el
+    `SampleLevel` de la build que se mandó en esa parte (general o adaptada).
 - **Muestra baja.** `GeneralLoadout.sampleLevels` da un `SampleLevel` por parte (para los
   ítems, el bloque más débil); cada fila del toast cuya parte quedó por debajo de `reliable`
   (§18.2) suma "· muestra baja", solo si la recomendación quedó en el cliente o espera
@@ -1437,19 +1460,20 @@ pendiente. Una sesión que no se puede decodificar se ignora.
   - **Runas.** `.fixed` manda `fixedPage` por el importador de siempre, que la valida contra
     los estilos del cliente (§13.2): si ya no es válida no se envía, no se cae a la general, y
     la fila dice por qué ("Página inválida (una rama ya no existe), no se envió"). `.general`
-    manda la página general del motor, diga lo que diga el modo global. `.adaptive` (el default
-    del editor, "sin preferencia"), `.unknown` o sin override siguen el modo global:
-    `fixedPerChampion` usa el `fixedPage` del override si hay uno guardado y, si no, la general,
-    y lo dice; `adaptive` y `general` mandan la página general (el adaptativo por matchup es
-    Fase 7 y hasta entonces se comporta como general).
+    manda la página **general** del motor (`opp_id = 0`, nunca la adaptada), diga lo que diga
+    el modo global. `.adaptive` (el default del editor, "sin preferencia"), `.unknown` o sin
+    override siguen el modo global: `fixedPerChampion` usa el `fixedPage` del override si hay
+    uno guardado y, si no, la general, y lo dice; `general` manda la general; `adaptive` (el
+    default) manda la **adaptada** (P7-10: con la Fase 7 hecha, "adaptativo" significa lo que
+    dice).
   - **Spells.** `.fixed` manda `fixedSpells` con la misma regla de Flash D/F (§13.3);
-    `.recommended` y `.unknown`, el par del motor.
+    `.recommended` y `.unknown`, el par adaptado del motor.
   - **Ítems.** `.fixedSet` manda `fixedItems` como el set de Mito (título `Mito · Ahri MID`,
     uid `mito-<id>`, con los títulos de bloque del usuario); `.skip` no importa ningún set y
     **no borra** el set de Mito que ya exista (no se lee ni se escribe `/lol-item-sets`);
-    `.recommended` y `.unknown`, la build del motor.
+    `.recommended` y `.unknown`, la build adaptada del motor.
   - Un modo fijo sin valor guardado (`fixedPage`, `fixedSpells` o `fixedItems` en `nil`) usa la
-    parte general y lo dice.
+    parte **general** (no la adaptada, así el aviso dice la verdad) y lo dice.
 
   Cada fila del toast cuya parte salió del override suma "· override" (página, spells o set
   fijos, o "No se importan" para un `.skip`); si se pidió una fija y no había, suma "· sin fija
@@ -1588,10 +1612,12 @@ Flash 4, Ignite 14, Teleport 12, Smite 11, Exhaust 3, Heal 7, Barrier 21, Cleans
 - El set nuevo va al final de la lista, con `uid` `mito-<championId>` y `title`
   `Mito · <texto>` (el texto lo arma quien llama). Pendiente: validar los ítems contra
   `items.json` del parche antes de enviar.
-- Bloques de la build general (P6-06), uno por `BuildLayer` elegido y en este orden: "Inicio"
+- Bloques de la build (P6-06), uno por `BuildLayer` elegido y en este orden: "Inicio"
   (`start`), "Núcleo" (`core`), "Botas" (`boots`), "4.º ítem" (`fourth`), "5.º ítem" (`fifth`)
-  y "6.º ítem" (`sixth`), del catálogo `Import.xcstrings`. Sin WR ni explicación en el título
-  todavía; el ejemplo de abajo muestra hacia dónde va.
+  y "6.º ítem" (`sixth`), del catálogo `Import.xcstrings`. La build adaptada (P7-10, §18.7)
+  puede sumar al final "Situacionales" (`LoadoutSelection.situationalBlockTitle`,
+  `situational`): flags y después situacionales. Sin WR ni explicación en el título todavía
+  (el motivo va en el toast, §13.1); el ejemplo de abajo muestra hacia dónde va.
 
 Estructura:
 
@@ -3377,10 +3403,12 @@ personal (§17), leído con `overrides()`, guardado con `save(_:)` y borrado con
 
 **En el import (P8-09, §13.1).** El importador lee el override de (campeón, rol) del rol que
 resolvió. Precedencia: los toggles globales de §21.4 ganan siempre (una parte apagada se
-saltea diga lo que diga el override); después el modo del override. En runas, "Página fija"
-manda su página y "General" la general, diga lo que diga el global; "Adaptativo" (el default del
-editor, sin preferencia), un modo desconocido o la falta de override siguen el modo global de
-§21.4, donde "Fijo por campeón" usa la página fija guardada. Fallbacks: una página fija que ya no valida no se envía y el toast
+saltea diga lo que diga el override); después el modo del override, sobre la build adaptada
+al rival y al perfil rival (P7-10). En runas, "Página fija" manda su página y "General" la
+general (nunca la adaptada), diga lo que diga el global; "Adaptativo" (el default del editor,
+sin preferencia), un modo desconocido o la falta de override siguen el modo global de §21.4:
+"Fijo por campeón" usa la página fija guardada, "General" la general y "Adaptativo" la
+adaptada. "Recomendado" en spells e ítems es el par y la build adaptados. Fallbacks: una página fija que ya no valida no se envía y el toast
 dice por qué, nunca se cae a la general en silencio; un modo fijo sin valor guardado, o
 "Fijo por campeón" sin página, usa la general y lo dice ("· sin fija guardada, va la
 general"). "No importar" ítems no envía set y deja el set de Mito que hubiera. Las partes que

@@ -98,7 +98,7 @@ struct ImportToastRow: View {
     let row: ImportOutcome.Row
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
             Image(systemName: row.symbol)
                 .foregroundStyle(row.tone.color)
                 .frame(width: 18)
@@ -114,6 +114,12 @@ struct ImportToastRow: View {
             if let origin = row.origin {
                 Text(origin.marker)
                     .foregroundStyle(.tertiary)
+            }
+            if let marker = row.adaptationMarker {
+                Text(verbatim: marker)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(2)
+                    .help(marker)
             }
         }
         .font(.callout)
@@ -151,13 +157,14 @@ extension ImportOutcome {
     fileprivate static func preview(
         runes: StepResult = .applied, spells: StepResult = .applied, items: StepResult = .applied,
         itemsUnavailable: ItemsUnavailable? = nil, lowSample: Set<Part> = [],
-        origins: [Part: Origin] = [:], isMissingStats: Bool = false
+        origins: [Part: Origin] = [:], adaptations: [Part: [Adaptation]] = [:],
+        isMissingStats: Bool = false
     ) -> ImportOutcome {
         ImportOutcome(
             id: 1, champion: ChampionID(rawValue: 103), title: "Ahri MID",
             report: ImportReport(runes: runes, spells: spells, items: items),
             itemsUnavailable: itemsUnavailable, lowSample: lowSample, origins: origins,
-            isMissingStats: isMissingStats)
+            adaptations: adaptations, isMissingStats: isMissingStats)
     }
 }
 
@@ -176,6 +183,26 @@ private struct ToastPreview: View {
 
 #Preview("Muestra baja") {
     ToastPreview(outcome: .preview(lowSample: [.runes, .items]))
+}
+
+#Preview("Adaptado") {
+    ToastPreview(
+        outcome: .preview(
+            lowSample: [.items],
+            adaptations: [
+                .runes: [.opponent("Zed")], .spells: [.opponent("Zed")],
+                .items: [
+                    .opponent("Zed"),
+                    .countersFlag(item: "Morellonomicon", flag: .highHeal, enemies: 2),
+                    .situational(item: "Thornmail", profile: .heavyAD),
+                ],
+            ]))
+}
+
+#Preview("Adaptado al perfil") {
+    ToastPreview(
+        outcome: .preview(
+            adaptations: [.runes: [.profile(.heavyAD)], .items: [.profile(.heavyAD)]]))
 }
 
 #Preview("Sin estadísticas") {

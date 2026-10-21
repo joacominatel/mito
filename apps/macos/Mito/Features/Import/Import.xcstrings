@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
+    "%@ vs %@" : {
+      "comment" : "Import toast items marker: a situational item (first %@) that rises against the enemy team profile (second %@, such as 'mucho AD')."
+    },
+    "%@: %lld rivales con %@" : {
+      "comment" : "Import toast items marker: a situational item (first %@) added because %lld enemies carry a trait (last %@, such as 'curación alta')."
+    },
     "4.º ítem" : {
       "comment" : "Item set block shown in the League client: the fourth completed item."
     },
@@ -31,6 +37,9 @@
     "Botas" : {
       "comment" : "Item set block shown in the League client: boots."
     },
+    "CC dirigido" : {
+      "comment" : "Champion trait in the import toast, after 'N rivales con': point-and-click crowd control."
+    },
     "Cerrar" : {
       "comment" : "Import toast button (icon only, read by VoiceOver): dismiss the toast."
     },
@@ -45,9 +54,6 @@
     },
     "El cliente rechazó el cambio" : {
       "comment" : "Import toast row status: the League client returned an error."
-    },
-    "El modo adaptativo y el re-import llegan más adelante; por ahora el adaptativo importa la build general del parche." : {
-      "comment" : "Settings footer of the import timing section: adaptive runes and re-importing are not built yet."
     },
     "F" : {
       "comment" : "Flash position option: the F key."
@@ -142,6 +148,9 @@
     "Re-importar si cambia el rival" : {
       "comment" : "Settings toggle: import again when the lane opponent changes."
     },
+    "Re-importar si cambia el rival y no pisar cambios manuales llegan más adelante: hoy se importa una vez, con el rival que se conoce al lockear." : {
+      "comment" : "Settings footer of the import timing section: re-importing and keeping manual changes are not built yet; today the import happens once, with the lane opponent known at lock-in."
+    },
     "Reemplazar" : {
       "comment" : "Import confirmation button: overwrite the user's current rune page with Mito's."
     },
@@ -157,6 +166,9 @@
     "Sin recomendación" : {
       "comment" : "Import toast row status: Mito has nothing to import for this part."
     },
+    "Situacionales" : {
+      "comment" : "Item set block shown in the League client: situational items against the enemy team."
+    },
     "Spells" : {
       "comment" : "Import part name: summoner spells (toast row, Settings section header)."
     },
@@ -169,11 +181,35 @@
     "Ya estaban elegidos" : {
       "comment" : "Import toast row status for spells: the recommended spells were already selected."
     },
+    "autoataques" : {
+      "comment" : "Champion trait in the import toast, after 'N rivales con': relies on basic attacks."
+    },
+    "curación alta" : {
+      "comment" : "Champion trait in the import toast, after 'N rivales con': heals a lot."
+    },
+    "daño mixto" : {
+      "comment" : "Enemy team profile, short: physical and magic damage mixed. Shown after 'vs'."
+    },
+    "engage" : {
+      "comment" : "Champion trait in the import toast, after 'N rivales con': starts fights."
+    },
     "la runa %lld ya no va ahí" : {
       "comment" : "Reason a rune page is invalid, inside the toast row: %lld is the rune's position on the page (1 to 9)."
     },
     "las secundarias comparten fila" : {
       "comment" : "Reason a rune page is invalid, inside the toast row: the two secondary runes come from the same row."
+    },
+    "mucho AD" : {
+      "comment" : "Enemy team profile, short: mostly physical damage. Shown after 'vs'."
+    },
+    "mucho AP" : {
+      "comment" : "Enemy team profile, short: mostly magic damage. Shown after 'vs'."
+    },
+    "mucho CC" : {
+      "comment" : "Enemy team profile, short: a lot of crowd control. Shown after 'vs'."
+    },
+    "poke" : {
+      "comment" : "Champion trait in the import toast, after 'N rivales con': long-range harass."
     },
     "repite la rama" : {
       "comment" : "Reason a rune page is invalid, inside the toast row: primary and secondary trees are the same."
@@ -186,6 +222,9 @@
     },
     "una rama ya no existe" : {
       "comment" : "Reason a rune page is invalid, inside the toast row: the client no longer has one of its rune trees."
+    },
+    "vs %@" : {
+      "comment" : "Import toast row marker: the part was adapted to the lane opponent (%@ is the champion) or to the enemy team profile (%@ is a short profile such as 'mucho AD')."
     },
     "· muestra baja" : {
       "comment" : "Import toast row suffix: the imported recommendation rests on few games."

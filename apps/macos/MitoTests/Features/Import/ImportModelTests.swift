@@ -814,13 +814,15 @@ struct ImportOverrideTests {
         #expect(other.model.outcome?.rows.map(\.isLowSample) == [true, false, true])
     }
 
-    @Test func planLeavesTheGeneralLoadoutWithoutAnOverride() {
-        let general = Loadout(
+    @Test func planLeavesTheAdaptedLoadoutWithoutAnOverride() {
+        let general = Loadout(runes: nil, spells: nil, itemSet: nil, skillOrder: nil)
+        let adapted = Loadout(
             runes: fixedPage, spells: teleportAndFlash, itemSet: fixedItems, skillOrder: nil)
 
         #expect(
-            ImportModel.plan(general, override: nil, settings: ImportSettings())
-                == ImportModel.Plan(loadout: general))
+            ImportModel.plan(
+                general: general, adapted: adapted, override: nil, settings: ImportSettings())
+                == ImportModel.Plan(loadout: adapted))
     }
 }
 
@@ -1052,5 +1054,270 @@ struct ImportOverrideFallbackTests {
         let blocks = try #require(try harness.sentItemSet()?["blocks"] as? [[String: Any]])
         #expect(blocks.first?["type"] as? String == "Inicio")
         #expect(harness.model.outcome?.origins == [:])
+    }
+}
+
+private let darius = 122
+private let soraka = 16
+private let leeSin = 64
+private let ashe = 22
+
+/// Zed assigned MIDDLE; Darius TOP, Lee Sin JUNGLE, Ashe BOTTOM and Soraka UTILITY by inference
+/// make a heavy_ad and heavy_cc team, with two `high_heal` enemies.
+private let zedInAHeavyADTeam: [(champion: Int, position: String)] = [
+    (238, "middle"), (darius, ""), (soraka, ""), (leeSin, ""), (ashe, ""),
+]
+/// Darius TOP, Lee Sin JUNGLE, Ashe BOTTOM: heavy_ad and heavy_cc, nobody in MIDDLE.
+private let heavyADWithoutAMid: [(champion: Int, position: String)] = [
+    (darius, ""), (leeSin, ""), (ashe, ""),
+]
+/// Darius TOP, Soraka UTILITY, Ashe BOTTOM: mixed and heavy_cc, nobody in MIDDLE.
+private let mixedWithoutAMid: [(champion: Int, position: String)] = [
+    (darius, ""), (soraka, ""), (ashe, ""),
+]
+
+private let phaseRushPerks = [8229, 8226, 8210, 8237, 8304, 8347, 5007, 5008, 5011]
+private let electrocutePerks = [8112, 8143, 8140, 8135, 8345, 8347, 5008, 5008, 5011]
+
+/// One locked Ahri MID import against `enemies`, with the window in front.
+private func importAhri(
+    against enemies: [(champion: Int, position: String)],
+    settings: ImportSettings = ImportSettings(), overrides: [ChampionOverride] = [],
+    windowInFront: Bool = true
+) async throws -> Harness {
+    let harness = try Harness(
+        settings: settings, windowInFront: windowInFront, overrides: overrides)
+    let run = harness.start()
+    harness.connection.emit(
+        try ImportFixture.lockedSession(mySpells: [4, 12], enemies: enemies))
+    await harness.stop(run)
+    return harness
+}
+
+extension Harness {
+    fileprivate func sentBlocks() throws -> [(title: String?, items: [String])] {
+        let blocks = try #require(try sentItemSet()?["blocks"] as? [[String: Any]])
+        return blocks.map { block in
+            (
+                block["type"] as? String,
+                (block["items"] as? [[String: Any]] ?? []).compactMap { $0["id"] as? String }
+            )
+        }
+    }
+
+    fileprivate var markers: [String?] {
+        model.outcome?.rows.map(\.adaptationMarker) ?? []
+    }
+}
+
+/// §13.1 and §18.6–§18.8: the import sends the loadout adapted to the lane opponent and the
+/// enemy team.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportAdaptedLoadoutTests {
+    @Test func aKnownLaneOpponentSendsTheLoadoutAdaptedToIt() async throws {
+        let harness = try await importAhri(against: zedInAHeavyADTeam)
+
+        // Against Zed the page, the pair, start, core and boots come from his rows: the same
+        // content as the general ones in the fixture, so the markers tell them apart.
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
+        let blocks = try harness.sentBlocks()
+        #expect(
+            blocks.map(\.title) == [
+                "Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "Situacionales",
+            ])
+        #expect(blocks[2].items == ["3020"])
+        // Darius and Soraka heal: Morellonomicon.
+        #expect(blocks.last?.items == ["3165"])
+        #expect(
+            harness.markers == [
+                "· vs Zed", "· vs Zed", "· vs Zed · Morellonomicon: 2 rivales con curación alta",
+            ])
+        #expect(harness.model.outcome?.opponent == zed)
+    }
+
+    @Test func theNotificationNamesTheLaneOpponent() async throws {
+        let harness = try await importAhri(against: zedInAHeavyADTeam, windowInFront: false)
+
+        #expect(
+            harness.poster.posts.map(\.notification) == [
+                .loadoutImported(champion: ahri, opponent: zed)
+            ])
+    }
+
+    @Test func aHeavyADTeamWithoutALaneOpponentSendsTheProfileRunesAndBoots() async throws {
+        let harness = try await importAhri(against: heavyADWithoutAMid)
+
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        let blocks = try harness.sentBlocks()
+        #expect(blocks.map(\.title) == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem"])
+        // Plated Steelcaps rise 3× against heavy_ad.
+        #expect(blocks[2].items == ["3047"])
+        #expect(
+            harness.markers == ["· vs mucho AD · vs mucho CC", nil, "· vs mucho AD"])
+        #expect(harness.model.outcome?.opponent == nil)
+    }
+
+    @Test func aMixedTeamSendsTheProfilePageOverTheGeneralOne() async throws {
+        let harness = try await importAhri(against: mixedWithoutAMid)
+
+        // Electrocute wins over mixed and heavy_cc; the general page is Phase Rush.
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
+        #expect(
+            harness.markers == [
+                "· vs mucho CC · vs daño mixto", nil,
+                "· Morellonomicon: 2 rivales con curación alta",
+            ])
+    }
+
+    @Test func anOpponentInferredAtEvenOddsOrBetterCounts() async throws {
+        // Lee Sin plays only JUNGLE, which leaves Zed MIDDLE.
+        let harness = try await importAhri(against: [(238, ""), (leeSin, "")])
+
+        #expect(harness.model.outcome?.opponent == zed)
+        #expect(harness.markers.first == "· vs Zed")
+    }
+
+    @Test func anOpponentInferredBelowEvenOddsIsIgnored() async throws {
+        // Zed alone: 2,195 MIDDLE games of 4,941, 44 %.
+        let harness = try await importAhri(against: [(238, "")])
+
+        #expect(harness.model.outcome?.opponent == nil)
+        #expect(harness.markers == [nil, nil, nil])
+        #expect(try harness.sentBlocks().map(\.title).last == "5.º ítem")
+    }
+
+    @Test func noLockedEnemySendsTheGeneralLoadout() async throws {
+        let harness = try await importAhri(against: [])
+
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        #expect(try harness.sentBlocks().map(\.items)[2] == ["3020"])
+        #expect(harness.markers == [nil, nil, nil])
+    }
+
+    @Test func aPartLeftOutCarriesNoMarker() async throws {
+        let harness = try await importAhri(
+            against: zedInAHeavyADTeam, settings: ImportSettings(importRunes: false))
+
+        #expect(
+            harness.markers == [
+                nil, "· vs Zed", "· vs Zed · Morellonomicon: 2 rivales con curación alta",
+            ])
+    }
+
+    @Test func withoutASnapshotNothingIsImportedWhateverTheEnemies() async throws {
+        let harness = try Harness(windowInFront: true, stats: NoStats())
+        let run = harness.start()
+        harness.connection.emit(
+            try ImportFixture.lockedSession(enemies: zedInAHeavyADTeam))
+        await harness.stop(run)
+
+        #expect(harness.writes.isEmpty)
+        #expect(harness.model.outcome?.status == .noStats)
+    }
+}
+
+/// §13.1 and §21.5: overrides keep their precedence over the adapted loadout.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportAdaptedOverrideTests {
+    @Test func fixedChoicesBeatTheAdaptedOnes() async throws {
+        let harness = try await importAhri(
+            against: zedInAHeavyADTeam, overrides: [ahriOverride()])
+
+        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8100)
+        // Teleport + Flash, which the player already holds, instead of Ignite against Zed.
+        #expect(harness.model.outcome?.report.spells == .skipped(.alreadySelected))
+        #expect(try harness.sentBlocks().map(\.title) == ["Mi set"])
+        #expect(
+            harness.model.outcome?.origins == [
+                .runes: .override, .spells: .override, .items: .override,
+            ])
+        #expect(harness.markers == [nil, nil, nil])
+    }
+
+    @Test func aGeneralRuneOverrideSendsTheGeneralPage() async throws {
+        let harness = try await importAhri(
+            against: mixedWithoutAMid,
+            overrides: [
+                ahriOverride(runeMode: .general, spellMode: .recommended, itemMode: .recommended)
+            ])
+
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        #expect(harness.markers.first == .some(nil))
+        // Only the runes go general.
+        #expect(harness.markers.last == "· Morellonomicon: 2 rivales con curación alta")
+    }
+
+    @Test func theGeneralGlobalModeSendsTheGeneralPage() async throws {
+        let harness = try await importAhri(
+            against: mixedWithoutAMid, settings: ImportSettings(runeMode: .general),
+            overrides: [ahriOverride(runeMode: .adaptive)])
+
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        #expect(harness.model.outcome?.origins[.runes] == nil)
+    }
+
+    @Test func anAdaptiveOverrideUnderTheAdaptiveGlobalModeSendsTheAdaptedPage() async throws {
+        let harness = try await importAhri(
+            against: mixedWithoutAMid, overrides: [ahriOverride(runeMode: .adaptive)])
+
+        #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == electrocutePerks)
+        #expect(harness.markers.first == "· vs mucho CC · vs daño mixto")
+    }
+
+    @Test func aFixedModeWithNothingSavedSendsTheGeneralPart() async throws {
+        let harness = try await importAhri(
+            against: zedInAHeavyADTeam,
+            overrides: [ahriOverride(runeMode: .fixed, page: nil, spells: nil, items: nil)])
+
+        let blocks = try harness.sentBlocks()
+        #expect(blocks.map(\.title) == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem"])
+        #expect(
+            harness.model.outcome?.origins
+                == [.runes: .noFixedChoice, .spells: .noFixedChoice, .items: .noFixedChoice])
+        #expect(harness.markers == [nil, nil, nil])
+    }
+}
+
+/// §12.3: the lane opponent of the local player's role.
+struct ImportLaneOpponentTests {
+    private func slot(_ cell: Int, _ champion: Int?, _ role: Role? = nil) -> DraftSlot {
+        DraftSlot(
+            cellId: cell, champion: champion.map(ChampionID.init(rawValue:)), hover: nil,
+            role: role, roleConfidence: role == nil ? 0 : 1)
+    }
+
+    @Test func theEnemyAssignedToTheRoleIsTheOpponent() throws {
+        let stats = try SnapshotFixture.reader()
+
+        #expect(
+            ImportModel.laneOpponent(
+                among: [slot(5, darius), slot(6, 238, .middle)], in: .middle, stats: stats) == zed)
+    }
+
+    @Test func aRoleHeldByAnEnemyStillPickingHasNoOpponent() throws {
+        let stats = try SnapshotFixture.reader()
+
+        #expect(
+            ImportModel.laneOpponent(
+                among: [slot(5, 238), slot(6, nil, .middle)], in: .middle, stats: stats) == nil)
+    }
+
+    @Test func theLikeliestEnemyCountsFromEvenOdds() throws {
+        let stats = try SnapshotFixture.reader()
+
+        // Zed: 56 % JUNGLE, 44 % MIDDLE.
+        #expect(ImportModel.laneOpponent(among: [slot(5, 238)], in: .jungle, stats: stats) == zed)
+        #expect(ImportModel.laneOpponent(among: [slot(5, 238)], in: .middle, stats: stats) == nil)
+    }
+}
+
+/// §13.4: the engine's `situational` block gets its copy.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportBlockTitleTests {
+    @Test func theSituationalBlockIsTitledSituacionales() async throws {
+        let harness = try await importAhri(against: zedInAHeavyADTeam)
+
+        #expect(try harness.sentBlocks().last?.title == "Situacionales")
     }
 }

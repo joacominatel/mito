@@ -92,16 +92,20 @@ enum ImportFixture {
         LCUEndpoint.gameDataChampions.path: Data(
             #"[{"id": 103, "alias": "Ahri", "name": "Ahri"}, {"id": 238, "alias": "Zed", "name": "Zed"}]"#
                 .utf8),
-        LCUEndpoint.gameDataItems.path: Data("[]".utf8),
+        LCUEndpoint.gameDataItems.path: Data(
+            #"[{"id": 3165, "name": "Morellonomicon"}, {"id": 3047, "name": "Plated Steelcaps"}]"#
+                .utf8),
         LCUEndpoint.gameDataPerkStyles.path: Data(#"{"styles": []}"#.utf8),
         LCUEndpoint.gameDataPerks.path: Data("[]".utf8),
         LCUEndpoint.gameDataSummonerSpells.path: Data("[]".utf8),
     ]
 
     /// `ban-pick-in-progress` (local cell 2, hovering Ahri) with its pick completed; `position`
-    /// is the cell's `assignedPosition`, `""` in blind pick.
+    /// is the cell's `assignedPosition`, `""` in blind pick. `enemies` replaces its enemy team,
+    /// Zed locked without a role, with locked enemies and their `assignedPosition`.
     static func lockedSession(
-        champion: Int = 103, mySpells: [Int] = [4, 14], position: String = "middle"
+        champion: Int = 103, mySpells: [Int] = [4, 14], position: String = "middle",
+        enemies: [(champion: Int, position: String)]? = nil
     ) throws -> Data {
         var session = try #require(
             try JSONSerialization.jsonObject(with: data("ban-pick-in-progress")) as? [String: Any])
@@ -113,6 +117,15 @@ enum ImportFixture {
             me["spell2Id"] = mySpells[1]
             me["assignedPosition"] = position
             return me
+        }
+        if let enemies {
+            // Cells without pick actions: their `championId` is what they locked.
+            session["theirTeam"] = enemies.enumerated().map { index, enemy in
+                [
+                    "cellId": 20 + index, "championId": enemy.champion,
+                    "assignedPosition": enemy.position,
+                ] as [String: Any]
+            }
         }
         let actions = try #require(session["actions"] as? [[[String: Any]]])
         session["actions"] = actions.map { group in

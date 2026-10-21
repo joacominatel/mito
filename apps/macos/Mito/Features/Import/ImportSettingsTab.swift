@@ -90,7 +90,7 @@ struct ImportSettingsTab: View {
                 Text("Cuándo importar", tableName: "Import")
             } footer: {
                 Text(
-                    "El modo adaptativo y el re-import llegan más adelante; por ahora el adaptativo importa la build general del parche.",
+                    "Re-importar si cambia el rival y no pisar cambios manuales llegan más adelante: hoy se importa una vez, con el rival que se conoce al lockear.",
                     tableName: "Import"
                 )
                 .font(.footnote)

@@ -32,6 +32,14 @@ struct ImportOutcome: Identifiable, Equatable {
         case noFixedChoice
     }
 
+    /// Why a part left the general loadout (§18.6–§18.8), with the names already resolved.
+    enum Adaptation: Hashable {
+        case opponent(String)
+        case profile(EnemyProfile)
+        case countersFlag(item: String, flag: ChampionFlag, enemies: Int)
+        case situational(item: String, profile: EnemyProfile)
+    }
+
     enum Part: CaseIterable {
         case runes
         case spells
@@ -53,12 +61,21 @@ struct ImportOutcome: Identifiable, Equatable {
         /// The recommendation in effect is short of reliable (§17, §18.2).
         var isLowSample = false
         var origin: Origin?
+        var adaptations: [Adaptation] = []
 
         var id: Part { part }
+
+        /// `"· vs Zed · Morellonomicon: 2 rivales con curación alta"`, one line for the row.
+        var adaptationMarker: String? {
+            guard !adaptations.isEmpty else { return nil }
+            return "· " + adaptations.map { String(localized: $0.text) }.joined(separator: " · ")
+        }
     }
 
     let id: Int
     let champion: ChampionID
+    /// The lane opponent the loadout was adapted to, when one was known.
+    var opponent: ChampionID?
     /// `"Ahri MID"`: the rune page and item set name after `Mito · `.
     let title: String
     var report: ImportReport
@@ -66,6 +83,8 @@ struct ImportOutcome: Identifiable, Equatable {
     /// Parts whose recommendation is "muestra baja".
     var lowSample: Set<Part> = []
     var origins: [Part: Origin] = [:]
+    /// Only for the parts that went adapted, neither general nor from the override.
+    var adaptations: [Part: [Adaptation]] = [:]
     var isMissingStats = false
 
     var status: Status {
@@ -112,6 +131,7 @@ struct ImportOutcome: Identifiable, Equatable {
             var row = Self.row(part, result)
             row.isLowSample = lowSample.contains(part) && result.keepsTheRecommendation
             row.origin = origins[part]
+            if result.keepsTheRecommendation { row.adaptations = adaptations[part] ?? [] }
             return row
         }
     }
@@ -266,6 +286,50 @@ extension ImportOutcome.Origin {
         case .override: LocalizedStringResource("· override", table: "Import")
         case .noFixedChoice:
             LocalizedStringResource("· sin fija guardada, va la general", table: "Import")
+        }
+    }
+}
+
+extension ImportOutcome.Adaptation {
+    fileprivate var text: LocalizedStringResource {
+        switch self {
+        case .opponent(let name):
+            LocalizedStringResource("vs \(name)", table: "Import")
+        case .profile(let profile):
+            LocalizedStringResource("vs \(profile.label)", table: "Import")
+        case .countersFlag(let item, let flag, let enemies):
+            LocalizedStringResource(
+                "\(item): \(enemies) rivales con \(flag.label)", table: "Import")
+        case .situational(let item, let profile):
+            LocalizedStringResource(
+                "\(item) vs \(profile.label)", table: "Import")
+        }
+    }
+}
+
+extension EnemyProfile {
+    /// An unknown label is shown as the snapshot wrote it.
+    fileprivate var label: String {
+        switch self {
+        case .heavyAD: String(localized: "mucho AD", table: "Import")
+        case .heavyAP: String(localized: "mucho AP", table: "Import")
+        case .heavyCC: String(localized: "mucho CC", table: "Import")
+        case .mixed: String(localized: "daño mixto", table: "Import")
+        case .unknown(let raw): raw
+        }
+    }
+}
+
+extension ChampionFlag {
+    /// An unknown label is shown as the snapshot wrote it.
+    fileprivate var label: String {
+        switch self {
+        case .highHeal: String(localized: "curación alta", table: "Import")
+        case .pointClickCC: String(localized: "CC dirigido", table: "Import")
+        case .autoAttacker: String(localized: "autoataques", table: "Import")
+        case .poke: String(localized: "poke", table: "Import")
+        case .engage: String(localized: "engage", table: "Import")
+        case .unknown(let raw): raw
         }
     }
 }
