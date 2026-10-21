@@ -13,6 +13,8 @@ public struct SnapshotMeta: Hashable, Sendable {
     public let priors: SmoothingPriors
     /// Minimum `wr_smoothed(champ, role)` per tier; below C is D, so D has no entry.
     public let tierCutoffs: [Tier: Double]
+    /// `profile_rules` (§18.4); `nil` when the file carries none, so no team gets a profile.
+    public let profileRules: ProfileRules?
 
     public init(
         patch: Patch,
@@ -22,7 +24,8 @@ public struct SnapshotMeta: Hashable, Sendable {
         blendPatches: [Patch],
         thresholds: [SampleKind: SampleThreshold],
         priors: SmoothingPriors,
-        tierCutoffs: [Tier: Double]
+        tierCutoffs: [Tier: Double],
+        profileRules: ProfileRules? = nil
     ) {
         self.patch = patch
         self.queue = queue
@@ -32,6 +35,7 @@ public struct SnapshotMeta: Hashable, Sendable {
         self.thresholds = thresholds
         self.priors = priors
         self.tierCutoffs = tierCutoffs
+        self.profileRules = profileRules
     }
 }
 

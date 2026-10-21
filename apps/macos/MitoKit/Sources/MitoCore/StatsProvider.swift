@@ -10,14 +10,65 @@ public protocol StatsProvider: Sendable {
     /// Every champion with a `champ_role_stats` row in this role.
     func championRoleStats(in role: Role) -> [ChampionID: ChampionRoleStats]
 
+    /// General (`opp_id = 0`) rows.
     func runePages(for champion: ChampionID, role: Role) -> [RunePageCandidate]
 
+    /// General (`opp_id = 0`) rows.
     func spellPairs(for champion: ChampionID, role: Role) -> [SpellPairCandidate]
 
-    /// Candidates of every layer; filter by `layer`.
+    /// General (`opp_id = 0`) candidates of every layer; filter by `layer`.
     func itemBuilds(for champion: ChampionID, role: Role) -> [ItemBuildCandidate]
 
     func skillOrders(for champion: ChampionID, role: Role) -> [SkillOrderCandidate]
+
+    /// `matchup_stats` against the lane opponent `opponent`.
+    func matchup(for champion: ChampionID, role: Role, against opponent: ChampionID)
+        -> MatchupStats?
+
+    /// `synergy_stats` with `ally` playing `allyRole`.
+    func synergy(for champion: ChampionID, role: Role, with ally: ChampionID, allyRole: Role)
+        -> RelationStats?
+
+    /// `vs_team_stats` against `enemy` in any role.
+    func versusTeam(for champion: ChampionID, role: Role, against enemy: ChampionID)
+        -> RelationStats?
+
+    /// `champion_profiles`.
+    func championProfile(for champion: ChampionID, role: Role) -> ChampionProfile?
+
+    /// `champ_vs_profile`: the games against teams with `profile`, the denominator of the
+    /// profile layers.
+    func profileStats(for champion: ChampionID, role: Role, against profile: EnemyProfile)
+        -> RelationStats?
+
+    /// `rune_pages` rows with `opp_id = opponent`.
+    func runePages(for champion: ChampionID, role: Role, against opponent: ChampionID)
+        -> [RunePageCandidate]
+
+    /// `spell_pairs` rows with `opp_id = opponent`.
+    func spellPairs(for champion: ChampionID, role: Role, against opponent: ChampionID)
+        -> [SpellPairCandidate]
+
+    /// `item_builds` rows with `opp_id = opponent`, of every layer the export kept.
+    func itemBuilds(for champion: ChampionID, role: Role, against opponent: ChampionID)
+        -> [ItemBuildCandidate]
+
+    /// `rune_page_vs_profile`.
+    func runePages(for champion: ChampionID, role: Role, against profile: EnemyProfile)
+        -> [RunePageCandidate]
+
+    /// `item_vs_profile` with `enemy_profile = 'any'`, the situational baseline (§18.7).
+    func finalItems(for champion: ChampionID, role: Role) -> [FinalItemCandidate]
+
+    /// `item_vs_profile` against `profile`.
+    func finalItems(for champion: ChampionID, role: Role, against profile: EnemyProfile)
+        -> [FinalItemCandidate]
+
+    /// `champ_ban_stats.bans`: matches in which the champion was banned.
+    func bans(of champion: ChampionID) -> Int?
+
+    /// `champion_flags`; empty when none is curated.
+    func flags(of champion: ChampionID) -> Set<ChampionFlag>
 }
 
 extension StatsProvider {
@@ -32,4 +83,48 @@ extension StatsProvider {
     public func itemBuilds(for champion: ChampionID, role: Role) -> [ItemBuildCandidate] { [] }
 
     public func skillOrders(for champion: ChampionID, role: Role) -> [SkillOrderCandidate] { [] }
+
+    public func matchup(for champion: ChampionID, role: Role, against opponent: ChampionID)
+        -> MatchupStats?
+    { nil }
+
+    public func synergy(
+        for champion: ChampionID, role: Role, with ally: ChampionID, allyRole: Role
+    ) -> RelationStats? { nil }
+
+    public func versusTeam(for champion: ChampionID, role: Role, against enemy: ChampionID)
+        -> RelationStats?
+    { nil }
+
+    public func championProfile(for champion: ChampionID, role: Role) -> ChampionProfile? { nil }
+
+    public func profileStats(for champion: ChampionID, role: Role, against profile: EnemyProfile)
+        -> RelationStats?
+    { nil }
+
+    public func runePages(for champion: ChampionID, role: Role, against opponent: ChampionID)
+        -> [RunePageCandidate]
+    { [] }
+
+    public func spellPairs(for champion: ChampionID, role: Role, against opponent: ChampionID)
+        -> [SpellPairCandidate]
+    { [] }
+
+    public func itemBuilds(for champion: ChampionID, role: Role, against opponent: ChampionID)
+        -> [ItemBuildCandidate]
+    { [] }
+
+    public func runePages(for champion: ChampionID, role: Role, against profile: EnemyProfile)
+        -> [RunePageCandidate]
+    { [] }
+
+    public func finalItems(for champion: ChampionID, role: Role) -> [FinalItemCandidate] { [] }
+
+    public func finalItems(for champion: ChampionID, role: Role, against profile: EnemyProfile)
+        -> [FinalItemCandidate]
+    { [] }
+
+    public func bans(of champion: ChampionID) -> Int? { nil }
+
+    public func flags(of champion: ChampionID) -> Set<ChampionFlag> { [] }
 }

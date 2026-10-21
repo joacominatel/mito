@@ -1,5 +1,3 @@
-public import MitoCore
-
 /// Where a sample stands against its `[minimum, reliable]` threshold (`MITO_CONTEXT.md` §18.2).
 public enum SampleLevel: Comparable, Sendable {
     /// Not used, unless the exporter kept it as the only option (§14.12).

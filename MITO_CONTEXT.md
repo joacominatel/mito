@@ -426,7 +426,7 @@ que esté siempre abierta para colgarle un `.task`.
 
 | Módulo | Responsabilidad | Depende de |
 |---|---|---|
-| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SummonerSpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet`; el protocolo `StatsProvider` y sus filas (`SnapshotMeta`, `ChampionRoleStats`, candidatos de loadout, `Tier`); el protocolo `PersonalStore` y sus registros (`MyMatch`, `MyMatchParticipant`, `ChampionOverride`, `PoolEntry`, `ImportLogEntry`) | nada |
+| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SummonerSpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet`; el protocolo `StatsProvider` y sus filas (`SnapshotMeta`, `ChampionRoleStats`, candidatos de loadout, relaciones, `ChampionProfile`, `EnemyProfile`, `ChampionFlag`, `Tier`, `SampleLevel`); la explicación (`Reason`, `PickRecommendation`, `BanRecommendation`); el protocolo `PersonalStore` y sus registros (`MyMatch`, `MyMatchParticipant`, `ChampionOverride`, `PoolEntry`, `ImportLogEntry`) | nada |
 | `LCUKit` | Descubrir el cliente, credenciales, REST tipado, WebSocket WAMP, reconexión | MitoCore |
 | `MitoStore` | Abrir el snapshot (read-only), DB personal (read-write), settings, migraciones; `DataDragonClient`, el cliente HTTPS que solo habla con `ddragon.leagueoflegends.com` | MitoCore, GRDB |
 | `MitoEngine` | Scoring de picks, bans, runas, ítems y spells. **Funciones puras** | MitoCore |
@@ -445,14 +445,33 @@ snapshot y los tests usan `InMemoryStatsProvider`. Superficie actual:
 
 - `roleGames(for:)`: `champion_roles`, para la inferencia de roles (§12.3).
 - `meta`: identidad (`patch`, `queue`, `bracket`), `matches`, `blend_patches`, `thresholds`,
-  `priors` y `tier_cutoffs`.
+  `priors`, `tier_cutoffs` y `profile_rules` (`ProfileRules`: `min_champions` y los tres
+  umbrales, mínimos inclusivos; `mixed` es "ninguno de `mixed.not`"). `nil` si el archivo no
+  lo trae. `blend_k` y `regions` no se leen.
 - `championRoleStats(in:)`: `games`, `wins` y las sumas `kills`, `deaths`, `assists`, `cs` y
   `minutes` de `champ_role_stats` por campeón en un rol (para §19.2), más
   `champion_profiles.tl_games` como denominador de timeline.
 - `runePages`, `spellPairs`, `itemBuilds` y `skillOrders(for:role:)`: candidatos generales
   (`opp_id = 0`) con `games` y `wins`. Las páginas ya vienen resueltas desde `rune_page_defs`.
+- Fase 7, por (campeón, rol), cada una una consulta puntual que devuelve `nil` o vacío:
+  `matchup(against:)` (`matchup_stats` con `tl_games` y los diffs a los 15, `nil` sin
+  timeline), `synergy(with:allyRole:)`, `versusTeam(against:)` y
+  `profileStats(against: EnemyProfile)` (`games` y `wins` como `RelationStats`),
+  `championProfile` (todas las columnas de `champion_profiles`), `runePages`, `spellPairs` e
+  `itemBuilds(against: ChampionID)` (filas con ese `opp_id`), `runePages(against: EnemyProfile)`
+  (`rune_page_vs_profile`) y `finalItems` (`item_vs_profile`: sin perfil es la línea base
+  `'any'`, con perfil es ese perfil).
+- Por campeón: `bans(of:)` (`champ_ban_stats`) y `flags(of:)` (`champion_flags`).
+- `EnemyProfile` y `ChampionFlag` son tolerantes: un valor desconocido carga como `.unknown`.
 
-Matchups, sinergias, perfiles y ban stats se agregan en la Fase 7.
+Todo método tiene una implementación vacía por defecto en la extensión del protocolo, así un
+provider que no conoce una tabla compila igual.
+
+La explicación vive en MitoCore porque la produce `MitoEngine` y la dibuja la app: `Reason`
+lleva el tipo (`Reason.Kind`, con los números de §18.3–§18.8: deltas y shares como
+fracciones, partidas) y su `SampleLevel`; nunca texto. `PickRecommendation` y
+`BanRecommendation` llevan candidato, score, componentes por término (§18.3) o factor
+(§18.5), razones por impacto y la confianza (el `SampleLevel` de `champ_role`).
 
 `PersonalStore` (MitoCore) es el contrato de la base personal (§17, "Base personal"): async,
 `Sendable`, y lanza `PersonalStoreError` (`readFailed`, `writeFailed`). `MitoStore` lo
@@ -1646,6 +1665,10 @@ public enum StepResult: Equatable, Sendable {
 - El skill order no se importa (el cliente no tiene API) y no aparece en el reporte; quien
   arma el item set puede mostrarlo como un bloque (§13.4). No se loguea el contenido del
   loadout ni datos de identidad.
+- `Loadout.explanation` (`[Reason]`, vacío por defecto) dice por qué se eligió cada parte
+  (`LoadoutPart`: runas, spells, una capa de ítems, skill order): elección general con uso y
+  winrate, adaptada al rival o al perfil rival, o un ítem por flag o situacional (§18.6–§18.8).
+  El importador no la envía al cliente; la dibuja la UI (`ReasonRow`, §22.3).
 
 El resultado se muestra como un toast nativo en la ventana y como notificación si la
 ventana no está visible.

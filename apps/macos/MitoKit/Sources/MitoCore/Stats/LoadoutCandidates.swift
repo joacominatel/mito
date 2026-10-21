@@ -1,4 +1,5 @@
-/// A general (`opp_id = 0`) row of `rune_pages`, with its page resolved from `rune_page_defs`.
+/// A row of `rune_pages` (general or per opponent) or `rune_page_vs_profile`, with its page
+/// resolved from `rune_page_defs` (§17).
 public struct RunePageCandidate: Hashable, Sendable {
     public let page: RunePage
     /// Games played with this page.
@@ -12,7 +13,7 @@ public struct RunePageCandidate: Hashable, Sendable {
     }
 }
 
-/// A general (`opp_id = 0`) row of `spell_pairs`.
+/// A row of `spell_pairs`, general or per opponent (§17).
 public struct SpellPairCandidate: Hashable, Sendable {
     /// Normalized so `spellA < spellB`; slot order is the engine's call.
     public let spellA: SummonerSpellID
@@ -29,7 +30,7 @@ public struct SpellPairCandidate: Hashable, Sendable {
     }
 }
 
-/// A general (`opp_id = 0`) row of `item_builds`.
+/// A row of `item_builds`, general or per opponent (§17).
 public struct ItemBuildCandidate: Hashable, Sendable {
     public let layer: BuildLayer
     /// Empty slots dropped: `start` sorted by id with repeats, `core` in purchase order, one
@@ -42,6 +43,23 @@ public struct ItemBuildCandidate: Hashable, Sendable {
     public init(layer: BuildLayer, items: [ItemID], games: Int, wins: Int) {
         self.layer = layer
         self.items = items
+        self.games = games
+        self.wins = wins
+    }
+}
+
+/// A row of `item_vs_profile` (§17, §18.7): one final item against an enemy profile or the `'any'`
+/// baseline. Usage is `games / champ_vs_profile.games`, or `games / champ_role_stats.games` for
+/// `'any'`.
+public struct FinalItemCandidate: Hashable, Sendable {
+    /// `item_id`: a `legendary`, `boots_t2` or `support_upgrade` item.
+    public let item: ItemID
+    /// Games that ended with the item in the final inventory.
+    public let games: Int
+    public let wins: Int
+
+    public init(item: ItemID, games: Int, wins: Int) {
+        self.item = item
         self.games = games
         self.wins = wins
     }

@@ -123,8 +123,8 @@ struct SnapshotReaderTests {
             #expect(
                 stats[Self.zed]
                     == ChampionRoleStats(
-                        games: 2249, wins: 1062, timelineGames: 0, kills: 13494, deaths: 11245,
-                        assists: 8996, cs: 105703, minutes: 60723))
+                        games: 2746, wins: 1340, timelineGames: 0, kills: 8238, deaths: 10984,
+                        assists: 19222, cs: 329520, minutes: 79634))
         }
     }
 
@@ -157,12 +157,12 @@ struct SnapshotReaderTests {
 
     @Test func perOpponentRowsAreNeverReturned() throws {
         let reader = try SnapshotReader(fileURL: SnapshotCopy.fixture)
-        #expect(reader.runePages(for: Self.zed, role: .jungle).map(\.games) == [1686, 563])
-        #expect(reader.spellPairs(for: Self.zed, role: .jungle).map(\.games) == [2249])
+        #expect(reader.runePages(for: Self.zed, role: .jungle).map(\.games) == [2059, 687])
+        #expect(reader.spellPairs(for: Self.zed, role: .jungle).map(\.games) == [2746])
         let ahri = ChampionID(rawValue: 103)
         #expect(
             reader.itemBuilds(for: ahri, role: .middle).filter { $0.layer == .start }
-                .map(\.games) == [128])
+                .map(\.games) == [572])
     }
 
     @Test func spellPairsAreNormalizedEvenWhenStoredReversed() throws {

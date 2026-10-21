@@ -279,7 +279,7 @@ struct ImportSnapshotTests {
         let blocks = try #require(try harness.sentItemSet()?["blocks"] as? [[String: Any]])
         #expect(
             blocks.map { $0["type"] as? String }
-                == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "6.º ítem"])
+                == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem"])
         let items = blocks.map { block in
             (block["items"] as? [[String: Any]] ?? []).map {
                 "\($0["id"] as? String ?? "?")x\($0["count"] as? Int ?? 0)"
@@ -287,8 +287,8 @@ struct ImportSnapshotTests {
         }
         #expect(
             items == [
-                ["1056x1", "2003x2"], ["6655x1", "3157x1", "3089x1"], ["3020x1"], ["3031x1"],
-                ["3033x1"], ["3046x1"],
+                ["1056x1", "2003x2"], ["6655x1", "3157x1", "3089x1"], ["3020x1"], ["3107x1"],
+                ["3142x1"],
             ])
         #expect(harness.model.outcome?.status == .imported)
     }
@@ -301,7 +301,7 @@ struct ImportSnapshotTests {
             try ImportFixture.lockedSession(champion: 238, mySpells: [4, 14], position: "jungle"))
         await harness.stop(run)
 
-        // Zed JUNGLE: the page has 563 games (under rune_page's 800) and the start 24 (under
+        // Zed JUNGLE: the page has 687 games (under rune_page's 800) and the start 32 (under
         // build_layer's 100); the spells are reliable.
         let outcome = try #require(harness.model.outcome)
         #expect(outcome.title == "Zed JGL")
@@ -335,7 +335,7 @@ struct ImportSnapshotTests {
         let harness = try Harness(windowInFront: true)
         let run = harness.start()
 
-        // Zed: 2,249 JUNGLE games against 723 MIDDLE.
+        // Zed: 2,746 JUNGLE games against 2,195 MIDDLE.
         harness.connection.emit(
             try ImportFixture.lockedSession(champion: 238, mySpells: [4, 14], position: ""))
         await harness.stop(run)
