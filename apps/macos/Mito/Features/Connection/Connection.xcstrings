@@ -7,6 +7,9 @@
     "Mito — Conectado" : {
       "comment" : "Menu bar connection line once the client connection is up."
     },
+    "Mito — Conectado como %@" : {
+      "comment" : "Menu bar connection line once connected and the account is known. The argument is the user's own Riot ID, gameName#tagLine."
+    },
     "Mito — Conectando…" : {
       "comment" : "Menu bar connection line while authenticating with a client that was found."
     }

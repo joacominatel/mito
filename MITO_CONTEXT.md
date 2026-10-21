@@ -2337,11 +2337,15 @@ La primera línea es el estado de `connection.states()` (§11.2), una sola líne
 |---|---|---|
 | `searching` | Mito — Buscando el cliente… | `circle.dashed`, gris |
 | `connecting` | Mito — Conectando… | `circle.dashed`, gris, con pulso |
-| `connected` | Mito — Conectado | `circle.fill`, verde |
+| `connected` | Mito — Conectado como Joaco#LAS (o Mito — Conectado sin Riot ID) | `circle.fill`, verde |
 
 El color siempre va con el cambio de símbolo y de texto; VoiceOver lee solo el texto. El
-Riot ID ("Conectado como Joaco#LAS") se suma cuando exista un endpoint tipado de
-`current-summoner`: `states()` no lo trae.
+Riot ID sale de `LCUEndpoint.currentSummoner` (§10.6), no de `states()`: `ConnectionModel` lo
+pide al entrar en `connected` y de nuevo con cada evento de `currentSummoner` (cambio de
+cuenta), y lo borra al salir de `connected`. Si la llamada falla o `riotID` es `nil`, la línea
+queda en "Mito — Conectado", sin marcar error. Una respuesta que llega después de que la
+conexión cayó, o de que salió un pedido más nuevo, se descarta. El Riot ID es la identidad del
+propio usuario, no de otros jugadores, y no se loguea.
 
 Ícono de la barra según el estado (SF Symbols): desconectado `circle.dashed`, conectado
 `circle.fill`, buscando partida `magnifyingglass`, champ select `person.3.fill`, en partida

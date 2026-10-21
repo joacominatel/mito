@@ -46,3 +46,11 @@ struct ConnectionStatusRow: View {
     )
     .padding()
 }
+
+#Preview("Conectado como") {
+    ConnectionStatusRow(
+        model: ConnectionModel(
+            connection: DisconnectedLCUConnection(), state: .connected, riotID: "Joaco#LAS")
+    )
+    .padding()
+}
