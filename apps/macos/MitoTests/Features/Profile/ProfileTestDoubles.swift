@@ -55,14 +55,21 @@ nonisolated final class HistoryTestConnection: LCUConnection {
     }
 }
 
-/// Upserts by game ID like `PersonalDatabase`; only the history calls are real. `MitoTestSupport`
-/// is not linkable from the app tests.
+/// Upserts by game ID like `PersonalDatabase`; the pool and overrides are fixed. Writes other
+/// than the history do nothing. `MitoTestSupport` is not linkable from the app tests.
 actor HistoryTestStore: PersonalStore {
     private var byGame: [GameID: MyMatch]
     private var failure: PersonalStoreError?
+    private let poolEntries: [PoolEntry]
+    private let championOverrides: [ChampionOverride]
 
-    init(matches: [MyMatch] = [], failure: PersonalStoreError? = nil) {
+    init(
+        matches: [MyMatch] = [], pool: [PoolEntry] = [], overrides: [ChampionOverride] = [],
+        failure: PersonalStoreError? = nil
+    ) {
         byGame = Dictionary(matches.map { ($0.game, $0) }, uniquingKeysWith: { $1 })
+        poolEntries = pool
+        championOverrides = overrides
         self.failure = failure
     }
 
@@ -79,14 +86,57 @@ actor HistoryTestStore: PersonalStore {
         return query.limit.map { Array(newest.prefix($0)) } ?? newest
     }
 
-    func pool(for role: Role) -> [PoolEntry] { [] }
+    func pool(for role: Role) -> [PoolEntry] { poolEntries.filter { $0.role == role } }
     func setPool(_ champions: [ChampionID], for role: Role) {}
-    func overrides() -> [ChampionOverride] { [] }
+    func overrides() -> [ChampionOverride] { championOverrides }
     func save(_ override: ChampionOverride) {}
     func deleteOverride(champion: ChampionID, role: Role) {}
     func appendImportLog(_ entry: ImportLogEntry) {}
     func importLog(limit: Int) -> [ImportLogEntry] { [] }
     func deleteAll() { byGame = [:] }
+}
+
+/// One of the user's games, played `hoursAgo` before `TestGame.now`.
+enum TestGame {
+    static let now = Date(timeIntervalSince1970: 1_792_000_000)
+
+    static func make(
+        _ id: Int, champion: Int, role: Role? = .middle, opponent: Int? = nil, win: Bool,
+        minutes: Int = 30, hoursAgo: Double = 0, kills: Int = 5, deaths: Int = 5,
+        assists: Int = 5, cs: Int = 200
+    ) -> MyMatch {
+        MyMatch(
+            game: GameID(rawValue: id), queue: QueueID(rawValue: 420),
+            patch: Patch(rawValue: "16.21"), playedAt: now.addingTimeInterval(-hoursAgo * 3_600),
+            champion: ChampionID(rawValue: champion), role: role, win: win, kills: kills,
+            deaths: deaths, assists: assists, cs: cs, durationSeconds: minutes * 60,
+            opponent: opponent.map(ChampionID.init(rawValue:)),
+            spells: SpellPair(
+                first: SummonerSpellID(rawValue: 4), second: SummonerSpellID(rawValue: 14)),
+            perks: [], items: [], participants: [])
+    }
+}
+
+/// A snapshot with one `champ_role_stats` row per entry, at the default priors.
+struct TestStats: StatsProvider {
+    var rows: [Role: [ChampionID: ChampionRoleStats]] = [:]
+
+    var meta: SnapshotMeta? {
+        SnapshotMeta(
+            patch: Patch(rawValue: "16.21"), queue: QueueID(rawValue: 420),
+            bracket: .emeraldPlus, matches: 100_000, blendPatches: [Patch(rawValue: "16.21")],
+            thresholds: [:],
+            priors: SmoothingPriors(
+                championRoleStrength: 100, championRoleBaseline: 0.5, relationStrength: 200,
+                loadoutStrength: 500),
+            tierCutoffs: [:])
+    }
+
+    func roleGames(for champion: ChampionID) -> [Role: Int] { [:] }
+
+    func championRoleStats(in role: Role) -> [ChampionID: ChampionRoleStats] {
+        rows[role] ?? [:]
+    }
 }
 
 /// Bodies built from `fixtures/lcu/cases/history`, whose local player is `localPUUID`.
@@ -128,6 +178,10 @@ enum HistoryFixture {
 
     static func json(_ object: Any) -> Data {
         (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
+    }
+
+    static func mastery() throws -> Data {
+        try Data(contentsOf: cases.appending(path: "mastery.json"))
     }
 
     static func pagePath(_ begin: Int) -> String {

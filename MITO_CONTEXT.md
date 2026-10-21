@@ -2816,6 +2816,24 @@ Decisiones del score personal (`PersonalScoring` en `MitoEngine/Personal/`):
 - "Tus 3 mejores matchups y tus 3 peores".
 - Detección de tilt (opcional y suave): "Perdiste 4 seguidas". Sin moralina, como dato.
 
+Decisiones de los insights (`ProfileInsights` en `Features/Profile/`, solo datos propios):
+
+- Las partidas de menos de 5 minutos (remakes) no cuentan para ningún insight.
+- **Matchups:** se agrupan por (campeón, rol, rival de lane) y entran desde 3 partidas. Los
+  mejores son los de más de 50 % y los peores los de menos de 50 %, así un matchup nunca está
+  en las dos listas; se muestran 3 de cada una. Desempate: más partidas, después un orden fijo
+  por IDs.
+- **Partidas cortas:** por campeón, partidas con rol de menos de 25 minutos contra las de 25 o
+  más. Hacen falta 5 de cada lado y una diferencia de al menos 10 puntos de winrate; se
+  muestra un solo insight, el del campeón con la diferencia más grande, con los dos winrates
+  ("Ganás 62 % en partidas de menos de 25 minutos con Ahri, contra 44 % en las más largas").
+- **Tilt:** las derrotas seguidas desde la partida más reciente, de cualquier cola; se muestra
+  desde 3.
+- **Muestra baja:** una fila de campeón, un matchup o un lado de las partidas cortas con menos
+  de 10 partidas lleva la marca de "muestra baja" (§18.2).
+- El insight por perfil rival ("vs equipos de mucho AD") espera a `meta.profile_rules` del
+  snapshot de la Fase 7; hasta entonces no se muestra.
+
 ---
 
 ## 20. Pantalla de análisis pre-partida
@@ -3081,6 +3099,26 @@ nunca se recalculan en la app.
 - Doble clic (o Return) en una fila abre la ficha del campeón: sus stats en cada rol donde
   tiene fila este parche (mismas columnas) y un lugar reservado para la build recomendada, que
   llega con el motor de loadouts.
+
+**Mi perfil.** `ProfileModel` lee de la base personal el historial, el pool y los overrides al
+arrancar, al terminar cada sincronización y cada vez que se abre el destino (el pool y los
+overrides se editan en otros lados). Las estadísticas salen del snapshot abierto con un
+closure, como en Campeones; la maestría se lee en vivo con `championMastery` en cada entrada
+a `connected` y se descarta al salir (§17); si el pedido falla, no hay maestría
+(`mastery_norm` 0).
+
+- Arriba, la línea de estado de la sincronización (§19.1).
+- **Insights** (§19.4): tilt, partidas cortas, y los 3 mejores y 3 peores matchups con
+  victorias, partidas y porcentaje. Sin ninguno: "Todavía no hay suficientes partidas para
+  sacar conclusiones".
+- **Mejores campeones por rol**: un bloque por rol con partidas propias (cualquier cola; las
+  partidas sin rol no entran), hasta 5 campeones ordenados por `personal(c, r)` de
+  `PersonalScoring` (§19.3). Columnas: el score en puntos de winrate (`winratePoints()`),
+  partidas, WR propio, ventaja contra el promedio (`my_wr_smoothed − wr_s`), comfort, pool,
+  rendimiento relativo, y KDA y CS/min contra el promedio. Cada valor con signo lleva flecha y
+  signo, y el color solo los acompaña.
+- Sin historial: estado vacío "Sin historial", que explica que aparece cuando Mito se conecta
+  al cliente, con la línea de estado debajo.
 
 ### 22.3 Componentes del design system
 

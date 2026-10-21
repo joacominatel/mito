@@ -54,7 +54,7 @@ final class AppModel {
         champions = ChampionsModel(stats: { snapshots.provider }, gameData: clientData.gameData)
         analysis = AnalysisModel()
         self.personal = personal
-        profile = ProfileModel(connection: lcu, store: personal)
+        profile = ProfileModel(connection: lcu, store: personal, stats: { snapshots.provider })
         onboarding = OnboardingModel(connection: lcu, store: personal)
         overrides = OverridesModel(store: personal)
         self.lifecycle = lifecycle

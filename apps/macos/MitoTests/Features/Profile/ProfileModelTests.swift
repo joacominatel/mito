@@ -1,6 +1,7 @@
 import Foundation
 import LCUKit
 import MitoCore
+import MitoEngine
 import Testing
 
 @testable import Mito
@@ -200,5 +201,132 @@ struct ProfileModelTests {
         #expect(synced.title.map { String(localized: $0) } == "Historial al día: 3 partidas nuevas")
         #expect(synced.symbol == "checkmark.circle")
         #expect(ProfileModel.SyncStatus.failed(.storage).symbol == "exclamationmark.triangle")
+    }
+}
+
+/// The test swaps the open snapshot, as `SnapshotModel` does when a download lands.
+@MainActor private final class StatsBox {
+    var provider: any StatsProvider = TestStats()
+}
+
+private let ahri = ChampionID(rawValue: 103)
+
+extension ProfileModelTests {
+    @Test func runReadsTheStoredHistoryWithoutAClient() async {
+        let stored = [
+            TestGame.make(1, champion: 103, win: true),
+            TestGame.make(2, champion: 103, win: false, hoursAgo: 1),
+        ]
+        let model = ProfileModel(
+            connection: HistoryTestConnection(script: [.searching]),
+            store: HistoryTestStore(matches: stored))
+
+        await model.run()
+
+        #expect(model.history.map(\.game.rawValue) == [1, 2])
+        #expect(model.bestChampions.first?.rows.first?.games == 2)
+        #expect(model.masteryPoints.isEmpty)
+    }
+
+    @Test func anEmptyHistoryLeavesTheProfileEmpty() async {
+        let model = ProfileModel(
+            connection: HistoryTestConnection(script: [.searching]), store: HistoryTestStore())
+
+        await model.run()
+
+        #expect(model.history.isEmpty)
+        #expect(model.bestChampions.isEmpty)
+        #expect(model.matchups.isEmpty)
+        #expect(model.shortGames == nil)
+        #expect(model.lossStreak == nil)
+    }
+
+    @Test func aSyncShowsTheNewGamesInTheProfile() async throws {
+        let model = ProfileModel(connection: try rankedHistory(), store: HistoryTestStore())
+
+        await model.run()
+
+        #expect(games(model.history) == [7_000_000_001, 7_000_000_002, 7_000_000_003])
+    }
+
+    @Test func thePoolAndOverridesComeFromTheStore() async {
+        let store = HistoryTestStore(
+            matches: [
+                TestGame.make(1, champion: 103, win: true),
+                TestGame.make(2, champion: 134, win: true),
+            ],
+            pool: [
+                PoolEntry(role: .middle, champion: ahri, priority: 0),
+                PoolEntry(role: .middle, champion: ChampionID(rawValue: 134), priority: 1),
+            ],
+            overrides: [
+                ChampionOverride(
+                    champion: ChampionID(rawValue: 134), role: .middle, isExcludedFromPool: true)
+            ])
+        let model = ProfileModel(connection: HistoryTestConnection(script: []), store: store)
+
+        await model.run()
+
+        let rows = model.bestChampions.first?.rows ?? []
+        #expect(rows.map(\.score.inPool) == [true, false])
+        #expect(rows.first?.champion == ahri)
+    }
+
+    @Test func masteryIsReadLiveOnConnect() async throws {
+        let connection = try rankedHistory()
+        connection.serve(LCUEndpoint.championMastery.path, try HistoryFixture.mastery())
+        let model = ProfileModel(
+            connection: connection,
+            store: HistoryTestStore(matches: [TestGame.make(1, champion: 103, win: true)]))
+
+        await model.run()
+
+        #expect(connection.requests(to: LCUEndpoint.championMastery.path) == 1)
+        #expect(model.masteryPoints[ahri] == 245_310)
+        let row = model.bestChampions.flatMap(\.rows).first { $0.champion == ahri }
+        #expect(row?.score.metrics.masteryNorm == 1)
+    }
+
+    @Test func aFailedMasteryReadMeansNoMastery() async throws {
+        let connection = try rankedHistory()
+        connection.serve(LCUEndpoint.championMastery.path, try HistoryFixture.mastery())
+        let model = ProfileModel(connection: connection, store: HistoryTestStore())
+        await model.run()
+
+        connection.serve(LCUEndpoint.championMastery.path, nil)
+        await model.run()
+
+        #expect(model.masteryPoints.isEmpty)
+    }
+
+    @Test func masteryIsDroppedWhenTheClientGoes() async throws {
+        let connection = HistoryTestConnection(
+            script: [.connected, .searching],
+            bodies: [LCUEndpoint.championMastery.path: try HistoryFixture.mastery()])
+        let model = ProfileModel(connection: connection, store: HistoryTestStore())
+
+        await model.run()
+
+        #expect(connection.requests(to: LCUEndpoint.championMastery.path) == 1)
+        #expect(model.masteryPoints.isEmpty)
+    }
+
+    @Test func theScoreFollowsTheOpenSnapshot() async throws {
+        let box = StatsBox()
+        let model = ProfileModel(
+            connection: HistoryTestConnection(script: []),
+            store: HistoryTestStore(matches: [TestGame.make(1, champion: 103, win: true)]),
+            stats: { box.provider })
+        await model.run()
+        let before = try #require(model.bestChampions.first?.rows.first?.score)
+
+        box.provider = TestStats(rows: [
+            .middle: [ahri: ChampionRoleStats(games: 10_000, wins: 5_600, timelineGames: 0)]
+        ])
+
+        let after = try #require(model.bestChampions.first?.rows.first?.score)
+        #expect(before.metrics.globalWinrate == 0.5)
+        #expect(after.metrics.globalWinrate > 0.55)
+        #expect(after.winrateEdge < before.winrateEdge)
     }
 }

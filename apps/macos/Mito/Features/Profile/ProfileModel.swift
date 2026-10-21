@@ -1,10 +1,11 @@
 import Foundation
 import LCUKit
 import MitoCore
+import MitoEngine
 import Observation
 
 /// Keeps the user's own match history in the personal store (§19.1): a sync on each connect
-/// and on each entry to `EndOfGame`, one at a time.
+/// and on each entry to `EndOfGame`, one at a time. "Mi perfil" reads it back (§19.3, §19.4).
 @Observable
 final class ProfileModel {
     enum SyncStatus: Equatable {
@@ -24,17 +25,51 @@ final class ProfileModel {
     static let backfillGames = 100
 
     private(set) var syncStatus: SyncStatus = .idle
+    /// Every stored game, newest first.
+    private(set) var history: [MyMatch] = []
+    private(set) var pool: [PoolEntry] = []
+    private(set) var overrides: [ChampionOverride] = []
+    /// Read live from the client on each connect and dropped when it goes (§17).
+    private(set) var masteryPoints: [ChampionID: Int] = [:]
     private let connection: any LCUConnection
     private let store: any PersonalStore
+    private let readStats: @MainActor () -> any StatsProvider
     @ObservationIgnored private var hasBackfilled = false
 
-    init(connection: any LCUConnection, store: any PersonalStore) {
+    init(
+        connection: any LCUConnection, store: any PersonalStore,
+        stats: @escaping @MainActor () -> any StatsProvider = { NoStats() }
+    ) {
         self.connection = connection
         self.store = store
+        readStats = stats
+    }
+
+    var bestChampions: [RoleChampions] {
+        ProfileInsights.bestChampions(
+            matches: history, pool: pool, overrides: overrides, masteryPoints: masteryPoints,
+            stats: readStats(), now: .now)
+    }
+
+    var matchups: Matchups { ProfileInsights.matchups(in: history) }
+    var shortGames: ShortGameInsight? { ProfileInsights.shortGames(in: history) }
+    var lossStreak: Int? { ProfileInsights.lossStreak(in: history) }
+
+    /// Reads the history, pool, and overrides back; on a failed read the last ones stay.
+    func reload() async {
+        guard let matches = try? await store.matches(MyMatchQuery()) else { return }
+        history = matches
+        var pool: [PoolEntry] = []
+        for role in Role.allCases {
+            pool += (try? await store.pool(for: role)) ?? []
+        }
+        self.pool = pool
+        overrides = (try? await store.overrides()) ?? []
     }
 
     /// Returns once the connection's streams finish and the last pending sync settles.
     func run() async {
+        await reload()
         // A trigger that arrives mid-sync queues one more sync; further ones fold into it.
         let (triggers, trigger) = AsyncStream.makeStream(
             of: Void.self, bufferingPolicy: .bufferingNewest(1))
@@ -44,8 +79,13 @@ final class ProfileModel {
             }
             await withDiscardingTaskGroup { sources in
                 sources.addTask { await self.followPhases(trigger) }
-                for await state in connection.states() where state == .connected {
+                for await state in connection.states() {
+                    guard state == .connected else {
+                        masteryPoints = [:]
+                        continue
+                    }
                     trigger.yield()
+                    await readMastery()
                 }
             }
             trigger.finish()
@@ -85,9 +125,17 @@ final class ProfileModel {
             try await record(matches)
             hasBackfilled = true
             syncStatus = .synced(newGames: matches.count)
+            await reload()
         } catch {
             syncStatus = .failed(error)
         }
+    }
+
+    /// Without a client, or when the read fails, there is no mastery: `mastery_norm` is 0.
+    private func readMastery() async {
+        let masteries = (try? await connection.send(.championMastery))?.masteries ?? []
+        masteryPoints = Dictionary(
+            masteries.map { ($0.champion, $0.points) }, uniquingKeysWith: max)
     }
 
     /// Newest first, without repeats. The first sync of a run pages back to `backfillGames`.
@@ -126,6 +174,10 @@ final class ProfileModel {
             throw .storage
         }
     }
+}
+
+private struct NoStats: StatsProvider {
+    func roleGames(for champion: ChampionID) -> [Role: Int] { [:] }
 }
 
 extension MyMatch {

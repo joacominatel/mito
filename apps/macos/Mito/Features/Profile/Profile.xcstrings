@@ -1,6 +1,36 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
+    "%@ vs %@ (%@)" : {
+
+    },
+    "%lld de %lld ganadas · %@" : {
+
+    },
+    "ADC" : {
+
+    },
+    "CS/min" : {
+
+    },
+    "Campeón" : {
+
+    },
+    "Campeón %lld" : {
+
+    },
+    "Comfort" : {
+
+    },
+    "En el pool" : {
+
+    },
+    "Fuera del pool" : {
+
+    },
+    "Ganás %@ en partidas de menos de 25 minutos con %@, contra %@ en las más largas" : {
+
+    },
     "Historial al día: %lld partidas nuevas" : {
       "localizations" : {
         "es" : {
@@ -23,16 +53,76 @@
         }
       }
     },
+    "Insights" : {
+
+    },
+    "JGL" : {
+
+    },
+    "KDA" : {
+
+    },
+    "MID" : {
+
+    },
+    "Muestra baja" : {
+
+    },
     "No se pudo guardar el historial" : {
 
     },
     "No se pudo leer el historial del cliente" : {
 
     },
+    "Partidas" : {
+
+    },
+    "Perdiste %lld seguidas" : {
+
+    },
+    "Personal" : {
+
+    },
+    "Pool" : {
+
+    },
+    "Rendimiento" : {
+
+    },
+    "SUP" : {
+
+    },
+    "Score personal en puntos de winrate" : {
+
+    },
     "Sin historial" : {
 
     },
     "Sincronizando historial…" : {
+
+    },
+    "TOP" : {
+
+    },
+    "Todavía no hay suficientes partidas para sacar conclusiones." : {
+
+    },
+    "Tu historial aparece cuando Mito se conecta al cliente y lee tus últimas partidas." : {
+
+    },
+    "Tu winrate suavizado menos el del parche" : {
+
+    },
+    "Tus mejores matchups" : {
+
+    },
+    "Tus peores matchups" : {
+
+    },
+    "Vs. promedio" : {
+
+    },
+    "WR" : {
 
     }
   },
