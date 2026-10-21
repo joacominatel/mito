@@ -495,65 +495,69 @@ los companions. Se usa "tal cual está" y puede cambiar sin aviso.
 
 ### 10.1 Descubrimiento
 
-Hay dos métodos. Implementar los dos, con el de proceso como principal.
+Hay dos métodos. Implementar los dos, con el de proceso como principal. Vive en
+`LCUKit/Discovery/`.
 
 **A) Argumentos del proceso (preferido)**
 
 ```bash
-ps -A -o args | grep LeagueClientUx
-# ... --app-port=54321 --remote-auth-token=AbCdEf123... --app-pid=1234 ...
+ps -A -ww -o args=
+# .../LeagueClientUx --app-port=54321 --remote-auth-token=AbCdEf123... --app-pid=1234 ...
 ```
 
 Se parsean `--app-port` y `--remote-auth-token`. Es más confiable porque refleja el proceso
-vivo.
+vivo. Solo se leen argumentos: nada de memoria, nada de hooks (§5).
 
-**B) Lockfile**
+- Candidatos: líneas cuyo ejecutable (lo que va antes del primer `--`) contiene
+  `LeagueClientUx`. Así se ignora el Riot Client, que también usa `--app-port` y
+  `--remote-auth-token` para su propia API.
+- La clave tiene que coincidir exacta: `--riotclient-app-port` y `--riotclient-auth-token`
+  (que `LeagueClientUx` también trae) no cuentan.
+- Tolerante: cualquier orden, `--clave=valor` o `--clave valor`, comillas simples o dobles
+  (también valores con espacios entre comillas, como rutas).
+- Puerto entero en 1–65535 y token no vacío; si falta algo, la línea no sirve.
+- Con varios candidatos gana el primero completo, en el orden de `ps`.
 
-- Ruta típica: `/Applications/League of Legends.app/Contents/LoL/lockfile`
-- Formato: `LeagueClient:<pid>:<port>:<password>:<protocol>`
+**B) Lockfile (respaldo)**
+
+- Ruta: `<instalación>/Contents/LoL/lockfile`, con instalación
+  `/Applications/League of Legends.app` por defecto o `GeneralSettings.leagueInstallPath`
+  (§21.1) si el usuario la configuró.
+- Buscar la app cuando no está en `/Applications` (auto-detección) queda pendiente; hoy
+  se cubre configurando la ruta.
+- Formato: `LeagueClient:<pid>:<port>:<password>:<protocol>`.
 - Existe solo mientras el cliente está abierto.
-- La ruta de instalación puede variar, así que se busca la app y se deja configurar.
+- Tolerante: se ignoran espacios y saltos de línea alrededor, y los campos vacíos no corren
+  las posiciones. Con menos de cinco campos el archivo está a medio escribir y no se usa.
 
 ```swift
-struct LCUCredentials: Sendable, Equatable {
-    let port: Int
-    let token: String
-    var authHeader: String {
-        "Basic " + Data("riot:\(token)".utf8).base64EncodedString()
-    }
-}
-
-enum LCUDiscovery {
-    static func fromProcess() async throws -> LCUCredentials? {
-        let output = try await Shell.run("/bin/ps", ["-A", "-o", "args"])
-        guard let line = output.split(separator: "\n")
-            .first(where: { $0.contains("LeagueClientUx") && $0.contains("--app-port") })
-        else { return nil }
-
-        func arg(_ name: String) -> String? {
-            line.split(separator: " ")
-                .first { $0.hasPrefix("--\(name)=") }?
-                .split(separator: "=", maxSplits: 1).last.map(String.init)
-        }
-        guard let p = arg("app-port"), let port = Int(p),
-              let token = arg("remote-auth-token") else { return nil }
-        return LCUCredentials(port: port, token: token)
-    }
-
-    static func fromLockfile(at path: String) throws -> LCUCredentials? {
-        guard let raw = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
-        let parts = raw.split(separator: ":")
-        guard parts.count >= 5, let port = Int(parts[2]) else { return nil }
-        return LCUCredentials(port: port, token: String(parts[3]))
-    }
+struct LCUDiscovery: Sendable {
+    init(
+        installPath: String? = nil,
+        commandLines: @escaping @Sendable () async -> [String] = runningCommandLines,
+        readFile: @escaping @Sendable (URL) async -> String? = contents(of:)
+    )
+    /// `nil` cuando no hay cliente.
+    func discover() async -> LCUCredentials?
 }
 ```
 
-> Ojo con los argumentos que traen espacios (por ejemplo, rutas). Si hace falta, parsear con
-> regex `--app-port=(\d+)` y `--remote-auth-token=([\w-]+)` sobre la línea completa.
+`commandLines` (corre `ps`) y `readFile` son las costuras del sistema: los tests pasan
+entradas sintéticas y nunca dependen de un cliente real ni de un lockfile en disco. El parseo
+vive en `ProcessArguments` y `Lockfile`. El token nunca se loguea: los logs (`os.Logger`,
+categoría `LCUKit`) dicen solo de dónde salió y el puerto, y `LCUCredentials` lo redacta en
+toda forma textual.
+
+> Sin verificar contra un cliente real (no hay grabaciones hasta P1-07): el `argv[0]` exacto
+> que muestra `ps` en macOS, si los procesos helper de `LeagueClientUx` repiten las
+> credenciales, y si el cliente de Mac cita los argumentos como el de Windows.
 
 ### 10.2 Polling de descubrimiento
 
+- Cada intento es una llamada a `LCUDiscovery.discover()`: proceso primero, lockfile si el
+  proceso no da credenciales, `nil` si no hay cliente. No lanza errores: si `ps` falla se
+  loguea y cuenta como "no encontrado". La cadencia y el backoff son del ciclo de vida de la
+  conexión.
 - Mientras no hay cliente: buscar cada 2 segundos (con backoff hasta 5 s).
 - Al encontrarlo: conectar REST, verificar con `GET /lol-summoner/v1/current-summoner`
   (puede dar 404 mientras el cliente termina de cargar, así que se reintenta) y abrir el
