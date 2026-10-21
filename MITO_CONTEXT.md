@@ -1004,19 +1004,40 @@ struct DraftSlot: Sendable {
 
 ### 12.3 Inferencia de roles rivales
 
-Los rivales no traen rol. Se infieren con las distribuciones de rol del snapshot:
+Los rivales no traen rol. Se infieren con las distribuciones de rol del snapshot
+(`RoleInference.infer(enemies:takenRoles:stats:)` en `MitoEngine`, función pura):
 
 1. Para cada campeón rival lockeado se tiene `P(role | champion)` desde `champion_roles`
-   (`games` del rol / suma de `games` del campeón).
+   (`games` del rol / suma de `games` del campeón, vía `StatsProvider.roleGames(for:)`).
 2. Se busca la **asignación 1 a 1** de campeones a roles que maximiza el producto de
    probabilidades (con 5 campeones son 120 permutaciones, trivial por fuerza bruta).
-3. Con menos de 5 lockeados se hace lo mismo con los roles disponibles.
-4. Se guarda `roleConfidence` = probabilidad de la asignación / suma de las alternativas.
+3. Con menos de 5 lockeados se hace lo mismo con los roles libres: los que no están en
+   `takenRoles` (roles que ya se sabe que están ocupados).
+4. Por campeón se guarda `roleConfidence` = masa de probabilidad de las asignaciones que le dan
+   ese rol / masa de todas las asignaciones válidas. También se expone `roleProbabilities`: la
+   probabilidad marginal de cada rol libre para ese campeón, sobre todas las asignaciones.
 5. Si la confianza del oponente de lane es baja, el motor mezcla matchups ponderando por
-   probabilidad (por ejemplo, 70 % vs Zed mid y 30 % vs Zed top).
-6. Campeón sin filas en `champion_roles` (nuevo o sin datos en el parche): distribución
-   uniforme sobre los roles libres, con confianza baja. Sin datos de matchup contra él, el
-   motor cae al perfil rival, y si tampoco tiene `champion_profiles` no cuenta para el perfil.
+   probabilidad (por ejemplo, 70 % vs Zed mid y 30 % vs Zed top), usando `roleProbabilities`.
+6. Campeón sin filas en `champion_roles` (nuevo o sin datos en el parche), o con 0 partidas en
+   todos los roles libres: distribución uniforme sobre los roles libres, marcado con
+   `isUniformFallback` (confianza baja aunque `roleConfidence` salga alta por descarte). Sin
+   datos de matchup contra él, el motor cae al perfil rival, y si tampoco tiene
+   `champion_profiles` no cuenta para el perfil.
+
+Casos borde, todos deterministas:
+
+- **Empates**: gana la primera asignación en orden de enumeración — campeones en el orden de
+  entrada, y cada uno prueba los roles en el orden de declaración de `Role` (top, jungle,
+  middle, bottom, utility). Con dos campeones idénticos, el primero se queda con el rol que
+  aparece antes.
+- **Cero campeones**: resultado vacío.
+- **Más rivales que roles libres**: los que sobran quedan sin rol (`role == nil`,
+  `roleConfidence == 0`). Un campeón sin rol aporta factor 1 al producto, así que quedan
+  afuera los de peor encaje; en empate, quedan afuera los últimos.
+- **Todas las asignaciones con probabilidad 0** (por ejemplo, dos campeones que solo juegan
+  bottom con un solo bottom libre): se repite la búsqueda con conteos suavizados
+  (`games + 1` por rol, sobre los 5 roles).
+- **Campeón duplicado**: no puede pasar en un draft; no se trata como caso especial.
 
 ### 12.4 Cuándo recalcular
 
