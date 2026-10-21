@@ -10,6 +10,9 @@
     "Activado" : {
       "comment" : "Diamond+ data option: always on."
     },
+    "Actualizaciones" : {
+      "comment" : "Settings section header for the update options."
+    },
     "Agregar %@" : {
       "comment" : "VoiceOver label: add this champion to the pool. The argument is the champion name."
     },
@@ -24,6 +27,9 @@
     },
     "Bajar %@" : {
       "comment" : "VoiceOver label: move this champion down in the pool. The argument is the champion name."
+    },
+    "Buscar actualizaciones automáticamente" : {
+      "comment" : "General setting: let Sparkle check for new Mito versions on its schedule."
     },
     "Buscar campeón" : {
       "comment" : "Search field placeholder in the add-champion popover."
@@ -82,6 +88,12 @@
     "Jungla" : {
       "comment" : "Role name: jungle."
     },
+    "Las actualizaciones todavía no están configuradas en esta versión." : {
+      "comment" : "Updates section footer while the build has no update feed or key; not an error."
+    },
+    "Las betas llegan antes y pueden tener errores." : {
+      "comment" : "Updates section footer: what opting into betas means."
+    },
     "Leyendo tus partidas…" : {
       "comment" : "Flash detection status: reading the stored match history."
     },
@@ -114,6 +126,9 @@
     },
     "Quitar %@" : {
       "comment" : "VoiceOver label: remove this champion from the pool. The argument is the champion name."
+    },
+    "Recibir versiones beta" : {
+      "comment" : "General setting: also offer versions published on the beta channel."
     },
     "Rol" : {
       "comment" : "Champion pool role picker label."

@@ -13,6 +13,7 @@
 		B10000000000000000000004 /* MitoEngine in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000004 /* MitoEngine */; };
 		B10000000000000000000005 /* MitoAssets in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000005 /* MitoAssets */; };
 		B10000000000000000000006 /* MitoImport in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000006 /* MitoImport */; };
+		B10000000000000000000007 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000007 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +60,7 @@
 				B10000000000000000000004 /* MitoEngine in Frameworks */,
 				B10000000000000000000005 /* MitoAssets in Frameworks */,
 				B10000000000000000000006 /* MitoImport in Frameworks */,
+				B10000000000000000000007 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -129,6 +131,7 @@
 				D10000000000000000000004 /* MitoEngine */,
 				D10000000000000000000005 /* MitoAssets */,
 				D10000000000000000000006 /* MitoImport */,
+				D10000000000000000000007 /* Sparkle */,
 			);
 			productName = Mito;
 			productReference = A10000000000000000000001 /* Mito.app */;
@@ -188,6 +191,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				E10000000000000000000001 /* XCLocalSwiftPackageReference "MitoKit" */,
+				E20000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A40000000000000000000002 /* Products */;
@@ -322,6 +326,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		E20000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		D10000000000000000000001 /* MitoCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -346,6 +361,11 @@
 		D10000000000000000000006 /* MitoImport */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MitoImport;
+		};
+		D10000000000000000000007 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E20000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

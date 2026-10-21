@@ -11,7 +11,8 @@ struct MitoApp: App {
     init() {
         let client = AppModel.liveClient()
         // MitoTests run inside this app; they must never reach a live League client, the real
-        // settings file, the snapshot cache and its download, the personal database, or icons.
+        // settings file, the snapshot cache and its download, the personal database, icons, or
+        // the update feed.
         let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         let app = AppModel(
             connection: client,
@@ -19,7 +20,8 @@ struct MitoApp: App {
             settings: SettingsModel(persistence: underTest ? nil : SettingsStore()),
             snapshots: SnapshotModel(origin: .live(underTest: underTest)),
             personal: UnavailablePersonalStore.live(underTest: underTest),
-            iconLoader: IconSource.liveLoader(connection: client, underTest: underTest))
+            iconLoader: IconSource.liveLoader(connection: client, underTest: underTest),
+            updates: { UpdaterModel.live(settings: $0, underTest: underTest) })
         _app = State(initialValue: app)
         // The app lives in the menu bar with no window guaranteed open, so no view can own this.
         Task { await app.start() }
@@ -42,6 +44,11 @@ struct MitoApp: App {
                 .environment(\.iconSource, app.icons)
         }
         .defaultSize(width: 1100, height: 720)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesButton(updates: app.updates)
+            }
+        }
 
         Settings {
             SettingsView()

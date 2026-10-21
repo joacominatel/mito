@@ -64,6 +64,16 @@ struct AboutTests {
         #expect(grdb?.text.contains("shall be included in all copies") == true)
     }
 
+    @Test func sparkleNoticeCarriesItsLicenseAndTheBundledComponents() {
+        let sparkle = About.notices.first { $0.name == "Sparkle" }
+
+        #expect(sparkle?.license == "MIT")
+        #expect(sparkle?.text.hasPrefix("Copyright (c) 2006-2013 Andy Matuschak.") == true)
+        #expect(sparkle?.text.contains("shall be included in all") == true)
+        #expect(sparkle?.text.contains("bsdiff") == true)
+        #expect(sparkle?.text.contains("Ed25519") == true)
+    }
+
     private static let mitoContext = URL(filePath: #filePath)
         .deletingLastPathComponent()  // About/
         .deletingLastPathComponent()  // Features/

@@ -3712,14 +3712,22 @@ loguea. `AppModel` lo carga al arrancar y guarda cada cambio con debounce (§9.3
 | Idioma | es-AR / en | sistema |
 | Ruta de instalación de LoL | path | auto |
 | Datos Diamante+ (capa sobre la base Esmeralda+) | auto (según tu elo) / on / off | auto |
+| Buscar actualizaciones automáticamente | bool | on |
+| Recibir versiones beta | bool | off |
 
 La pestaña "General" (`Features/Onboarding/OnboardingSettingsTab`, modelo `OnboardingModel`)
-es un `Form` agrupado en cuatro secciones:
+es un `Form` agrupado en cinco secciones:
 
 - **General**: toggles, idioma y ruta con bindings a `app.settings.general`. La ruta se elige
   con un selector de archivos y "Detectar sola" la vuelve a `nil`. Por ahora solo "Mostrar
   ventana al entrar en champ select" tiene efecto (§20.1); el resto se guarda y el pie de la
   sección lo dice.
+- **Actualizaciones** (§24): "Buscar actualizaciones automáticamente"
+  (`general.automaticallyCheckForUpdates`) y "Recibir versiones beta"
+  (`general.receiveBetaUpdates`, el canal `beta` de Sparkle). Los toggles pasan por
+  `UpdaterModel`, que guarda el valor en `MitoSettings` y se lo pasa a Sparkle. Si el build no
+  tiene el updater configurado, la sección queda deshabilitada y el pie dice "Las
+  actualizaciones todavía no están configuradas en esta versión.", sin marcar error.
 - **Pool de campeones** (§19.1.3): un selector de rol y la lista ordenada del rol, que se lee
   y se guarda con `PersonalStore.pool(for:)` / `setPool(_:for:)`. El primero es el principal.
   Cada fila tiene subir, bajar y quitar (con etiquetas de VoiceOver); cada cambio guarda el
@@ -4053,8 +4061,13 @@ Recomendado: Ahri (+3,8)
 ──────────────────────────────
 Abrir Mito                ⌘O
 Settings…                 ⌘,
+Buscar actualizaciones…
 Salir                     ⌘Q
 ```
+
+"Buscar actualizaciones…" (`CheckForUpdatesButton`) también está en el menú de la app, debajo de
+"Acerca de". Pide un chequeo a Sparkle (§24) y está deshabilitado cuando el updater no está
+configurado o mientras ya hay un chequeo en curso (`canCheckForUpdates` de Sparkle).
 
 La línea "Recomendado: Ahri (+3,8)" (`RecommendationMenuSection`) va debajo del resumen del
 draft: el pick #1 de la columna "Recomendados" (§20.1) con su score en puntos de winrate, con el
@@ -4211,8 +4224,21 @@ Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10
   ventana principal o Settings están abiertas, según el toggle de Dock (§21.1).
 - Debug y Release conviven: bundle IDs distintos, así que todo lo que se guarda por instalación
   se nombra a partir del bundle ID.
-- La beta es un Release publicado en el canal `beta` de Sparkle, no otra configuración.
-- Actualizaciones con **Sparkle** (appcast firmado con EdDSA).
+- Actualizaciones con **Sparkle 2.10.0**, fijado exacto (ADR 0009), solo en el target de la
+  app: appcast firmado con EdDSA. La clave privada vive solo en el Llavero del CEO; nunca en el
+  repo. `SUFeedURL` y `SUPublicEDKey` salen de `MITO_SPARKLE_FEED_URL` y
+  `MITO_SPARKLE_PUBLIC_ED_KEY` en los xcconfig, vía `Config/Info.plist`.
+- **Apagado hasta configurarse**: Debug no tiene feed y nunca actualiza; Release trae
+  `https://updates.mito.invalid/appcast.xml` y la clave vacía hasta que se resuelva la Q5 del
+  roadmap. `UpdaterModel` crea el updater de Sparkle solo si el build no es Debug, el feed es
+  HTTPS sobre un host que no es `.invalid` y la clave son 32 bytes en base64; si no (y siempre
+  bajo XCTest), no hay chequeos ni red.
+- La beta es un Release publicado en el canal `beta` de Sparkle (`<sparkle:channel>beta`), no
+  otra configuración. "Recibir versiones beta" (§21.1) suma ese canal al default.
+- Chequeos programados con los defaults de Sparkle (uno por día), sin descarga ni instalación
+  automática. Como app de barra de menú usa los recordatorios suaves de Sparkle: la alerta
+  programada se abre detrás de la app activa, sin robar el foco. Pendiente: posponerla mientras
+  hay una partida en curso.
 - Instalación por DMG. Opcional: cask de Homebrew.
 - Permisos de macOS: notificaciones. No hace falta Accesibilidad ni Grabación de pantalla
   en la v1.

@@ -21,6 +21,9 @@ public struct GeneralSettings: Codable, Hashable, Sendable {
     /// `nil` means auto-detect.
     public var leagueInstallPath: String?
     public var diamondPlusData: DiamondPlusData
+    public var automaticallyCheckForUpdates: Bool
+    /// Adds Sparkle's `beta` channel to the default one.
+    public var receiveBetaUpdates: Bool
 
     public init(
         launchAtLogin: Bool = false,
@@ -29,7 +32,9 @@ public struct GeneralSettings: Codable, Hashable, Sendable {
         showDockIcon: Bool = false,
         language: Language = .system,
         leagueInstallPath: String? = nil,
-        diamondPlusData: DiamondPlusData = .auto
+        diamondPlusData: DiamondPlusData = .auto,
+        automaticallyCheckForUpdates: Bool = true,
+        receiveBetaUpdates: Bool = false
     ) {
         self.launchAtLogin = launchAtLogin
         self.showWindowOnChampSelect = showWindowOnChampSelect
@@ -38,6 +43,8 @@ public struct GeneralSettings: Codable, Hashable, Sendable {
         self.language = language
         self.leagueInstallPath = leagueInstallPath
         self.diamondPlusData = diamondPlusData
+        self.automaticallyCheckForUpdates = automaticallyCheckForUpdates
+        self.receiveBetaUpdates = receiveBetaUpdates
     }
 
     public init(from decoder: any Decoder) throws {
@@ -52,5 +59,9 @@ public struct GeneralSettings: Codable, Hashable, Sendable {
         leagueInstallPath = container.decode(
             .leagueInstallPath, default: defaults.leagueInstallPath)
         diamondPlusData = container.decode(.diamondPlusData, default: defaults.diamondPlusData)
+        automaticallyCheckForUpdates = container.decode(
+            .automaticallyCheckForUpdates, default: defaults.automaticallyCheckForUpdates)
+        receiveBetaUpdates = container.decode(
+            .receiveBetaUpdates, default: defaults.receiveBetaUpdates)
     }
 }

@@ -13,12 +13,18 @@ LOCALIZATION_PREFERS_STRING_CATALOGS = YES
 PRODUCT_NAME = Mito
 PRODUCT_BUNDLE_IDENTIFIER = com.joacominatel.mito
 GENERATE_INFOPLIST_FILE = YES
+// Merged into the generated plist; carries the Sparkle keys, which have no INFOPLIST_KEY_ form.
+INFOPLIST_FILE = Config/Info.plist
 INFOPLIST_KEY_CFBundleDisplayName = Mito
 INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.games
 INFOPLIST_KEY_LSUIElement = YES
 
 // Outside the Mac App Store: the app reads the client's lockfile and process args (MITO_CONTEXT.md §24).
 ENABLE_APP_SANDBOX = NO
+
+// Sparkle (ADR 0009). Empty or `.invalid` keeps the updater off: no checks, no network.
+MITO_SPARKLE_FEED_URL =
+MITO_SPARKLE_PUBLIC_ED_KEY =
 CODE_SIGN_STYLE = Automatic
 CODE_SIGN_IDENTITY = -
 

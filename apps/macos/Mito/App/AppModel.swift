@@ -27,6 +27,7 @@ final class AppModel {
     let onboarding: OnboardingModel
     let overrides: OverridesModel
     let settingsModel: SettingsModel
+    let updates: UpdaterModel
     /// The one personal database; features that read or write it get it in their `init`.
     let personal: any PersonalStore
 
@@ -40,7 +41,8 @@ final class AppModel {
         personal: any PersonalStore = UnavailablePersonalStore(),
         iconLoader: (any IconLoading)? = nil,
         poster: any NotificationPosting = SystemNotificationPoster(),
-        appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
+        appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive },
+        updates: (SettingsModel) -> UpdaterModel = { UpdaterModel(settings: $0) }
     ) {
         connection = ConnectionModel(connection: lcu)
         let clientData = ClientDataModel(connection: lcu)
@@ -73,6 +75,7 @@ final class AppModel {
         overrides = OverridesModel(store: personal)
         self.lifecycle = lifecycle
         settingsModel = settings
+        self.updates = updates(settings)
     }
 
     private static func champSelectModel(
@@ -155,6 +158,7 @@ final class AppModel {
     /// Slots start once the persisted settings are in, so none acts on the defaults.
     func start() async {
         await settingsModel.load()
+        updates.start()
         await withDiscardingTaskGroup { group in
             group.addTask { await self.lifecycle() }
             group.addTask { await self.connection.run() }

@@ -3,6 +3,7 @@
 PRODUCT_NAME = MitoTests
 PRODUCT_BUNDLE_IDENTIFIER = com.joacominatel.mito.tests
 INFOPLIST_KEY_LSUIElement =
+INFOPLIST_FILE =
 
 TEST_HOST = $(BUILT_PRODUCTS_DIR)/Mito.app/Contents/MacOS/Mito
 BUNDLE_LOADER = $(TEST_HOST)

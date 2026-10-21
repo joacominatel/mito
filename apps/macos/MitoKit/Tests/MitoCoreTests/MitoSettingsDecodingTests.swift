@@ -21,6 +21,27 @@ struct MitoSettingsDecodingTests {
         #expect(!settings.importing.importOnHover)
     }
 
+    @Test func updatesAreCheckedAutomaticallyAndBetasAreOptIn() {
+        let general = MitoSettings().general
+        #expect(general.automaticallyCheckForUpdates)
+        #expect(!general.receiveBetaUpdates)
+    }
+
+    @Test func settingsSavedBeforeTheUpdateKeysExistedKeepTheirValuesAndGetUpdateDefaults() throws {
+        let settings = try decode(#"{"general": {"launchAtLogin": true, "showDockIcon": true}}"#)
+        #expect(settings.general.launchAtLogin)
+        #expect(settings.general.showDockIcon)
+        #expect(settings.general.automaticallyCheckForUpdates)
+        #expect(!settings.general.receiveBetaUpdates)
+    }
+
+    @Test func aMistypedUpdateKeyFallsBackWithoutResettingTheOther() throws {
+        let settings = try decode(
+            #"{"general": {"automaticallyCheckForUpdates": "yes", "receiveBetaUpdates": true}}"#)
+        #expect(settings.general.automaticallyCheckForUpdates)
+        #expect(settings.general.receiveBetaUpdates)
+    }
+
     @Test func autoPickAndAutoBanAreOffByDefault() {
         let settings = MitoSettings()
         #expect(settings.champSelect.autoPick == .off)
@@ -58,6 +79,8 @@ struct MitoSettingsDecodingTests {
         var settings = MitoSettings()
         settings.general.leagueInstallPath = "/Applications/League of Legends.app"
         settings.general.language = .english
+        settings.general.automaticallyCheckForUpdates = false
+        settings.general.receiveBetaUpdates = true
         settings.game.autoAccept = .selectedQueues
         settings.game.autoAcceptQueues = [QueueID(rawValue: 420)]
         settings.champSelect.autoPick = .listByRole

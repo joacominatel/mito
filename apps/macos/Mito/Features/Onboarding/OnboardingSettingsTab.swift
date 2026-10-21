@@ -44,6 +44,8 @@ struct OnboardingSettingsTab: View {
                 .foregroundStyle(.secondary)
             }
 
+            UpdatesSection(updates: app.updates)
+
             PoolSection(model: app.onboarding)
 
             FlashSection(
@@ -72,6 +74,41 @@ struct OnboardingSettingsTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct UpdatesSection: View {
+    @Bindable var updates: UpdaterModel
+
+    var body: some View {
+        Section {
+            Toggle(isOn: $updates.automaticallyChecksForUpdates) {
+                Text("Buscar actualizaciones automáticamente", tableName: "Onboarding")
+            }
+            Toggle(isOn: $updates.receivesBetaUpdates) {
+                Text("Recibir versiones beta", tableName: "Onboarding")
+            }
+        } header: {
+            Text("Actualizaciones", tableName: "Onboarding")
+        } footer: {
+            Group {
+                if updates.isConfigured {
+                    Text(
+                        "Las betas llegan antes y pueden tener errores.", tableName: "Onboarding")
+                } else {
+                    Label {
+                        Text(
+                            "Las actualizaciones todavía no están configuradas en esta versión.",
+                            tableName: "Onboarding")
+                    } icon: {
+                        Image(systemName: "info.circle")
+                    }
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+        .disabled(!updates.isConfigured)
     }
 }
 
@@ -318,14 +355,16 @@ extension Role {
     }
 }
 
-#Preview("Pool lleno") {
-    let app = AppModel.onboardingPreview
-    OnboardingSettingsTab()
-        .environment(app)
-        .frame(width: 520, height: 720)
-        .task { await app.clientData.run() }
-        .task { await app.onboarding.run() }
-}
+#if DEBUG
+    #Preview("Pool lleno") {
+        let app = AppModel.onboardingPreview
+        OnboardingSettingsTab()
+            .environment(app)
+            .frame(width: 520, height: 720)
+            .task { await app.clientData.run() }
+            .task { await app.onboarding.run() }
+    }
+#endif
 
 #Preview("Sin datos") {
     OnboardingSettingsTab()

@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The §22.4 sections, in order.
 struct MenuBarView: View {
+    @Environment(AppModel.self) private var app
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -23,6 +24,7 @@ struct MenuBarView: View {
                 Text("Settings…", tableName: "Shell")
             }
             .keyboardShortcut(",")
+            CheckForUpdatesButton(updates: app.updates)
             Button {
                 NSApplication.shared.terminate(nil)
             } label: {
