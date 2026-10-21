@@ -2973,9 +2973,14 @@ y nunca se guarda.
   pise los sets del usuario y el manejo del cupo de páginas.
 - **mito-data:** pytest para normalización, filtros de remake, clasificación de ítems,
   agregaciones sobre un dataset chico fijo y validación del schema exportado.
-- **Contrato snapshot ↔ app:** test que abre el snapshot de ejemplo de `fixtures/snapshot/`
-  (generado por `mito-data`) con el código Swift y verifica `schema_version`, la identidad
-  de `meta`, las claves JSON de `meta` y las consultas principales.
+- **Contrato snapshot ↔ app:** `SnapshotContractTests` (MitoStoreTests) abre el snapshot de
+  ejemplo de `fixtures/snapshot/` (generado por `mito-data`) con `SnapshotReader` y verifica
+  `schema_version`, la identidad de `meta`, las claves JSON de `meta` y cada consulta de
+  `StatsProvider` contra valores leídos del archivo, incluido el fallback de ítems finales
+  (Zed JUNGLE, `tl_games` 40). `SnapshotReaderTests` cubre los errores (archivo ausente o
+  corrupto, `schema_version` no soportado, clave de `meta` faltante o mal formada) sobre
+  copias temporales. `ContractPinTests` (ArchitectureTests) fija las tablas y columnas de
+  `schema.sql` que lee el reader: un cambio de schema sin cambio de reader falla.
 - **Cómo se corren:** `swift test --package-path apps/macos/MitoKit --enable-code-coverage`.
   Los tests de la app (`MitoTests`) corren con
   `xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' test`.
