@@ -117,8 +117,9 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| MD0 | `mito-data` project with uv, empty typer CLI, basic CI | mito-data | — | — | — | todo |
-| KEY | Personal API key from the Riot Developer Portal | CEO | — | — | — | development key in hand (expires every 24 h); personal key pending |
+| MD0 | `mito-data` project with uv, empty typer CLI, basic CI | mito-data | — | — | — | done (local gate; no remote yet) |
+| MD-FX | Contract fixture snapshot (`uv run mito-data fixture`) | mito-data | — | — | MD0 | done (mito-data ef55706, `fixtures/snapshot/`) |
+| KEY | Personal API key from the Riot Developer Portal | CEO | — | — | — | development key in the Keychain (expires every 24 h); personal key pending |
 | MD5 | `mito-data` pipeline MVP: crawl, normalize, P5 aggregations, export, R2 publish | mito-data | — | — | MD0, KEY | todo |
 | MD7 | `mito-data` Phase 7 aggregations, curated flags, `meta.profile_rules` | mito-data | — | — | MD5 | todo |
 | MD-tips | Curated es-AR tips file published by `mito-data` | mito-data | — | — | MD5 | todo |
@@ -174,7 +175,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P5-01 | Bring in the snapshot fixture from `mito-data` | store (serial, snapshot contract) | `fixtures/snapshot/**` | §17 | MD5 | todo |
+| P5-01 | Bring in the snapshot fixture from `mito-data` | store (serial, snapshot contract) | `fixtures/snapshot/**` | §17 | MD-FX | ready |
 
 ## P6 — The app consumes the snapshot
 
