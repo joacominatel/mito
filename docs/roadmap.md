@@ -117,6 +117,17 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | P0-B | MitoKit package graph, MitoCore/LCUKit contracts, `MitoTestSupport` fakes, `ArchitectureTests` fitness functions | core + lcu contracts + arch (serial) | `MitoKit/**`, `fixtures/lcu/cases/**` | — | — | merged 9127d73, 16d429f |
 | P0-C | App shell: `AppModel` slots, sidebar, menu-bar sections, Settings tabs, per-feature string tables, `MitoImport` link, `MitoTests` target | shell (serial) | `Mito/**`, `MitoTests/**`, `Mito.xcodeproj/**` | §9.1, §9.3 | P0-B | merged 3da7fd6 |
 
+## Pending for the CEO
+
+Parked questions and actions only the CEO can take. Work continues around them.
+
+| # | Item | Blocks | Since |
+| --- | --- | --- | --- |
+| Q1 | Apply for the Riot Personal API key in the Developer Portal | publishing any snapshot (MD5 publish) | 2026-10-21 |
+| Q2 | Create the Cloudflare R2 account and the `mito-data` remote repository | MD5 publish, mito-data CI | 2026-10-21 |
+| Q3 | Record LCU fixtures with `tools/lcu-recorder` (`champ-select`, `ready-check`, `lobby-to-game`) | verifying every LCU field name; P2-05 mock scenarios | 2026-10-21 |
+| Q4 | Menu item wording: "Settings…" (§22.4) or the macOS Spanish "Ajustes…" | nothing; "Settings…" stays until answered | 2026-10-20 |
+
 ## External deliveries
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
@@ -129,6 +140,8 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | MD-tips | Curated es-AR tips file published by `mito-data` | mito-data | — | — | MD5 | todo |
 
 ## P1 — Connection
+
+Done criterion verified by the CEO against the real client on 2026-10-21.
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
