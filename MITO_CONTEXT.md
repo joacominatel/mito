@@ -494,7 +494,9 @@ final class AppModel {
         lifecycle: @escaping @Sendable () async -> Void = {},
         settings: SettingsModel = SettingsModel(),
         snapshots: SnapshotModel = SnapshotModel(),
-        personal: any PersonalStore = UnavailablePersonalStore(), ...
+        personal: any PersonalStore = UnavailablePersonalStore(),
+        poster: any NotificationPosting = SystemNotificationPoster(),
+        appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
     )
 
     var menuBarSymbol: String { gameflow.menuBarSymbol ?? connection.menuBarSymbol }
@@ -527,6 +529,10 @@ final class AppModel {
   XCTest, donde termina al instante y nada se conecta. `start()` lo corre en el mismo task group
   que los slots, así que vive lo que vive `start()` y cancelarlo desarma la conexión (§10.2). En
   tests y previews el default `{}` termina al instante.
+- **Notificaciones inyectadas:** `poster` (§22.5) y `appIsActive` (si Mito está en primer
+  plano) van a `GameflowModel` e `ImportModel`; los dos comparten un solo poster. Los defaults
+  son los reales y `MitoApp` los usa; los tests de `AppModel` pasan un poster que graba, así
+  ningún test publica una notificación del sistema.
 - Las vistas leen `@Environment(AppModel.self)` y toman el slot que necesitan; los call sites
   del shell no cambian cuando una feature crece.
 - **Settings** (§21): `SettingsModel` (en `App/`) tiene el `MitoSettings` vivo. `MitoApp` le
@@ -1135,6 +1141,14 @@ que apagarlo durante el delay cancela el accept. El reloj se inyecta (default
 - Un POST fallido se reporta y no se reintenta.
 - Cada decisión produce un `AutoAcceptReport`: `.accepted`, `.skipped(razón)` o
   `.failed(LCUError)`. La notificación sale de ese reporte (P2-04), no del accepter.
+
+**En la app.** `GameflowModel` le da al accepter un solo stream de ready checks: los eventos en
+vivo y, al conectar, una lectura REST (el stream solo trae cambios, y un ready check ya
+abierto no se vería). Cada evento en vivo, y el fin sintético de un ready check al perder la
+conexión, sube una generación; la lectura solo se reenvía si la generación no cambió desde que
+se pidió. Si vuelve después de que el stream mostró y terminó ese mismo ready check, se
+descarta: reenviarla abriría una racha nueva y una segunda notificación. El stream termina
+cuando terminaron los streams de la conexión y las lecturas pendientes.
 
 ---
 

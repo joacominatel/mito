@@ -13,6 +13,9 @@ final class GameflowModel {
     private let readyChecks: AsyncStream<LCUEvent>.Continuation
     // Bumped by every phase event and connection change: a REST phase older than either is dropped.
     @ObservationIgnored private var phaseGeneration = 0
+    /// Bumped by every live ready-check event and every drop: a REST read older than either is
+    /// stale. Observable so tests can tell when the live stream was consumed.
+    private(set) var readyCheckGeneration = 0
 
     init(
         connection: any LCUConnection,
@@ -25,11 +28,11 @@ final class GameflowModel {
         self.settings = settings
         self.poster = poster
         self.machine = machine
-        let (fetched, readyChecks) = AsyncStream.makeStream(
+        let (stream, readyChecks) = AsyncStream.makeStream(
             of: LCUEvent.self, bufferingPolicy: .unbounded)
         self.readyChecks = readyChecks
         accepter = AutoAccepter(
-            connection: ReadyCheckFeed(base: connection, fetched: fetched), clock: clock)
+            connection: ReadyCheckFeed(base: connection, readyChecks: stream), clock: clock)
     }
 
     var state: MitoState { machine.state }
@@ -75,22 +78,27 @@ final class GameflowModel {
     /// Returns once the connection's streams finish and any accept in flight settles.
     func run() async {
         await withDiscardingTaskGroup { group in
-            group.addTask { await self.followPhases() }
             group.addTask {
                 await self.accepter.run(context: { await self.autoAcceptContext() }) { report in
                     await self.handle(report)
                 }
             }
-            for await state in connection.states() {
-                // The end of a ready check is never seen across a drop: the next one is new.
-                if machine.connection == .connected, state != .connected {
-                    readyChecks.yield(ReadyCheckFeed.ended)
-                }
-                machine.apply(state)
-                phaseGeneration += 1
-                if state == .connected {
-                    group.addTask { await self.refreshPhase() }
-                    group.addTask { await self.readCurrentReadyCheck() }
+            // Everything that feeds the accepter; once it is all done, nothing more can arrive.
+            await withDiscardingTaskGroup { feeders in
+                feeders.addTask { await self.followPhases() }
+                feeders.addTask { await self.followReadyChecks() }
+                for await state in connection.states() {
+                    // The end of a ready check is never seen across a drop: the next one is new.
+                    if machine.connection == .connected, state != .connected {
+                        readyCheckGeneration += 1
+                        readyChecks.yield(ReadyCheckFeed.ended)
+                    }
+                    machine.apply(state)
+                    phaseGeneration += 1
+                    if state == .connected {
+                        feeders.addTask { await self.refreshPhase() }
+                        feeders.addTask { await self.readCurrentReadyCheck() }
+                    }
                 }
             }
             readyChecks.finish()
@@ -113,9 +121,21 @@ final class GameflowModel {
         machine.apply(phase)
     }
 
-    /// A 404 means no ready check; the accepter re-reads before answering, so a stale one is safe.
+    /// One stream for the live events and the connect read keeps them in the order they happened.
+    private func followReadyChecks() async {
+        for await event in connection.events([.readyCheck]) {
+            readyCheckGeneration += 1
+            readyChecks.yield(event)
+        }
+    }
+
+    /// A 404 means no ready check. A live event that came in meanwhile is newer: replaying the
+    /// read after it would start a second ready check, and a second notification (§11.3).
     private func readCurrentReadyCheck() async {
-        guard let body = try? await connection.send(ReadyCheckFeed.current) else { return }
+        let generation = readyCheckGeneration
+        guard let body = try? await connection.send(ReadyCheckFeed.current),
+            generation == readyCheckGeneration
+        else { return }
         readyChecks.yield(ReadyCheckFeed.event(body))
     }
 

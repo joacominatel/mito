@@ -341,6 +341,31 @@ struct GameflowModelNotificationTests {
         #expect(harness.poster.posts == [found, found])
     }
 
+    /// The connect read comes back after the live stream showed and ended the same ready check.
+    /// `off`, and `selectedQueues` with an unselected queue: both notify without answering.
+    @Test(
+        arguments: [
+            GameSettings(autoAccept: .off),
+            GameSettings(autoAccept: .selectedQueues, autoAcceptQueues: [QueueID(rawValue: 420)]),
+        ])
+    func postsMatchFoundOnceWhenTheConnectReadLandsAfterTheLiveEnd(settings: GameSettings) async {
+        let harness = Harness(settings: settings)
+        harness.connection.answer(sessionPath, json: session(queue: 440))
+        harness.connection.answer(readyCheckPath, json: showing)
+        harness.connection.hold(readyCheckPath)
+        let run = harness.start()
+        harness.connection.enter(.connected)
+        await harness.connection.requested(.get, readyCheckPath)
+
+        harness.connection.emitReadyCheck(showing)
+        harness.connection.emitReadyCheckEnded()
+        await waitUntil { harness.model.readyCheckGeneration == 2 }
+        harness.connection.release(readyCheckPath)
+        await harness.stop(run)
+
+        #expect(harness.poster.posts == [found])
+    }
+
     @Test func staysQuietWhenOffWithNotifyMatchFoundOff() async {
         let harness = Harness(settings: GameSettings(autoAccept: .off, notifyMatchFound: false))
         let run = harness.start()

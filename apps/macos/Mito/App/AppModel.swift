@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import LCUKit
 import MitoCore
@@ -34,13 +35,16 @@ final class AppModel {
         lifecycle: @escaping @Sendable () async -> Void = {},
         settings: SettingsModel = SettingsModel(),
         snapshots: SnapshotModel = SnapshotModel(),
-        personal: any PersonalStore = UnavailablePersonalStore()
+        personal: any PersonalStore = UnavailablePersonalStore(),
+        poster: any NotificationPosting = SystemNotificationPoster(),
+        appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
     ) {
         connection = ConnectionModel(connection: lcu)
         let clientData = ClientDataModel(connection: lcu)
         self.clientData = clientData
         self.snapshots = snapshots
-        gameflow = GameflowModel(connection: lcu, settings: { settings.value.game })
+        gameflow = GameflowModel(
+            connection: lcu, settings: { settings.value.game }, poster: poster)
         champSelect = ChampSelectModel(
             connection: lcu, settings: { settings.value.champSelect },
             patch: { clientData.patch }, gameData: clientData.gameData)
@@ -55,7 +59,7 @@ final class AppModel {
                 case .f: .f
                 case nil: nil
                 }
-            })
+            }, poster: poster, appIsActive: appIsActive)
         champions = ChampionsModel(stats: { snapshots.provider }, gameData: clientData.gameData)
         analysis = AnalysisModel()
         self.personal = personal

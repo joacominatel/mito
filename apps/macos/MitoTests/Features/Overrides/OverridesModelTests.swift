@@ -95,6 +95,24 @@ struct OverridesModelTests {
         #expect(model.draft?.role == .top)
     }
 
+    @Test func aSavedOverrideTakesItsStoreOrderForOpeningWithoutARole() async {
+        let store = OverridesTestStore(overrides: [
+            ChampionOverride(champion: Fixture.ahri, role: .middle)
+        ])
+        let model = await editing(role: .top, store: store)
+        model.draft?.isFavorite = true
+        await model.save(styles: styles)
+
+        model.open(Fixture.ahri, styles: styles)
+        #expect(model.draft?.role == .top)
+
+        let relaunched = OverridesModel(store: store)
+        await relaunched.run()
+        relaunched.open(Fixture.ahri, styles: styles)
+        #expect(relaunched.draft?.role == .top)
+        #expect(model.overrides == relaunched.overrides)
+    }
+
     @Test func theRoleSwitchesOnlyWithoutUnsavedChanges() async {
         let store = OverridesTestStore(overrides: [
             ChampionOverride(champion: Fixture.ahri, role: .top, isFavorite: true)

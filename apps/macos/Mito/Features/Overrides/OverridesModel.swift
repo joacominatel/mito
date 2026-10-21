@@ -151,6 +151,12 @@ final class OverridesModel {
         }
         overrides.removeAll { $0.champion == override.champion && $0.role == override.role }
         overrides.append(override)
+        // The store's order, so `open` without a role picks what it would after a relaunch.
+        let roles = Role.allCases
+        overrides.sort {
+            ($0.champion.rawValue, roles.firstIndex(of: $0.role) ?? 0)
+                < ($1.champion.rawValue, roles.firstIndex(of: $1.role) ?? 0)
+        }
         failure = nil
         close()
     }
