@@ -7,9 +7,12 @@ let pngIcon = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01])
 let otherPNGIcon = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x02])
 let testBundleIdentifier = "com.joacominatel.mito.tests"
 
-/// Serves one canned answer for every URL, optionally holding each call until `release()`.
+/// Serves `versions` for `api/versions.json` and one canned answer for every other URL,
+/// optionally holding each call until `release()`.
 final class FakeDataDragon: DataDragonTransport {
     enum Failure: Error { case scripted }
+
+    static let versionsURL = URL(string: "https://ddragon.leagueoflegends.com/api/versions.json")
 
     private struct Gate {
         var open: Bool
@@ -17,15 +20,25 @@ final class FakeDataDragon: DataDragonTransport {
     }
 
     private let answer: Result<Data, Failure>
+    private let versions: Result<Data, Failure>
     private let gate: Mutex<Gate>
     private let recorded = Mutex<[URL]>([])
 
-    init(answer: Result<Data, Failure> = .success(pngIcon), gated: Bool = false) {
+    init(
+        answer: Result<Data, Failure> = .success(pngIcon),
+        versions: Result<Data, Failure> = .success(Data(#"["16.21.1"]"#.utf8)),
+        gated: Bool = false
+    ) {
         self.answer = answer
+        self.versions = versions
         gate = Mutex(Gate(open: !gated))
     }
 
+    /// Every request, `versions.json` included.
     var urls: [URL] { recorded.withLock { $0 } }
+    /// Every request but `versions.json`.
+    var images: [URL] { urls.filter { $0 != Self.versionsURL } }
+    var versionRequests: Int { urls.count - images.count }
 
     func release() {
         let waiting = gate.withLock { gate in
@@ -45,7 +58,7 @@ final class FakeDataDragon: DataDragonTransport {
             }
             if isOpen { continuation.resume() }
         }
-        return try answer.get()
+        return try (url == Self.versionsURL ? versions : answer).get()
     }
 }
 

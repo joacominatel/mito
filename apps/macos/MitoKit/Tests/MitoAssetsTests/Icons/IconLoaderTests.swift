@@ -1,5 +1,6 @@
 import Foundation
 import LCUKit
+import MitoCore
 import MitoTestSupport
 import Testing
 
@@ -9,12 +10,18 @@ struct IconLoaderTests {
     private static let path = "/lol-game-data/assets/v1/champion-icons/103.png"
     private static let dataDragonURL = URL(
         string: "https://ddragon.leagueoflegends.com/cdn/16.21.1/img/champion/Ahri.png")
+    private static let patch = Patch(rawValue: "16.21")
 
-    private static func request(version: String = "16.21.1", dataDragon: Bool = false) throws
-        -> IconRequest
-    {
+    private static func request(
+        path: String = path, version: String = "16.21.1", dataDragon: Bool = false
+    ) throws -> IconRequest {
         try IconRequest(
-            assetPath: path, gameVersion: version, dataDragonURL: dataDragon ? dataDragonURL : nil)
+            assetPath: path, gameVersion: version,
+            dataDragonFile: dataDragon ? .image("champion/Ahri.png", patch: Self.patch) : nil)
+    }
+
+    private static func versions(_ list: [String]) -> Result<Data, FakeDataDragon.Failure> {
+        .success(Data("[\(list.map { "\"\($0)\"" }.joined(separator: ","))]".utf8))
     }
 
     private static func client(serving body: Data = pngIcon) -> FakeLCUConnection {
@@ -80,7 +87,7 @@ struct IconLoaderTests {
             let request = try Self.request(dataDragon: true)
 
             #expect(try await loader.icon(for: request) == otherPNGIcon)
-            #expect(dataDragon.urls == [Self.dataDragonURL].compactMap { $0 })
+            #expect(dataDragon.images == [Self.dataDragonURL].compactMap { $0 })
             #expect(try Data(contentsOf: loader.cacheFile(for: request)) == otherPNGIcon)
         }
     }
@@ -95,11 +102,11 @@ struct IconLoaderTests {
             let request = try Self.request(dataDragon: true)
 
             #expect(try await loader.icon(for: request) == pngIcon)
-            #expect(dataDragon.urls.count == 1)
+            #expect(dataDragon.images.count == 1)
         }
     }
 
-    @Test func withoutADataDragonURLAFailedClientFetchIsReported() async throws {
+    @Test func withoutADataDragonFileAFailedClientFetchIsReported() async throws {
         try await withTemporaryDirectory { base in
             let dataDragon = FakeDataDragon()
             let loader = Self.loader(FakeLCUConnection(), dataDragon: dataDragon, base: base)
@@ -123,6 +130,101 @@ struct IconLoaderTests {
             await #expect(throws: IconError.unavailable(assetPath: Self.path)) {
                 try await loader.icon(for: request)
             }
+        }
+    }
+
+    @Test func aClientIconAsksDataDragonNothingAtAll() async throws {
+        try await withTemporaryDirectory { base in
+            let dataDragon = FakeDataDragon()
+            let loader = Self.loader(Self.client(), dataDragon: dataDragon, base: base)
+            let request = try Self.request(dataDragon: true)
+
+            #expect(try await loader.icon(for: request) == pngIcon)
+            #expect(dataDragon.urls.isEmpty)
+        }
+    }
+
+    @Test func theFallbackUsesTheNewestBuildOfThePatchFromVersionsJSON() async throws {
+        try await withTemporaryDirectory { base in
+            let dataDragon = FakeDataDragon(
+                versions: Self.versions(["16.22.1", "16.21.2", "16.21.1", "16.2.9"]))
+            let loader = Self.loader(FakeLCUConnection(), dataDragon: dataDragon, base: base)
+
+            _ = try await loader.icon(for: Self.request(dataDragon: true))
+
+            #expect(
+                dataDragon.images.map(\.absoluteString) == [
+                    "https://ddragon.leagueoflegends.com/cdn/16.21.2/img/champion/Ahri.png"
+                ])
+        }
+    }
+
+    @Test func withoutVersionsJSONTheFallbackGuessesThePatchFirstBuild() async throws {
+        try await withTemporaryDirectory { base in
+            let dataDragon = FakeDataDragon(versions: .failure(.scripted))
+            let loader = Self.loader(FakeLCUConnection(), dataDragon: dataDragon, base: base)
+
+            _ = try await loader.icon(for: Self.request(dataDragon: true))
+
+            #expect(dataDragon.images == [Self.dataDragonURL].compactMap { $0 })
+        }
+    }
+
+    @Test func aPatchMissingFromVersionsJSONGetsTheGuessedFirstBuild() async throws {
+        try await withTemporaryDirectory { base in
+            let dataDragon = FakeDataDragon(versions: Self.versions(["16.20.3"]))
+            let loader = Self.loader(FakeLCUConnection(), dataDragon: dataDragon, base: base)
+
+            _ = try await loader.icon(for: Self.request(dataDragon: true))
+
+            #expect(dataDragon.images == [Self.dataDragonURL].compactMap { $0 })
+        }
+    }
+
+    @Test func versionsJSONIsFetchedOncePerLoader() async throws {
+        try await withTemporaryDirectory { base in
+            let dataDragon = FakeDataDragon()
+            let loader = Self.loader(FakeLCUConnection(), dataDragon: dataDragon, base: base)
+
+            _ = try await loader.icon(for: Self.request(dataDragon: true))
+            _ = try await loader.icon(
+                for: Self.request(
+                    path: "/lol-game-data/assets/v1/champion-icons/1.png", dataDragon: true))
+
+            #expect(dataDragon.images.count == 2)
+            #expect(dataDragon.versionRequests == 1)
+        }
+    }
+
+    @Test func aFailedVersionsJSONIsAskedForAgainOnTheNextFallback() async throws {
+        try await withTemporaryDirectory { base in
+            let dataDragon = FakeDataDragon(versions: .failure(.scripted))
+            let loader = Self.loader(FakeLCUConnection(), dataDragon: dataDragon, base: base)
+
+            _ = try await loader.icon(for: Self.request(dataDragon: true))
+            _ = try await loader.icon(
+                for: Self.request(
+                    path: "/lol-game-data/assets/v1/champion-icons/1.png", dataDragon: true))
+
+            #expect(dataDragon.versionRequests == 2)
+        }
+    }
+
+    @Test func aRuneFallbackIsUnversionedAndNeedsNoVersionsJSON() async throws {
+        try await withTemporaryDirectory { base in
+            let path =
+                "/lol-game-data/assets/v1/perk-images/Styles/Domination/Electrocute/Electrocute.png"
+            let dataDragon = FakeDataDragon()
+            let loader = Self.loader(FakeLCUConnection(), dataDragon: dataDragon, base: base)
+            let request = try IconRequest(
+                assetPath: path, gameVersion: "16.21.1", dataDragonFile: .rune(clientIconPath: path)
+            )
+
+            #expect(try await loader.icon(for: request) == pngIcon)
+            #expect(
+                dataDragon.urls.map(\.absoluteString) == [
+                    "https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/Domination/Electrocute/Electrocute.png"
+                ])
         }
     }
 
@@ -163,7 +265,7 @@ struct IconLoaderTests {
                 #expect(results == Array(repeating: pngIcon, count: callers))
             }
             #expect(connection.requests.count == 1)
-            #expect(dataDragon.urls.count == 1)
+            #expect(dataDragon.images.count == 1)
         }
     }
 
@@ -180,7 +282,7 @@ struct IconLoaderTests {
             dataDragon.release()
 
             #expect(try await kept.value == pngIcon)
-            #expect(dataDragon.urls.count == 1)
+            #expect(dataDragon.images.count == 1)
         }
     }
 

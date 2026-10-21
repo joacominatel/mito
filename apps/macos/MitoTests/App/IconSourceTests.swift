@@ -24,7 +24,27 @@ struct IconSourceTests {
                 id: ItemID(rawValue: 3020), name: "Botas del hechicero", totalGold: 1100,
                 iconPath: "/lol-game-data/assets/ASSETS/Items/Icons2D/3020.png", itemClass: nil)
         ],
-        perks: [Perk(id: PerkID(rawValue: 8112), name: "Electrocutar", iconPath: "")])
+        perkStyles: [
+            PerkStyle(
+                id: PerkStyleID(rawValue: 8100), name: "Dominación",
+                iconPath: "/lol-game-data/assets/v1/perk-images/Styles/7200_Domination.png",
+                slots: [])
+        ],
+        perks: [
+            Perk(id: PerkID(rawValue: 8112), name: "Electrocutar", iconPath: ""),
+            Perk(
+                id: PerkID(rawValue: 8139), name: "Sabor a sangre",
+                iconPath:
+                    "/lol-game-data/assets/v1/perk-images/Styles/Domination/TasteOfBlood/GreenTerror_TasteOfBlood.png"
+            ),
+        ],
+        spells: [
+            SummonerSpell(
+                id: SummonerSpellID(rawValue: 14), name: "Ignición",
+                iconPath: "/lol-game-data/assets/DATA/Spells/Icons2D/SummonerIgnite.png",
+                gameModes: ["CLASSIC"])
+        ])
+    static let patch = Patch(rawValue: "16.21")
 
     // MARK: Requests
 
@@ -33,17 +53,31 @@ struct IconSourceTests {
 
         #expect(request.assetPath == "/lol-game-data/assets/v1/champion-icons/103.png")
         #expect(request.gameVersion == "16.21.723.1234")
-        #expect(
-            request.dataDragonURL?.absoluteString
-                == "https://ddragon.leagueoflegends.com/cdn/16.21.1/img/champion/Ahri.png")
+        #expect(request.dataDragonFile == .image("champion/Ahri.png", patch: Self.patch))
     }
 
     @Test func anItemFallsBackToItsDataDragonImageByID() throws {
         let request = try #require(Self.source().request(for: .item(ItemID(rawValue: 3020))))
 
-        #expect(
-            request.dataDragonURL?.absoluteString
-                == "https://ddragon.leagueoflegends.com/cdn/16.21.1/img/item/3020.png")
+        #expect(request.dataDragonFile == .image("item/3020.png", patch: Self.patch))
+    }
+
+    @Test func aRuneAndARuneTreeFallBackToTheirUnversionedDataDragonArt() throws {
+        let rune = try #require(Self.source().request(for: .perk(PerkID(rawValue: 8139))))
+        let tree = try #require(
+            Self.source().request(for: .perkStyle(PerkStyleID(rawValue: 8100))))
+
+        #expect(rune.dataDragonFile != nil)
+        #expect(rune.dataDragonFile == .rune(clientIconPath: rune.assetPath))
+        #expect(tree.dataDragonFile != nil)
+        #expect(tree.dataDragonFile == .rune(clientIconPath: tree.assetPath))
+    }
+
+    @Test func aSpellAsksOnlyTheClient() throws {
+        let request = try #require(
+            Self.source().request(for: .spell(SummonerSpellID(rawValue: 14))))
+
+        #expect(request.dataDragonFile == nil)
     }
 
     @Test func noGameDataNoVersionOrNoIconPathMeansNoRequest() {

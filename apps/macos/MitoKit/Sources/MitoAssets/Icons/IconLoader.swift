@@ -1,5 +1,6 @@
 public import Foundation
 public import LCUKit
+import MitoCore
 import os
 
 /// Cancelling one caller never cancels the fetch it shares with others; it just waits it out.
@@ -18,6 +19,7 @@ public actor IconLoader {
     private let connection: any LCUConnection
     private let dataDragon: (any DataDragonTransport)?
     private var flights: [URL: Flight] = [:]
+    private var versions: Task<[String]?, Never>?
 
     public init(
         connection: any LCUConnection,
@@ -45,7 +47,8 @@ public actor IconLoader {
         } else {
             task = Task { [connection, dataDragon] in
                 await Self.resolve(
-                    request, file: file, connection: connection, dataDragon: dataDragon)
+                    request, file: file, connection: connection, dataDragon: dataDragon,
+                    version: { await self.dataDragonVersion(for: $0) })
             }
             flights[file] = Flight(task: task, callers: 1)
         }
@@ -61,6 +64,23 @@ public actor IconLoader {
         ) { $0.appending(path: String($1), directoryHint: .notDirectory) }
     }
 
+    /// `versions.json` is asked for only when a versioned fallback is needed, then kept for the
+    /// loader's life; a failed list is asked for again next time, and meanwhile `<patch>.1` stands in.
+    func dataDragonVersion(for patch: Patch) async -> String {
+        let task: Task<[String]?, Never>
+        if let versions {
+            task = versions
+        } else if let dataDragon {
+            task = Task { await Self.fetchVersions(transport: dataDragon) }
+            versions = task
+        } else {
+            return "\(patch.rawValue).1"
+        }
+        let list = await task.value
+        if list == nil, versions == task { versions = nil }
+        return list.flatMap { DataDragonFile.version(for: patch, in: $0) } ?? "\(patch.rawValue).1"
+    }
+
     /// Lets tests release a gated fetch only once every caller has joined it.
     func callers(awaiting request: IconRequest) -> Int {
         flights[cacheFile(for: request)]?.callers ?? 0
@@ -71,14 +91,16 @@ public actor IconLoader {
         _ request: IconRequest,
         file: URL,
         connection: any LCUConnection,
-        dataDragon: (any DataDragonTransport)?
+        dataDragon: (any DataDragonTransport)?,
+        version: @Sendable (Patch) async -> String
     ) async -> Result<Data, IconError> {
         if let cached = try? Data(contentsOf: file), isImage(cached) { return .success(cached) }
 
         let data: Data
         if let fromClient = await fetchFromClient(request.assetPath, connection: connection) {
             data = fromClient
-        } else if let url = request.dataDragonURL, let dataDragon,
+        } else if let fallback = request.dataDragonFile, let dataDragon,
+            let url = await url(for: fallback, version: version),
             let fromDataDragon = await fetchFromDataDragon(url, transport: dataDragon)
         {
             data = fromDataDragon
@@ -115,6 +137,23 @@ public actor IconLoader {
             logger.debug("Data Dragon icon failed: \(url.path(), privacy: .public)")
         }
         return nil
+    }
+
+    private static func url(
+        for file: DataDragonFile, version: @Sendable (Patch) async -> String
+    ) async -> URL? {
+        guard let patch = file.patch else { return file.url(version: nil) }
+        return file.url(version: await version(patch))
+    }
+
+    private static func fetchVersions(transport: any DataDragonTransport) async -> [String]? {
+        do {
+            guard let url = DataDragonFile.versionsURL else { return nil }
+            return try JSONDecoder().decode([String].self, from: await transport.data(from: url))
+        } catch {
+            logger.debug("Data Dragon versions failed")
+            return nil
+        }
     }
 
     /// A failed write only costs a refetch next time.

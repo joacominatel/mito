@@ -599,9 +599,9 @@ final class AppModel {
   `gameData` y `gameVersion` de `ClientDataModel` y arma el `IconRequest` de cada
   `GameAsset` (campeón, ítem, runa, árbol de runas, spell): el `iconPath` del cliente (§16.2)
   como `assetPath` y `gameVersion.rawValue` como `gameVersion`. Sin `gameData`, sin versión o
-  sin `iconPath` no hay request y la vista muestra el placeholder. Campeones e ítems llevan
-  además el fallback de Data Dragon (`/cdn/<parche>.1/img/champion/<alias>.png` e
-  `img/item/<id>.png`); runas y spells, solo el cliente. Carga con `IconLoader` (cliente
+  sin `iconPath` no hay request y la vista muestra el placeholder. Campeones, ítems, runas y
+  árboles de runas llevan además el fallback de Data Dragon (§16.2: el build del parche sale de
+  `versions.json`; las runas, sin versión); los spells, solo el cliente. Carga con `IconLoader` (cliente
   primero, después Data Dragon, caché en disco por versión), decodifica con ImageIO en una
   función `@concurrent`, fuera del main actor, y guarda la imagen en memoria delante del disco:
   un ícono ya cargado no vuelve a pasar por el loader y dos vistas que piden el mismo comparten
@@ -2293,6 +2293,18 @@ Archivos de Data Dragon:
 - `/cdn/{version}/data/es_AR/runesReforged.json`
 - `/cdn/{version}/data/es_AR/summoner.json`
 - `/cdn/{version}/img/champion/{Name}.png`
+- `/cdn/{version}/img/item/{id}.png`
+- `/cdn/img/perk-images/...` (runas y árboles, sin versión: el `icon` de `runesReforged.json`)
+
+En la app, Data Dragon es solo el fallback de íconos cuando el cliente no sirve uno
+(`IconLoader` en MitoAssets, por el `DataDragonTransport` que la app arma sobre
+`DataDragonClient`). La versión de un archivo versionado sale de `api/versions.json`: el build
+más nuevo del parche del cliente (`16.21.2` antes que `16.21.1`; entradas que no son
+`X.Y.Z` se ignoran). Se pide solo la primera vez que hace falta un fallback versionado y queda
+en memoria mientras vive el loader (una vez por ejecución); si falla, se vuelve a pedir en el
+próximo fallback y mientras tanto se usa `<parche>.1`, igual que si el parche no está listado.
+Las runas no necesitan versión. El `ddragon_version` del manifest (§14.12) no se usa: describe
+el `current_patch` del snapshot, no el del cliente, y hoy no llega a la app.
 
 ### 16.2 IDs
 
@@ -2306,7 +2318,13 @@ Archivos de Data Dragon:
 Tipos en `MitoCore/GameData/` (valores puros, `Hashable` y `Sendable`, sin `Codable` ni
 decodificación; el catálogo los arma desde `/lol-game-data/assets/v1/...`). Los íconos
 quedan como el path crudo del asset del cliente (`/lol-game-data/assets/...`), el que recibe
-`IconRequest` en MitoAssets; en la app los pide `IconSource` (§9.3).
+`IconRequest` en MitoAssets; en la app los pide `IconSource` (§9.3). El fallback de Data Dragon
+(`DataDragonFile`) es `champion/<alias>.png` para campeones, `item/<id>.png` para ítems y, para
+runas y árboles, el mismo path del cliente debajo de `/lol-game-data/assets/v1/perk-images/`
+servido en `/cdn/img/perk-images/...` (coincide exacto, mayúsculas incluidas, en las 67 runas y
+árboles de `runesReforged.json` 16.21.1; los stat mods también se sirven ahí). Los spells no
+tienen fallback: el archivo del cliente no se deriva del de Data Dragon (`SummonerIgnite.png`
+es `SummonerDot`, `Summoner_flash.png` es `SummonerFlash`).
 
 | Tipo | Campos | De dónde sale |
 |---|---|---|

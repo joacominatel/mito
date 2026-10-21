@@ -31,7 +31,7 @@ nonisolated struct DataDragonIconTransport: DataDragonTransport {
     func data(from url: URL) async throws -> Data { try await client.data(from: url) }
 }
 
-/// The app's one icon source (§9.3): client first, Data Dragon for champions and items, decoded
+/// The app's one icon source (§9.3): client first, Data Dragon for champions, items and runes, decoded
 /// off the main actor and kept in memory in front of `IconLoader`'s disk cache. A failed icon is
 /// not asked for again until the next connection.
 @Observable
@@ -71,23 +71,29 @@ final class IconSource {
     func request(for asset: GameAsset) -> IconRequest? {
         guard let data = gameData(), let version = gameVersion() else { return nil }
         let path: String?
-        var fallback: String?
+        var fallback: DataDragonFile?
         switch asset {
         case .champion(let id):
             let champion = data.champion(id)
             path = champion?.iconPath
-            fallback = champion.flatMap { $0.alias.isEmpty ? nil : "champion/\($0.alias).png" }
+            fallback = champion.flatMap {
+                $0.alias.isEmpty ? nil : .image("champion/\($0.alias).png", patch: version.patch)
+            }
         case .item(let id):
             path = data.item(id)?.iconPath
-            fallback = "item/\(id.rawValue).png"
-        case .perk(let id): path = data.perk(id)?.iconPath
-        case .perkStyle(let id): path = data.perkStyle(id)?.iconPath
+            fallback = .image("item/\(id.rawValue).png", patch: version.patch)
+        case .perk(let id):
+            path = data.perk(id)?.iconPath
+            fallback = path.flatMap(DataDragonFile.rune(clientIconPath:))
+        case .perkStyle(let id):
+            path = data.perkStyle(id)?.iconPath
+            fallback = path.flatMap(DataDragonFile.rune(clientIconPath:))
+        // The client's spell file names do not map to Data Dragon's (`SummonerIgnite.png` is `SummonerDot`).
         case .spell(let id): path = data.spell(id)?.iconPath
         }
         guard let path, !path.isEmpty else { return nil }
         return try? IconRequest(
-            assetPath: path, gameVersion: version.rawValue,
-            dataDragonURL: fallback.flatMap { Self.dataDragonURL(patch: version.patch, file: $0) })
+            assetPath: path, gameVersion: version.rawValue, dataDragonFile: fallback)
     }
 
     /// Memory only; `nil` shows the placeholder.
@@ -114,13 +120,6 @@ final class IconSource {
         for await state in connection.states() where state == .connected {
             failed.removeAll()
         }
-    }
-
-    /// Data Dragon numbers its builds `<patch>.1`; a hotfix build just misses the fallback.
-    private static func dataDragonURL(patch: Patch, file: String) -> URL? {
-        guard !patch.rawValue.isEmpty else { return nil }
-        return URL(
-            string: "https://\(IconRequest.dataDragonHost)/cdn/\(patch.rawValue).1/img/\(file)")
     }
 
     @concurrent

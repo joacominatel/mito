@@ -1,26 +1,23 @@
-public import Foundation
+import Foundation
 
 /// One icon: its client asset path, the game version it belongs to, and an optional Data Dragon
-/// fallback. The initializer rejects anything the loader must never fetch.
+/// fallback. The initializer rejects any client path the loader must never fetch.
 public struct IconRequest: Hashable, Sendable {
     public static let assetPathPrefix = "/lol-game-data/assets/"
     public static let dataDragonHost = "ddragon.leagueoflegends.com"
 
     public let assetPath: String
     public let gameVersion: String
-    public let dataDragonURL: URL?
+    public let dataDragonFile: DataDragonFile?
 
-    public init(assetPath: String, gameVersion: String, dataDragonURL: URL? = nil)
+    public init(assetPath: String, gameVersion: String, dataDragonFile: DataDragonFile? = nil)
         throws(IconError)
     {
         guard Self.isSafeAssetPath(assetPath) else { throw .invalidAssetPath(assetPath) }
         guard Self.isSafeVersion(gameVersion) else { throw .invalidGameVersion(gameVersion) }
-        if let dataDragonURL, !Self.isDataDragon(dataDragonURL) {
-            throw .invalidDataDragonURL(dataDragonURL.absoluteString)
-        }
         self.assetPath = assetPath
         self.gameVersion = gameVersion
-        self.dataDragonURL = dataDragonURL
+        self.dataDragonFile = dataDragonFile
     }
 
     /// The path below the assets prefix, split into its segments.
@@ -47,10 +44,5 @@ public struct IconRequest: Hashable, Sendable {
             && version.allSatisfy {
                 $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0))
             }
-    }
-
-    private static func isDataDragon(_ url: URL) -> Bool {
-        url.scheme?.lowercased() == "https" && url.host()?.lowercased() == dataDragonHost
-            && url.port == nil && url.user() == nil && url.password() == nil
     }
 }

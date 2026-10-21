@@ -1,15 +1,15 @@
 import Foundation
 import MitoAssets
+import MitoCore
 import Testing
 
 struct IconRequestTests {
-    @Test func aClientAssetPathWithADataDragonURLIsAccepted() throws {
-        let url = URL(
-            string: "https://ddragon.leagueoflegends.com/cdn/16.21.1/img/champion/Ahri.png")
+    @Test func aClientAssetPathWithADataDragonFileIsAccepted() throws {
+        let file = DataDragonFile.image("champion/Ahri.png", patch: Patch(rawValue: "16.21"))
         let request = try IconRequest(
             assetPath: "/lol-game-data/assets/v1/champion-icons/103.png", gameVersion: "16.21.1",
-            dataDragonURL: url)
-        #expect(request.dataDragonURL == url)
+            dataDragonFile: file)
+        #expect(request.dataDragonFile == file)
     }
 
     @Test(arguments: [
@@ -24,22 +24,6 @@ struct IconRequestTests {
     func aPathOutsideTheClientAssetsIsRejected(_ path: String) {
         #expect(throws: IconError.invalidAssetPath(path)) {
             try IconRequest(assetPath: path, gameVersion: "16.21.1")
-        }
-    }
-
-    @Test(arguments: [
-        "http://ddragon.leagueoflegends.com/cdn/16.21.1/img/champion/Ahri.png",
-        "https://raw.communitydragon.org/latest/champion/103/square.png",
-        "https://ddragon.leagueoflegends.com.example.com/cdn/img/champion/Ahri.png",
-        "https://ddragon.leagueoflegends.com:8443/cdn/16.21.1/img/champion/Ahri.png",
-        "https://user@ddragon.leagueoflegends.com/cdn/16.21.1/img/champion/Ahri.png",
-    ])
-    func aDataDragonURLOnAnotherHostOrSchemeIsRejected(_ text: String) throws {
-        let url = try #require(URL(string: text))
-        #expect(throws: IconError.invalidDataDragonURL(url.absoluteString)) {
-            try IconRequest(
-                assetPath: "/lol-game-data/assets/v1/champion-icons/103.png",
-                gameVersion: "16.21.1", dataDragonURL: url)
         }
     }
 
