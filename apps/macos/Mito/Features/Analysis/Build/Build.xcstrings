@@ -1,11 +1,155 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Build" : {
-      "comment" : "Title of the empty Build tab of the analysis panel."
+    "%@ + %@" : {
+      "comment" : "Two things together: two rune trees, or two summoner spells."
     },
-    "Runas, ítems, spells y habilidades: muy pronto." : {
-      "comment" : "Says the Build tab of the analysis panel is not built yet."
+    "%@ · %@" : {
+      "comment" : "Heading of the Build tab: champion name, then the short role name (MID, TOP…)."
+    },
+    "%@ ×%lld" : {
+      "comment" : "An item and how many of it a block carries, like 'Poción de vida ×2'."
+    },
+    "4.º ítem" : {
+      "comment" : "Build tab: fourth item layer title."
+    },
+    "5.º ítem" : {
+      "comment" : "Build tab: fifth item layer title."
+    },
+    "6.º ítem" : {
+      "comment" : "Build tab: sixth item layer title."
+    },
+    "ADC" : {
+      "comment" : "Short name of the bottom role in the Build tab heading."
+    },
+    "Adaptado a %@" : {
+      "comment" : "The loadout or part adapts to the lane opponent or to enemy profiles. The argument is a champion name or a list of profiles."
+    },
+    "Adaptado a %@ (rival probable)" : {
+      "comment" : "Build tab: this part adapts to an inferred lane opponent. The argument is the champion name."
+    },
+    "Adaptado a %@ y a un equipo con %@" : {
+      "comment" : "Build tab: adapted to the lane opponent and to the enemy profile. Arguments: champion name, list of profiles."
+    },
+    "Adaptado a %@, tu rival probable" : {
+      "comment" : "Build tab: the loadout adapts to an inferred lane opponent, never stated as fact. The argument is the champion name."
+    },
+    "Adaptado a %@, tu rival probable, y a un equipo con %@" : {
+      "comment" : "Build tab: adapted to an inferred lane opponent and to the enemy profile. Arguments: champion name, list of profiles."
+    },
+    "Adaptado a un equipo con %@" : {
+      "comment" : "Build tab: the loadout adapts to the enemy team's profile. The argument is a list such as 'mucho AD y mucho CC'."
+    },
+    "Adaptado al rival" : {
+      "comment" : "Build tab: this part adapts to the lane opponent."
+    },
+    "Alternativas" : {
+      "comment" : "Build tab: heading over the options the build passed over in a part."
+    },
+    "Apagado en Ajustes" : {
+      "comment" : "Build tab: this part is not imported because its toggle is off in Settings."
+    },
+    "Botas" : {
+      "comment" : "Build tab: boots layer title."
+    },
+    "Build general del campeón" : {
+      "comment" : "Build tab: the loadout is the champion's general one, not adapted to the draft."
+    },
+    "El override no importa ítems" : {
+      "comment" : "Build tab: the champion's override is set not to import an item set."
+    },
+    "El parche no tiene partidas suficientes para armar su build." : {
+      "comment" : "Description of the Build tab when the stats have no build for the champion."
+    },
+    "Empieza %@" : {
+      "comment" : "Build tab: the first ability levels of a skill order. The argument is like 'Q · W · E'."
+    },
+    "Fija del override" : {
+      "comment" : "Build tab: this part is the fixed choice saved in the champion's override."
+    },
+    "General" : {
+      "comment" : "Build tab: this part is the champion's general choice."
+    },
+    "Habilidades" : {
+      "comment" : "Build tab: skill order section title."
+    },
+    "Inicio" : {
+      "comment" : "Build tab: starting items layer title."
+    },
+    "JG" : {
+      "comment" : "Short name of the jungle role in the Build tab heading."
+    },
+    "Lo que se importa cuando lockees a %@" : {
+      "comment" : "Build tab, champion only hovered: the loadout is imported once the user locks it. The argument is the champion name."
+    },
+    "Lo que se va a importar" : {
+      "comment" : "Build tab: the loadout shown is the one Mito imports for the locked champion."
+    },
+    "Lockeá o elegí un campeón para ver su build." : {
+      "comment" : "Description of the Build tab when there is no champion yet."
+    },
+    "MID" : {
+      "comment" : "Short name of the middle role in the Build tab heading."
+    },
+    "Núcleo" : {
+      "comment" : "Build tab: core items layer title."
+    },
+    "Rama %@" : {
+      "comment" : "Fallback name for a rune tree whose static data has not loaded. The argument is the tree ID."
+    },
+    "Runa %@" : {
+      "comment" : "Fallback name for a rune whose static data has not loaded. The argument is the rune ID."
+    },
+    "Runas" : {
+      "comment" : "Build tab: runes section title."
+    },
+    "SUP" : {
+      "comment" : "Short name of the support role in the Build tab heading."
+    },
+    "Según el equipo rival" : {
+      "comment" : "Build tab: situational items chosen for the enemy team."
+    },
+    "Si elegís %@, se importaría esto" : {
+      "comment" : "Build tab, champion only recommended, not picked: conditional. The argument is the champion name."
+    },
+    "Sin build de ARAM" : {
+      "comment" : "Title of the Build tab in ARAM when the champion has no fixed rune page saved."
+    },
+    "Sin campeón todavía" : {
+      "comment" : "Title of the Build tab when there is no champion locked, hovered, or recommended."
+    },
+    "Sin datos de %@" : {
+      "comment" : "Title of the Build tab when the stats have no build for the champion. The argument is the champion name."
+    },
+    "Sin estadísticas de ARAM: solo tu página guardada." : {
+      "comment" : "Note under the ARAM fixed rune page in the Build tab."
+    },
+    "Sin fija guardada: va la general" : {
+      "comment" : "Build tab: the override asks for a fixed choice it does not have, so the general one is imported."
+    },
+    "Situacionales" : {
+      "comment" : "Build tab: situational items section title."
+    },
+    "Solo de referencia" : {
+      "comment" : "Build tab: the skill order is shown but never imported."
+    },
+    "Spell %@" : {
+      "comment" : "Fallback name for a summoner spell whose static data has not loaded. The argument is the spell ID."
+    },
+    "Spells" : {
+      "comment" : "Build tab: summoner spells section title."
+    },
+    "TOP" : {
+      "comment" : "Short name of the top role in the Build tab heading."
+    },
+    "Todavía no hay estadísticas de ARAM. Si guardás una página fija para %@, aparece acá." : {
+      "comment" : "Description of the Build tab in ARAM without a fixed page. The argument is the champion name."
+    },
+    "Tu página fija de %@" : {
+      "comment" : "Heading of the Build tab in ARAM, over the user's saved rune page. The argument is the champion name."
+    },
+    "Ítems" : {
+      "comment" : "Build tab: items section title."
     }
   },
   "version" : "1.0"

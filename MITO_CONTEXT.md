@@ -3430,6 +3430,35 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
      en este parche." si cuentan pero sin filas.
 3. **Build:** runas, ítems por capas con alternativas, spells y habilidades, cada uno con su
    winrate, muestra y motivo.
+
+   Implementado (P9-03, `Features/Analysis/Build/`). Muestra lo que importaría el importador
+   (§13.1), calculado igual: el rol asignado o, sin rol, el más jugado del campeón; el rival de
+   línea de `ImportModel.laneOpponent` (asignado, o inferido con al menos 50 %); el perfil del
+   equipo rival; las builds general y adaptada de §18.6–§18.9; el override de (campeón, rol)
+   que `ChampSelectModel` leyó al empezar el champ select, y `ImportModel.plan` con los
+   settings de §21.4. `BuildContent.derive` arma el contenido y `BuildTab` solo lo dibuja.
+   - Encabezado: campeón y rol; "Lo que se va a importar" (lockeado, o en hover con "Importar
+     al hacer hover"), "Lo que se importa cuando lockees a Ahri" (hover) o "Si elegís Ahri, se
+     importaría esto" (recomendación). Debajo, a qué se adaptó lo que se importa: "Adaptado a
+     Zed", "Adaptado a Zed, tu rival probable" si el rival es inferido (nunca como hecho),
+     "Adaptado a un equipo con mucho AD", o "Build general del campeón".
+   - Una sección por parte: Runas, Spells, una por capa de ítems (Inicio, Núcleo, Botas, 4.º,
+     5.º, 6.º), Situacionales y Habilidades. Cada sección dice de dónde sale (General, Adaptado a
+     Zed, Adaptado a mucho AD, Fija del override, "Sin fija guardada: va la general", "El
+     override no importa ítems", "Según el equipo rival") y "Apagado en Ajustes" si su toggle
+     de §21.4 está apagado; Habilidades dice "Solo de referencia": no se importa.
+   - Cada opción es un elemento de VoiceOver: nombre (keystone con ramas y runas; par de
+     spells; ítems con "×2"; orden de máximo y primeros niveles), su `ConfidenceIndicator` y un
+     `ReasonRow` con uso, winrate suavizado y partidas en su contexto. Hasta dos alternativas por
+     parte, del mismo contexto (el rival, el perfil o la general) y con la muestra mínima, por
+     winrate (`LoadoutSelection.breakdown`, MitoEngine). Una parte fija del override no lleva
+     muestra ni alternativas. Los situacionales llevan su motivo (contra un flag o un perfil).
+   - Nombres del `GameData`; mientras carga, "Runa 8112", "Rama 8100", "Spell 4" y los de
+     `ReasonNames` para campeones e ítems. Todavía sin íconos.
+   - Estados: sin campeón, "Sin campeón todavía"; sin rol con datos o sin fila del campeón,
+     "Sin datos de Ahri"; ARAM, la página fija del campeón si algún override la tiene (el primer
+     rol en orden), si no "Sin build de ARAM".
+   - No tiene "Importar ahora" ni "Editar": la acción vive en Import (P9-06/P9-07).
 4. **Mi historial:** tu rendimiento con ese campeón, vs ese rival y en ese rol.
 
 En inicio de parche, el encabezado muestra "Datos 16.21 + 16.20" desde `meta.blend_patches`
