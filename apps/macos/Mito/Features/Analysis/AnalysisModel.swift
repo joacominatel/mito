@@ -35,7 +35,8 @@ final class AnalysisModel {
         return AnalysisSubject.derive(
             draft: draft, role: champSelect.scoringRole, enemyRoles: champSelect.enemyRoles,
             topPick: { champSelect.topPick }, stats: readStats(),
-            personal: champSelect.personal, names: champSelect.reasonNames)
+            personal: champSelect.personal, names: champSelect.reasonNames,
+            gameData: champSelect.gameData)
     }
 
     /// The chosen tab needs the snapshot and none is open: the panel shows its empty state.

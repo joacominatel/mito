@@ -1,5 +1,6 @@
 import Foundation
 import LCUKit
+import MitoAssets
 import MitoCore
 import MitoEngine
 import Testing
@@ -140,6 +141,22 @@ struct AnalysisSubjectTests {
 
         #expect(subject.meta == AnalysisTestStats.meta)
         #expect(subject.personal == personal)
+    }
+
+    @Test func theSubjectCarriesTheClientsGameData() throws {
+        let gameData = GameData(champions: [
+            Champion(id: Self.ahri, alias: "Ahri", name: "Ahri", iconPath: "")
+        ])
+        let model = ChampSelectModel(
+            connection: DisconnectedLCUConnection(),
+            settings: { ChampSelectSettings(candidates: .all) }, gameData: gameData,
+            stats: { AnalysisTestStats() })
+        model.show(try Self.decode(Self.session()), queue: .rankedSolo, pickable: [])
+
+        let subject = try #require(
+            AnalysisModel(champSelect: model, stats: { AnalysisTestStats() }).subject)
+
+        #expect(subject.gameData == gameData)
     }
 
     @Test func withoutASnapshotEveryTabButMiHistorialIsEmpty() throws {

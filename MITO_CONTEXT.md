@@ -3374,7 +3374,9 @@ leerse del draft de `ChampSelectModel`, síncrono, como las recomendaciones:
 - **Los dos equipos:** campeón, hover y rol por celda; los roles rivales inferidos llevan su
   probabilidad, o quedan como adivinanza si no hay partidas detrás.
 - **Los datos:** el `StatsProvider` del snapshot abierto, su `meta` y los datos personales que
-  `ChampSelectModel` ya leyó para este champ select (no se leen dos veces).
+  `ChampSelectModel` ya leyó para este champ select (no se leen dos veces), los nombres de
+  campeones e ítems de los motivos y los datos del cliente (`GameData`: runas, ítems, spells e
+  íconos; vacío hasta que cargan).
 
 Solo campeones, roles y celdas: ningún nombre de jugador (§5).
 

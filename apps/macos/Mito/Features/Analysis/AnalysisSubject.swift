@@ -1,3 +1,4 @@
+import MitoAssets
 import MitoCore
 import MitoEngine
 
@@ -74,6 +75,8 @@ struct AnalysisSubject {
     /// Read once per champ select by `ChampSelectModel`.
     let personal: PersonalInputs
     let names: ReasonNames
+    /// The client's game data; `nil` until it loads.
+    let gameData: GameData?
 
     var meta: SnapshotMeta? { stats.meta }
 }
@@ -83,7 +86,7 @@ extension AnalysisSubject {
     static func derive(
         draft: DraftContext, role: Role?, enemyRoles: [Int: InferredRole],
         topPick: () -> ChampionID?, stats: any StatsProvider, personal: PersonalInputs,
-        names: ReasonNames
+        names: ReasonNames, gameData: GameData? = nil
     ) -> AnalysisSubject {
         let allies = draft.allies.map { slot in
             Slot(
@@ -99,7 +102,8 @@ extension AnalysisSubject {
         return AnalysisSubject(
             queue: draft.queue, champion: champion(in: allies, topPick: topPick), role: role,
             laneOpponent: role.flatMap { laneOpponent(in: enemies, role: $0) },
-            allies: allies, enemies: enemies, stats: stats, personal: personal, names: names)
+            allies: allies, enemies: enemies, stats: stats, personal: personal, names: names,
+            gameData: gameData)
     }
 
     private static func champion(in allies: [Slot], topPick: () -> ChampionID?) -> Champion? {
