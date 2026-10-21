@@ -15,7 +15,12 @@ let modules: [(name: String, dependencies: [String])] = [
     ("MitoStore", ["MitoCore"]),
     ("MitoEngine", ["MitoCore"]),
     ("MitoAssets", ["MitoCore", "LCUKit"]),
+    ("MitoImport", ["MitoCore", "LCUKit"]),
 ]
+
+let testSupport: (name: String, dependencies: [String]) = (
+    "MitoTestSupport", ["MitoCore", "LCUKit"]
+)
 
 let package = Package(
     name: "MitoKit",
@@ -30,9 +35,20 @@ let package = Package(
             ),
             .testTarget(
                 name: "\(module.name)Tests",
-                dependencies: [.target(name: module.name)],
+                dependencies: [.target(name: module.name), .target(name: testSupport.name)],
                 swiftSettings: swiftSettings
             ),
         ]
-    }
+    } + [
+        .target(
+            name: testSupport.name,
+            dependencies: testSupport.dependencies.map { .target(name: $0) },
+            path: "Tests/\(testSupport.name)",
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "ArchitectureTests",
+            swiftSettings: swiftSettings
+        ),
+    ]
 )
