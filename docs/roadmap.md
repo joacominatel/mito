@@ -207,7 +207,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P5-01 | Bring in the snapshot fixture from `mito-data` | store (serial, snapshot contract) | `fixtures/snapshot/**` | §17 | MD-FX | ready |
+| P5-01 | Bring in the snapshot fixture from `mito-data` | store (serial, snapshot contract) | `fixtures/snapshot/**` | §17 | MD-FX | in progress |
 
 ## P6 — The app consumes the snapshot
 
