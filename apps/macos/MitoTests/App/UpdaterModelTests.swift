@@ -191,6 +191,70 @@ struct UpdaterModelTests {
         #expect(UpdaterModel.allowedChannels(receivingBetas: false).isEmpty)
     }
 
+    @Test func outsideAGameSparkleShowsScheduledUpdatesItself() throws {
+        let updater = FakeUpdater()
+        let model = UpdaterModel(updater: updater, settings: SettingsModel())
+        model.start()
+        let hooks = try #require(updater.hooks)
+
+        #expect(hooks.showsScheduledUpdateNow())
+    }
+
+    @Test func aScheduledUpdateFoundDuringAGameWaitsForTheGameToEnd() throws {
+        let updater = FakeUpdater()
+        let model = UpdaterModel(updater: updater, settings: SettingsModel())
+        model.start()
+        let hooks = try #require(updater.hooks)
+
+        model.isInGame = true
+        #expect(!hooks.showsScheduledUpdateNow())
+        hooks.scheduledUpdateDeferred()
+        #expect(updater.checks == 0)
+
+        model.isInGame = false
+
+        #expect(updater.checks == 1)
+        #expect(!model.hasDeferredUpdate)
+        #expect(hooks.showsScheduledUpdateNow())
+    }
+
+    @Test func aGameEndingWithNothingHeldBackChecksNothing() {
+        let updater = FakeUpdater()
+        let model = UpdaterModel(updater: updater, settings: SettingsModel())
+        model.start()
+
+        model.isInGame = true
+        model.isInGame = false
+
+        #expect(updater.checks == 0)
+    }
+
+    @Test func anUpdateTheUserAlreadySawIsNotShownAgainAfterTheGame() throws {
+        let updater = FakeUpdater()
+        let model = UpdaterModel(updater: updater, settings: SettingsModel())
+        model.start()
+        let hooks = try #require(updater.hooks)
+        model.isInGame = true
+        hooks.scheduledUpdateDeferred()
+
+        hooks.updateHandled()
+        model.isInGame = false
+
+        #expect(updater.checks == 0)
+    }
+
+    @Test func aUserInitiatedCheckDuringAGameRunsImmediately() {
+        let updater = FakeUpdater()
+        let model = UpdaterModel(updater: updater, settings: SettingsModel())
+        model.start()
+        updater.canCheckChanged?(true)
+        model.isInGame = true
+
+        model.checkForUpdates()
+
+        #expect(updater.checks == 1)
+    }
+
     @Test func appStartHandsSparkleThePersistedChoice() async {
         var persisted = MitoSettings()
         persisted.general.automaticallyCheckForUpdates = false
@@ -207,25 +271,22 @@ struct UpdaterModelTests {
     }
 }
 
-private final class FakeUpdater: SoftwareUpdater {
+final class FakeUpdater: SoftwareUpdater {
     private(set) var automaticWrites: [Bool] = []
     private(set) var startCount = 0
     private(set) var checks = 0
     private(set) var resets = 0
-    private(set) var allowedChannels: (() -> Set<String>)?
-    private(set) var canCheckChanged: (@MainActor (Bool) -> Void)?
+    private(set) var hooks: UpdaterHooks?
+    var allowedChannels: (() -> Set<String>)? { hooks?.allowedChannels }
+    var canCheckChanged: (@MainActor (Bool) -> Void)? { hooks?.canCheckChanged }
 
     var automaticallyChecksForUpdates = true {
         didSet { automaticWrites.append(automaticallyChecksForUpdates) }
     }
 
-    func start(
-        allowedChannels: @escaping () -> Set<String>,
-        canCheckChanged: @escaping @MainActor (Bool) -> Void
-    ) {
+    func start(_ hooks: UpdaterHooks) {
         startCount += 1
-        self.allowedChannels = allowedChannels
-        self.canCheckChanged = canCheckChanged
+        self.hooks = hooks
     }
 
     func checkForUpdates() { checks += 1 }
@@ -233,7 +294,7 @@ private final class FakeUpdater: SoftwareUpdater {
     func resetUpdateCycle() { resets += 1 }
 }
 
-private struct FixedPersistence: SettingsPersistence {
+struct FixedPersistence: SettingsPersistence {
     let settings: MitoSettings
 
     func load() async -> MitoSettings { settings }

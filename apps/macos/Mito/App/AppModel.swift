@@ -28,10 +28,14 @@ final class AppModel {
     let overrides: OverridesModel
     let settingsModel: SettingsModel
     let updates: UpdaterModel
+    let loginItem: LoginItemModel
+    let presence: AppPresenceModel
     /// The one personal database; features that read or write it get it in their `init`.
     let personal: any PersonalStore
 
     private let lifecycle: @Sendable () async -> Void
+    @ObservationIgnored private var lifecycleRun: Task<Void, Never>?
+    @ObservationIgnored private var restartsLifecycle = false
 
     init(
         connection lcu: any LCUConnection,
@@ -42,7 +46,9 @@ final class AppModel {
         iconLoader: (any IconLoading)? = nil,
         poster: any NotificationPosting = SystemNotificationPoster(),
         appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive },
-        updates: (SettingsModel) -> UpdaterModel = { UpdaterModel(settings: $0) }
+        updates: (SettingsModel) -> UpdaterModel = { UpdaterModel(settings: $0) },
+        loginItem: (SettingsModel) -> LoginItemModel = { LoginItemModel(settings: $0) },
+        setActivationPolicy: @escaping (NSApplication.ActivationPolicy) -> Void = { _ in }
     ) {
         connection = ConnectionModel(connection: lcu)
         let clientData = ClientDataModel(connection: lcu)
@@ -76,6 +82,8 @@ final class AppModel {
         self.lifecycle = lifecycle
         settingsModel = settings
         self.updates = updates(settings)
+        self.loginItem = loginItem(settings)
+        presence = AppPresenceModel(settings: settings, setPolicy: setActivationPolicy)
     }
 
     private static func champSelectModel(
@@ -106,10 +114,15 @@ final class AppModel {
             }, scoringRole: { champSelect.scoringRole }, poster: poster, appIsActive: appIsActive)
     }
 
-    /// The client `MitoApp` runs. In Debug, `-MitoLCULockfilePath <path>` makes it discover only
-    /// through that lockfile, the one `tools/lcu-mock` writes (§10.2).
-    static func liveClient(defaults: UserDefaults = .standard) -> LCUClient {
-        lockfileOverride(in: defaults).map(LCUClient.init(lockfilePath:)) ?? LCUClient()
+    /// The client `MitoApp` runs, reading `installPath` on every discovery (§10.1). In Debug,
+    /// `-MitoLCULockfilePath <path>` wins: discovery goes only through that lockfile, the one
+    /// `tools/lcu-mock` writes (§10.2).
+    static func liveClient(
+        defaults: UserDefaults = .standard,
+        installPath: @escaping @Sendable () async -> String? = { nil }
+    ) -> LCUClient {
+        lockfileOverride(in: defaults).map(LCUClient.init(lockfilePath:))
+            ?? LCUClient(installPath: installPath)
     }
 
     /// Always `nil` in Release, which never reads the key.
@@ -131,6 +144,17 @@ final class AppModel {
     var settings: MitoSettings {
         get { settingsModel.value }
         set { settingsModel.value = newValue }
+    }
+
+    /// "Ruta de instalación de LoL" (§21.1): a change while no client is connected searches again
+    /// right away; a connected client is kept, and the next search uses the new path.
+    var leagueInstallPath: String? {
+        get { settings.general.leagueInstallPath }
+        set {
+            guard newValue != settings.general.leagueInstallPath else { return }
+            settings.general.leagueInstallPath = newValue
+            if connection.state != .connected { restartLifecycle() }
+        }
     }
 
     /// §22.4: gameflow overrides the connection symbol once it knows the phase.
@@ -159,8 +183,10 @@ final class AppModel {
     func start() async {
         await settingsModel.load()
         updates.start()
+        loginItem.refresh()
+        presence.applyPolicy()
         await withDiscardingTaskGroup { group in
-            group.addTask { await self.lifecycle() }
+            group.addTask { await self.runLifecycle() }
             group.addTask { await self.connection.run() }
             group.addTask { await self.clientData.run() }
             group.addTask { await self.icons.run() }
@@ -173,5 +199,50 @@ final class AppModel {
             group.addTask { await self.onboarding.run() }
             group.addTask { await self.overrides.run() }
         }
+    }
+
+    /// Reactions that must run with no window and no menu bar icon open: champ select brings the
+    /// main window up (§20.1), and a held-back update shows once the game ends (§24). Runs until
+    /// cancelled.
+    func react() async {
+        await withDiscardingTaskGroup { group in
+            group.addTask { await self.openWindowForChampSelect() }
+            group.addTask { await self.followGameForUpdates() }
+        }
+    }
+
+    private func openWindowForChampSelect() async {
+        await observeChanges(
+            of: { self.champSelectPresence },
+            apply: { _ in
+                if shouldOpenWindowForChampSelect() { presence.openMainWindow() }
+            })
+    }
+
+    private func followGameForUpdates() async {
+        await observeChanges(
+            of: { self.gameflow.state == .inGame }, apply: { updates.isInGame = $0 })
+    }
+
+    /// Runs `lifecycle` until it returns on its own or `start()` is cancelled; a restart cancels
+    /// the current run and starts a new one, which searches immediately (§10.2).
+    private func runLifecycle() async {
+        repeat {
+            restartsLifecycle = false
+            let run = Task { await lifecycle() }
+            lifecycleRun = run
+            await withTaskCancellationHandler {
+                await run.value
+            } onCancel: {
+                run.cancel()
+            }
+            lifecycleRun = nil
+        } while restartsLifecycle && !Task.isCancelled
+    }
+
+    private func restartLifecycle() {
+        guard let lifecycleRun else { return }
+        restartsLifecycle = true
+        lifecycleRun.cancel()
     }
 }

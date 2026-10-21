@@ -19,15 +19,12 @@ final class SparkleUpdater: SoftwareUpdater {
         set { controller.updater.automaticallyChecksForUpdates = newValue }
     }
 
-    func start(
-        allowedChannels: @escaping () -> Set<String>,
-        canCheckChanged: @escaping @MainActor (Bool) -> Void
-    ) {
-        delegate.allowedChannels = allowedChannels
+    func start(_ hooks: UpdaterHooks) {
+        delegate.hooks = hooks
         // Sparkle changes this property on the main thread.
         canCheckObservation = controller.updater.observe(\.canCheckForUpdates, options: [.initial])
         { updater, _ in
-            MainActor.assumeIsolated { canCheckChanged(updater.canCheckForUpdates) }
+            MainActor.assumeIsolated { hooks.canCheckChanged(updater.canCheckForUpdates) }
         }
         controller.startUpdater()
     }
@@ -41,14 +38,35 @@ final class SparkleUpdater: SoftwareUpdater {
     }
 
     private final class Delegate: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
-        var allowedChannels: () -> Set<String> = { [] }
+        var hooks: UpdaterHooks?
 
         func allowedChannels(for updater: SPUUpdater) -> Set<String> {
-            allowedChannels()
+            hooks?.allowedChannels() ?? []
         }
 
         /// A menu-bar app: scheduled update alerts open behind the active app instead of taking
         /// focus (Sparkle's gentle reminders).
         nonisolated var supportsGentleScheduledUpdateReminders: Bool { true }
+
+        func standardUserDriverShouldHandleShowingScheduledUpdate(
+            _ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool
+        ) -> Bool {
+            hooks?.showsScheduledUpdateNow() ?? true
+        }
+
+        func standardUserDriverWillHandleShowingUpdate(
+            _ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem,
+            state: SPUUserUpdateState
+        ) {
+            if !handleShowingUpdate { hooks?.scheduledUpdateDeferred() }
+        }
+
+        func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+            hooks?.updateHandled()
+        }
+
+        func standardUserDriverWillFinishUpdateSession() {
+            hooks?.updateHandled()
+        }
     }
 }

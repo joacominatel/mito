@@ -4,6 +4,9 @@
     "Abrir Mito al iniciar sesión" : {
       "comment" : "General setting: launch Mito at login."
     },
+    "Abrir…" : {
+      "comment" : "Small button next to the login item note: opens System Settings → Login Items."
+    },
     "Abrí el cliente de League para elegir campeones: la lista sale de sus datos." : {
       "comment" : "Champion pool footer without a client: the champion list comes from the League client."
     },
@@ -76,6 +79,9 @@
     "F" : {
       "comment" : "Flash position option: the F key (second summoner spell slot)."
     },
+    "Falta permitirlo en Configuración del Sistema." : {
+      "comment" : "Note under the open-at-login toggle: macOS needs the user to allow the login item in System Settings."
+    },
     "Flash" : {
       "comment" : "Settings section header: the Flash summoner spell."
     },
@@ -97,11 +103,17 @@
     "Leyendo tus partidas…" : {
       "comment" : "Flash detection status: reading the stored match history."
     },
+    "Los builds de desarrollo no se agregan a los ítems de inicio." : {
+      "comment" : "Note under the open-at-login toggle in development builds, where it is disabled."
+    },
     "Mid" : {
       "comment" : "Role name: middle lane."
     },
     "Mostrar ventana al entrar en champ select" : {
       "comment" : "General setting: bring the main window up when champ select starts."
+    },
+    "No se pudo cambiar el ítem de inicio." : {
+      "comment" : "Note under the open-at-login toggle when macOS refused the change."
     },
     "No se pudo guardar el último cambio." : {
       "comment" : "Champion pool error: the last change was not saved and was undone."
@@ -114,9 +126,6 @@
     },
     "Pool de campeones" : {
       "comment" : "Settings section header: the champions the user plays per role."
-    },
-    "Por ahora solo «Mostrar ventana al entrar en champ select» tiene efecto; el resto se guarda y llega más adelante." : {
-      "comment" : "General section footer: only one of these settings works today; the rest are saved for later."
     },
     "Posición de Flash" : {
       "comment" : "Setting: which key Flash goes on."
@@ -135,6 +144,9 @@
     },
     "Ruta de instalación de LoL" : {
       "comment" : "General setting: where League of Legends is installed."
+    },
+    "Sin el ícono de la barra de menú, Mito queda en el Dock para que siempre puedas abrirlo." : {
+      "comment" : "Note under the Dock icon toggle, disabled while the menu bar icon is off."
     },
     "Sin partidas con Flash en tu historial" : {
       "comment" : "Flash detection result: no recent game used Flash."
@@ -156,6 +168,9 @@
     },
     "Una capa sobre la base Esmeralda+. La descarga llega más adelante; por ahora Mito usa solo Esmeralda+." : {
       "comment" : "Data section footer: the Diamond+ layer is not downloaded yet."
+    },
+    "«Idioma» y «Datos Diamante+» todavía no tienen efecto: por ahora Mito está solo en español y usa solo datos Esmeralda+." : {
+      "comment" : "General section footer: names exactly the settings that are saved but do nothing yet, and why."
     },
     "Ícono en el Dock" : {
       "comment" : "General setting: show the Dock icon."

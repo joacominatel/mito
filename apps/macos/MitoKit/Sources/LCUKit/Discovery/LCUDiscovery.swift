@@ -9,8 +9,8 @@ struct LCUDiscovery: Sendable {
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.joacominatel.mito", category: "LCUKit")
 
-    let lockfileURL: URL
     private let searchesProcesses: Bool
+    private let lockfileURLs: @Sendable () async -> [URL]
     private let commandLines: @Sendable () async -> [String]
     private let readFile: @Sendable (URL) async -> String?
 
@@ -19,9 +19,28 @@ struct LCUDiscovery: Sendable {
         commandLines: @escaping @Sendable () async -> [String] = runningCommandLines,
         readFile: @escaping @Sendable (URL) async -> String? = contents(of:)
     ) {
-        self.lockfileURL = URL(filePath: installPath ?? Self.defaultInstallPath)
-            .appending(path: "Contents/LoL/lockfile")
+        self.init(
+            installPath: { installPath }, commandLines: commandLines, readFile: readFile)
+    }
+
+    /// Reads `installPath()` on every attempt, so a changed setting applies to the next one. Its
+    /// lockfile goes first; the default install's lockfile backs it up when it is missing or
+    /// unreadable.
+    init(
+        installPath: @escaping @Sendable () async -> String?,
+        commandLines: @escaping @Sendable () async -> [String] = runningCommandLines,
+        readFile: @escaping @Sendable (URL) async -> String? = contents(of:)
+    ) {
         self.searchesProcesses = true
+        self.lockfileURLs = {
+            let paths = [await installPath(), Self.defaultInstallPath].compactMap(\.self)
+            var urls: [URL] = []
+            for path in paths {
+                let url = URL(filePath: path).appending(path: "Contents/LoL/lockfile")
+                if !urls.contains(url) { urls.append(url) }
+            }
+            return urls
+        }
         self.commandLines = commandLines
         self.readFile = readFile
     }
@@ -33,8 +52,9 @@ struct LCUDiscovery: Sendable {
         commandLines: @escaping @Sendable () async -> [String] = runningCommandLines,
         readFile: @escaping @Sendable (URL) async -> String? = contents(of:)
     ) {
-        self.lockfileURL = URL(filePath: lockfilePath)
+        let url = URL(filePath: lockfilePath)
         self.searchesProcesses = false
+        self.lockfileURLs = { [url] }
         self.commandLines = commandLines
         self.readFile = readFile
     }
@@ -42,7 +62,14 @@ struct LCUDiscovery: Sendable {
     /// `nil` when no client is running.
     func discover() async -> LCUCredentials? {
         if searchesProcesses, let found = await fromProcessArguments() { return found }
-        guard let contents = await readFile(lockfileURL) else { return nil }
+        for url in await lockfileURLs() {
+            if let found = await fromLockfile(at: url) { return found }
+        }
+        return nil
+    }
+
+    private func fromLockfile(at url: URL) async -> LCUCredentials? {
+        guard let contents = await readFile(url) else { return nil }
         guard let found = Lockfile.credentials(fromContents: contents) else {
             Self.logger.notice("Lockfile present but unreadable as credentials")
             return nil

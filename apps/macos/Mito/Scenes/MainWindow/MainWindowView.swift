@@ -23,6 +23,8 @@ struct MainWindowView: View {
             }
         }
         .importToast()
+        .onAppear { app.presence.windowOpened(.main) }
+        .onDisappear { app.presence.windowClosed(.main) }
     }
 
     @ViewBuilder

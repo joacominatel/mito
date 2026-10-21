@@ -2,13 +2,26 @@ import Foundation
 import MitoCore
 import Observation
 
+/// What `UpdaterModel` hands Sparkle when it starts.
+struct UpdaterHooks {
+    /// Read on every check.
+    let allowedChannels: () -> Set<String>
+    /// Sparkle's own answer: `false` until it starts and while a check is in progress.
+    let canCheckChanged: @MainActor (Bool) -> Void
+    /// Read before a scheduled check's alert; `false` keeps it from showing now. Never asked for a
+    /// user-initiated check.
+    let showsScheduledUpdateNow: () -> Bool
+    /// A scheduled update was found and held back: Mito has to bring it up later.
+    let scheduledUpdateDeferred: () -> Void
+    /// The user looked at the update, or its session ended.
+    let updateHandled: () -> Void
+}
+
 /// `SparkleUpdater` in the app; a double in tests.
 protocol SoftwareUpdater: AnyObject {
     var automaticallyChecksForUpdates: Bool { get set }
-    /// `allowedChannels` is read on every check; `canCheckChanged` reports Sparkle's state.
-    func start(
-        allowedChannels: @escaping () -> Set<String>,
-        canCheckChanged: @escaping @MainActor (Bool) -> Void)
+    func start(_ hooks: UpdaterHooks)
+    /// Also brings a held-back update up in focus.
     func checkForUpdates()
     /// Applies a channel change to the next scheduled check without waiting a full cycle.
     func resetUpdateCycle()
@@ -16,6 +29,7 @@ protocol SoftwareUpdater: AnyObject {
 
 /// "Buscar actualizaciones…" and the two update toggles (§21.1, §22.4, §24). Without an updater
 /// (Debug, not configured yet, under XCTest) it does nothing and never touches the network.
+/// A scheduled update found during a game waits until the game ends (§24).
 @Observable
 final class UpdaterModel {
     @ObservationIgnored private let updater: (any SoftwareUpdater)?
@@ -23,6 +37,16 @@ final class UpdaterModel {
     /// Sparkle's own answer: `false` until it starts and while a check is in progress.
     private(set) var canCheckForUpdates = false
     @ObservationIgnored private var isStarted = false
+    @ObservationIgnored private(set) var hasDeferredUpdate = false
+
+    /// `AppModel` keeps it in step with the gameflow phase.
+    @ObservationIgnored var isInGame = false {
+        didSet {
+            guard !isInGame, hasDeferredUpdate else { return }
+            hasDeferredUpdate = false
+            updater?.checkForUpdates()
+        }
+    }
 
     init(updater: (any SoftwareUpdater)? = nil, settings: SettingsModel = SettingsModel()) {
         self.updater = updater
@@ -71,10 +95,14 @@ final class UpdaterModel {
             updater.automaticallyChecksForUpdates = automaticallyChecksForUpdates
         }
         updater.start(
-            allowedChannels: { [weak self] in
-                Self.allowedChannels(receivingBetas: self?.receivesBetaUpdates ?? false)
-            },
-            canCheckChanged: { [weak self] in self?.canCheckForUpdates = $0 })
+            UpdaterHooks(
+                allowedChannels: { [weak self] in
+                    Self.allowedChannels(receivingBetas: self?.receivesBetaUpdates ?? false)
+                },
+                canCheckChanged: { [weak self] in self?.canCheckForUpdates = $0 },
+                showsScheduledUpdateNow: { [weak self] in !(self?.isInGame ?? false) },
+                scheduledUpdateDeferred: { [weak self] in self?.hasDeferredUpdate = true },
+                updateHandled: { [weak self] in self?.hasDeferredUpdate = false }))
     }
 
     func checkForUpdates() {

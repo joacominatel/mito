@@ -2,6 +2,8 @@ import SwiftUI
 
 /// The §21.1–21.4 tabs; each tab lives in the feature that owns its settings.
 struct SettingsView: View {
+    @Environment(AppModel.self) private var app
+
     var body: some View {
         TabView {
             OnboardingSettingsTab()
@@ -26,6 +28,8 @@ struct SettingsView: View {
                 }
         }
         .frame(width: 520, height: 360)
+        .onAppear { app.presence.windowOpened(.settings) }
+        .onDisappear { app.presence.windowClosed(.settings) }
     }
 
     private func tabLabel(_ title: Text, systemImage: String) -> some View {

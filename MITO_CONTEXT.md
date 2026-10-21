@@ -694,9 +694,12 @@ vivo. Solo se leen argumentos: nada de memoria, nada de hooks (§5).
 
 **B) Lockfile (respaldo)**
 
-- Ruta: `<instalación>/Contents/LoL/lockfile`, con instalación
-  `/Applications/League of Legends.app` por defecto o `GeneralSettings.leagueInstallPath`
-  (§21.1) si el usuario la configuró.
+- Ruta: `<instalación>/Contents/LoL/lockfile`. Con `GeneralSettings.leagueInstallPath`
+  (§21.1) configurada se lee primero ese lockfile; si no está o no se puede leer, se cae al de
+  `/Applications/League of Legends.app`. Sin ruta configurada se lee solo el default. La ruta
+  se lee en cada intento (`LCUClient(installPath:)` recibe un closure), así que un cambio
+  aplica al intento siguiente. El override de Debug `-MitoLCULockfilePath` (§10.2) le gana a
+  todo esto.
 - Buscar la app cuando no está en `/Applications` (auto-detección) queda pendiente; hoy
   se cubre configurando la ruta.
 - Formato: `LeagueClient:<pid>:<port>:<password>:<protocol>`.
@@ -708,6 +711,12 @@ vivo. Solo se leen argumentos: nada de memoria, nada de hooks (§5).
 struct LCUDiscovery: Sendable {
     init(
         installPath: String? = nil,
+        commandLines: @escaping @Sendable () async -> [String] = runningCommandLines,
+        readFile: @escaping @Sendable (URL) async -> String? = contents(of:)
+    )
+    /// Lee `installPath()` en cada intento.
+    init(
+        installPath: @escaping @Sendable () async -> String?,
         commandLines: @escaping @Sendable () async -> [String] = runningCommandLines,
         readFile: @escaping @Sendable (URL) async -> String? = contents(of:)
     )
@@ -3718,10 +3727,35 @@ loguea. `AppModel` lo carga al arrancar y guarda cada cambio con debounce (§9.3
 La pestaña "General" (`Features/Onboarding/OnboardingSettingsTab`, modelo `OnboardingModel`)
 es un `Form` agrupado en cinco secciones:
 
-- **General**: toggles, idioma y ruta con bindings a `app.settings.general`. La ruta se elige
-  con un selector de archivos y "Detectar sola" la vuelve a `nil`. Por ahora solo "Mostrar
-  ventana al entrar en champ select" tiene efecto (§20.1); el resto se guarda y el pie de la
-  sección lo dice.
+- **General**: toggles, idioma y ruta. "Idioma" y "Datos Diamante+" se guardan pero todavía
+  no tienen efecto (solo existe el texto es-AR y el bracket `diamond_plus` no se publica); el
+  pie de la sección nombra exactamente esos dos (`GeneralSetting.takesEffect`, con un test que
+  lo ata al pie). El resto funciona:
+  - **Abrir Mito al iniciar sesión**: `LoginItemModel` (en `App/`) registra y desregistra
+    `SMAppService.mainApp`. El estado real es del sistema y el usuario lo puede cambiar en
+    Configuración del Sistema, así que el toggle muestra lo que se leyó al arrancar y cada vez
+    que aparece la pestaña, y `general.launchAtLogin` es solo un espejo de esa lectura.
+    `requiresApproval` cuenta como prendido, con una nota y un botón que abre Ítems de inicio;
+    un registro fallido deja una nota corta, nunca una alerta. En Debug y bajo XCTest no hay
+    servicio: el toggle queda deshabilitado con una nota y nunca se toca un ítem de inicio
+    (Debug tiene su propio bundle ID y agregaría un ítem de desarrollo).
+  - **Mostrar ventana al entrar en champ select** (§20.1): `AppModel.react()` lo vigila con
+    observación, sin depender de ninguna vista viva, y abre la ventana con la acción
+    `openWindow` que deja la etiqueta de la barra de menú al aparecer.
+  - **Ícono en la barra de menú** y **en el Dock**: `AppPresenceModel` (en `App/`).
+    `MenuBarExtra(isInserted:)` sigue el toggle; el ícono se muestra igual hasta que alguna
+    vista entregó la acción de abrir la ventana, así un arranque con el ícono apagado igual
+    la obtiene. Con el ícono de Dock prendido la app es siempre `.regular`; apagado, es
+    `.regular` mientras la ventana principal o Settings están abiertas y `.accessory` cuando
+    se cierran las dos. Hacer clic en el ícono del Dock sin ventanas abre la principal.
+  - **Nunca inalcanzable**: apagar el ícono de la barra de menú prende el del Dock, y el
+    toggle del Dock queda deshabilitado mientras la barra de menú está apagada, con una nota
+    que lo explica. Volver a prender la barra de menú no apaga el Dock. Un archivo con los dos
+    apagados (editado a mano) se lee como Dock prendido.
+  - **Ruta de instalación de LoL**: se elige con un selector de archivos y "Detectar sola" la
+    vuelve a `nil`. Se lee en cada descubrimiento (§10.1). Cambiarla sin cliente conectado
+    reinicia la búsqueda en el momento; con un cliente conectado se lo conserva y la ruta
+    nueva aplica a la próxima búsqueda.
 - **Actualizaciones** (§24): "Buscar actualizaciones automáticamente"
   (`general.automaticallyCheckForUpdates`) y "Recibir versiones beta"
   (`general.receiveBetaUpdates`, el canal `beta` de Sparkle). Los toggles pasan por
@@ -4220,8 +4254,11 @@ Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10
   Release; Debug va sin hardened runtime porque se firma ad-hoc).
 - **Sin entitlements**: sin sandbox, ni localhost ni leer los argumentos de un proceso del
   mismo usuario necesitan excepciones del hardened runtime.
-- `LSUIElement = YES`: arranca solo en la barra de menú y pasa a `.regular` mientras la
-  ventana principal o Settings están abiertas, según el toggle de Dock (§21.1).
+- `LSUIElement = YES`: arranca solo en la barra de menú. Con el toggle de Dock (§21.1)
+  prendido pasa a `.regular` en cuanto carga la configuración y se queda así; apagado, es
+  `.regular` mientras la ventana principal o Settings están abiertas y vuelve a `.accessory`
+  cuando se cierran las dos. `AppPresenceModel` le pasa la política a AppKit solo cuando
+  cambia; bajo XCTest nunca la toca.
 - Debug y Release conviven: bundle IDs distintos, así que todo lo que se guarda por instalación
   se nombra a partir del bundle ID.
 - Actualizaciones con **Sparkle 2.10.0**, fijado exacto (ADR 0009), solo en el target de la
@@ -4237,8 +4274,13 @@ Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10
   otra configuración. "Recibir versiones beta" (§21.1) suma ese canal al default.
 - Chequeos programados con los defaults de Sparkle (uno por día), sin descarga ni instalación
   automática. Como app de barra de menú usa los recordatorios suaves de Sparkle: la alerta
-  programada se abre detrás de la app activa, sin robar el foco. Pendiente: posponerla mientras
-  hay una partida en curso.
+  programada se abre detrás de la app activa, sin robar el foco. Mientras la fase es
+  `.inGame` (`GameStart`, `InProgress` o `Reconnect`, §11.2),
+  `standardUserDriverShouldHandleShowingScheduledUpdate(_:andInImmediateFocus:)` devuelve
+  `false` y la alerta programada no se muestra; cuando la partida termina, `UpdaterModel` la
+  trae con `checkForUpdates()`. Si el usuario ya la vio (o la sesión terminó) no se repite.
+  Un chequeo pedido por el usuario se muestra siempre en el momento. No es automatizar nada
+  dentro de la partida: Mito solo calla su propio aviso.
 - Instalación por DMG. Opcional: cask de Homebrew.
 - Permisos de macOS: notificaciones. No hace falta Accesibilidad ni Grabación de pantalla
   en la v1.

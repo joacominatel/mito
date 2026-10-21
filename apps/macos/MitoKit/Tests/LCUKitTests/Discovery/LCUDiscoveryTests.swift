@@ -65,12 +65,87 @@ struct LCUDiscoveryTests {
                 == "/Applications/League of Legends.app/Contents/LoL/lockfile")
     }
 
-    @Test func aConfiguredInstallPathMovesTheLockfile() {
-        let discovery = discovery(
-            processes: [], lockfile: nil, installPath: "/Volumes/Games/LoL.app")
+    private static let defaultLockfile = "/Applications/League of Legends.app/Contents/LoL/lockfile"
+    private static let configuredLockfile = "/Volumes/Games/LoL.app/Contents/LoL/lockfile"
+
+    /// Serves `files` by path and records every path read, in order.
+    private func reading(_ files: [String: String], into reads: Recorder<String> = Recorder())
+        -> @Sendable (URL) async -> String?
+    {
+        { url in
+            let path = url.path(percentEncoded: false)
+            reads.append(path)
+            return files[path]
+        }
+    }
+
+    @Test func aConfiguredInstallPathsLockfileWinsOverTheDefaultOne() async {
+        let reads = Recorder<String>()
+        let discovery = LCUDiscovery(
+            installPath: { "/Volumes/Games/LoL.app" }, commandLines: { [] },
+            readFile: reading(
+                [
+                    Self.configuredLockfile: "LeagueClient:1:62000:Configured:https",
+                    Self.defaultLockfile: Self.lockfile,
+                ], into: reads))
+
+        let found = await discovery.discover()
+
+        #expect(found == LCUCredentials(port: 62_000, token: "Configured"))
+        #expect(reads.values == [Self.configuredLockfile])
+    }
+
+    @Test func aMissingConfiguredLockfileFallsBackToTheDefaultInstall() async {
+        let reads = Recorder<String>()
+        let discovery = LCUDiscovery(
+            installPath: { "/Volumes/Games/LoL.app" }, commandLines: { [] },
+            readFile: reading([Self.defaultLockfile: Self.lockfile], into: reads))
+
+        let found = await discovery.discover()
+
+        #expect(found == LCUCredentials(port: 61_000, token: "FromLockfile"))
+        #expect(reads.values == [Self.configuredLockfile, Self.defaultLockfile])
+    }
+
+    @Test func aMalformedConfiguredLockfileFallsBackToTheDefaultInstall() async {
+        let discovery = LCUDiscovery(
+            installPath: { "/Volumes/Games/LoL.app" }, commandLines: { [] },
+            readFile: reading(
+                [Self.configuredLockfile: "LeagueClient:1", Self.defaultLockfile: Self.lockfile]))
+        #expect(await discovery.discover() == LCUCredentials(port: 61_000, token: "FromLockfile"))
+    }
+
+    @Test func noConfiguredPathReadsOnlyTheDefaultLockfileOnce() async {
+        for installPath in [nil, LCUDiscovery.defaultInstallPath] {
+            let reads = Recorder<String>()
+            let discovery = LCUDiscovery(
+                installPath: { installPath }, commandLines: { [] },
+                readFile: reading([:], into: reads))
+            #expect(await discovery.discover() == nil)
+            #expect(reads.values == [Self.defaultLockfile])
+        }
+    }
+
+    @Test func processArgumentsStillWinOverAConfiguredLockfile() async {
+        let discovery = LCUDiscovery(
+            installPath: { "/Volumes/Games/LoL.app" }, commandLines: { [Self.processLine] },
+            readFile: reading([Self.configuredLockfile: Self.lockfile]))
+        #expect(await discovery.discover() == LCUCredentials(port: 54_321, token: "FromProcess"))
+    }
+
+    @Test func aChangedInstallPathAppliesToTheNextAttempt() async {
+        let installPath = Mutex<String?>(nil)
+        let reads = Recorder<String>()
+        let discovery = LCUDiscovery(
+            installPath: { installPath.withLock { $0 } }, commandLines: { [] },
+            readFile: reading([:], into: reads))
+        _ = await discovery.discover()
+
+        installPath.withLock { $0 = "/Volumes/Games/LoL.app" }
+        _ = await discovery.discover()
+
         #expect(
-            discovery.lockfileURL.path(percentEncoded: false)
-                == "/Volumes/Games/LoL.app/Contents/LoL/lockfile")
+            reads.values == [Self.defaultLockfile, Self.configuredLockfile, Self.defaultLockfile])
     }
 
     @Test func anOverrideReadsOnlyItsLockfileEvenWhenAProcessWouldMatch() async {

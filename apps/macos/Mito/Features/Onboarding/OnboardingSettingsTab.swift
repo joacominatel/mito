@@ -12,36 +12,26 @@ struct OnboardingSettingsTab: View {
         let general = $app.settings.general
         Form {
             Section {
-                Toggle(isOn: general.launchAtLogin) {
-                    Text("Abrir Mito al iniciar sesión", tableName: "Onboarding")
-                }
+                LoginItemRow(model: app.loginItem)
                 Toggle(isOn: general.showWindowOnChampSelect) {
-                    Text("Mostrar ventana al entrar en champ select", tableName: "Onboarding")
+                    Text(GeneralSetting.showWindowOnChampSelect.title)
                 }
-                Toggle(isOn: general.showMenuBarIcon) {
-                    Text("Ícono en la barra de menú", tableName: "Onboarding")
-                }
-                Toggle(isOn: general.showDockIcon) {
-                    Text("Ícono en el Dock", tableName: "Onboarding")
-                }
+                PresenceRows(presence: app.presence)
                 Picker(selection: general.language) {
                     Text("Del sistema", tableName: "Onboarding")
                         .tag(GeneralSettings.Language.system)
                     Text(verbatim: "Español (Argentina)").tag(GeneralSettings.Language.spanish)
                     Text(verbatim: "English").tag(GeneralSettings.Language.english)
                 } label: {
-                    Text("Idioma", tableName: "Onboarding")
+                    Text(GeneralSetting.language.title)
                 }
-                InstallPathRow(path: general.leagueInstallPath)
+                InstallPathRow(path: $app.leagueInstallPath)
             } header: {
                 Text("General", tableName: "Onboarding")
             } footer: {
-                Text(
-                    "Por ahora solo «Mostrar ventana al entrar en champ select» tiene efecto; el resto se guarda y llega más adelante.",
-                    tableName: "Onboarding"
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                Text(GeneralSetting.pendingFooter)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             UpdatesSection(updates: app.updates)
@@ -60,7 +50,7 @@ struct OnboardingSettingsTab: View {
                     Text("Desactivado", tableName: "Onboarding")
                         .tag(GeneralSettings.DiamondPlusData.off)
                 } label: {
-                    Text("Datos Diamante+", tableName: "Onboarding")
+                    Text(GeneralSetting.diamondPlusData.title)
                 }
             } header: {
                 Text("Datos", tableName: "Onboarding")
@@ -74,6 +64,93 @@ struct OnboardingSettingsTab: View {
             }
         }
         .formStyle(.grouped)
+        // The user can change the login item in System Settings while Mito runs.
+        .onAppear { app.loginItem.refresh() }
+    }
+}
+
+private struct LoginItemRow: View {
+    @Bindable var model: LoginItemModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle(isOn: $model.launchesAtLogin) {
+                Text(GeneralSetting.launchAtLogin.title)
+            }
+            .disabled(!model.isAvailable)
+            if let note = model.note {
+                note.view(openSystemSettings: model.openSystemSettings)
+            }
+        }
+    }
+}
+
+extension LoginItemModel.Note {
+    @ViewBuilder
+    fileprivate func view(openSystemSettings: @escaping () -> Void) -> some View {
+        switch self {
+        case .unavailable:
+            SettingNote(systemImage: "hammer") {
+                Text(
+                    "Los builds de desarrollo no se agregan a los ítems de inicio.",
+                    tableName: "Onboarding")
+            }
+        case .requiresApproval:
+            HStack {
+                SettingNote(systemImage: "exclamationmark.triangle") {
+                    Text(
+                        "Falta permitirlo en Configuración del Sistema.",
+                        tableName: "Onboarding")
+                }
+                Button(action: openSystemSettings) {
+                    Text("Abrir…", tableName: "Onboarding")
+                }
+                .controlSize(.small)
+            }
+        case .failed:
+            SettingNote(systemImage: "exclamationmark.triangle") {
+                Text("No se pudo cambiar el ítem de inicio.", tableName: "Onboarding")
+            }
+        }
+    }
+}
+
+private struct PresenceRows: View {
+    @Bindable var presence: AppPresenceModel
+
+    var body: some View {
+        Toggle(isOn: $presence.showsMenuBarIcon) {
+            Text(GeneralSetting.showMenuBarIcon.title)
+        }
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle(isOn: $presence.showsDockIcon) {
+                Text(GeneralSetting.showDockIcon.title)
+            }
+            .disabled(!presence.canHideDockIcon)
+            if !presence.canHideDockIcon {
+                SettingNote(systemImage: "info.circle") {
+                    Text(
+                        "Sin el ícono de la barra de menú, Mito queda en el Dock para que siempre puedas abrirlo.",
+                        tableName: "Onboarding")
+                }
+            }
+        }
+    }
+}
+
+/// A short secondary line under a row; never an alert.
+private struct SettingNote<Content: View>: View {
+    let systemImage: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        Label {
+            content
+        } icon: {
+            Image(systemName: systemImage)
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
     }
 }
 
@@ -140,7 +217,7 @@ private struct InstallPathRow: View {
                 }
             }
         } label: {
-            Text("Ruta de instalación de LoL", tableName: "Onboarding")
+            Text(GeneralSetting.leagueInstallPath.title)
         }
         .fileImporter(isPresented: $isChoosing, allowedContentTypes: [.applicationBundle, .folder])
         {
