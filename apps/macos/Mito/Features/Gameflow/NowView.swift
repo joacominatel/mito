@@ -1,12 +1,14 @@
 import SwiftUI
 
 struct NowView: View {
+    @Environment(AppModel.self) private var app
+
     var body: some View {
         ContentUnavailableView {
             Label {
-                Text("Esperando al cliente", tableName: "Gameflow")
+                Text(app.gameflow.phaseTitle)
             } icon: {
-                Image(systemName: "circle.dashed")
+                Image(systemName: app.gameflow.phaseSymbol)
             }
         }
     }
@@ -14,4 +16,5 @@ struct NowView: View {
 
 #Preview {
     NowView()
+        .environment(AppModel(connection: DisconnectedLCUConnection()))
 }

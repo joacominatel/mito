@@ -2674,8 +2674,17 @@ loguea. `AppModel` lo carga al arrancar y guarda cada cambio con debounce (§9.3
 | Setting | Tipo | Default |
 |---|---|---|
 | Auto-accept | off / siempre / solo colas elegidas | siempre |
-| Delay del auto-accept | 0–8 s | 2 s |
+| Colas del auto-accept (solo con "solo colas elegidas") | Clasificatoria solo/dúo (420), Clasificatoria flexible (440), Normal de reclutamiento (400), Normal a ciegas (430), ARAM (450) | ninguna |
+| Delay del auto-accept | 0–8 s, de a 1 s | 2 s |
 | Notificar partida encontrada | bool | on |
+
+La pestaña "Partida" (`Features/Gameflow/GameflowSettingsTab`) es un `Form` agrupado con
+bindings a `app.settings.game`: un picker para el modo, un stepper para el delay (deshabilitado
+con `off`), un toggle por cola que aparece solo con "solo colas elegidas" y el toggle de la
+notificación. `GameflowModel` lee los settings en cada decisión del auto-accept, así que un
+cambio vale desde el próximo ready check (o desde la relectura, si hay uno esperando el delay).
+La cola sale de `GET /lol-gameflow/v1/session` cada vez que el auto-accept decide; si no se
+puede leer, queda desconocida y "solo colas elegidas" no acepta (§11.3).
 
 ### 21.3 Champ select
 
@@ -2792,10 +2801,18 @@ propio usuario, no de otros jugadores, y no se loguea.
 
 ### 22.5 Notificaciones (UserNotifications)
 
-- "Partida encontrada, aceptada ✓"
+- "Partida encontrada, aceptada": cuando el auto-accept reporta `.accepted` y
+  `notifyMatchFound` está on. Un accept fallido, omitido o retirado no notifica.
 - "Te toca elegir. Recomendado: Ahri"
 - "Runas, spells e ítems importados para Ahri vs Zed"
 - Acción en la notificación: "Abrir análisis".
+
+Las publica `SystemNotificationPoster` (`App/MitoNotification.swift`) detrás del protocolo
+`NotificationPosting`: `post(_:title:)` recibe el caso de `MitoNotification` y el título ya
+localizado en la tabla de la feature dueña. Pide permiso (alerta y sonido) en el primer post y
+nunca más; sin permiso el post se descarta sin error, y un permiso dado después en Ajustes del
+Sistema vale desde el próximo. El identificador es uno por caso, así que una notificación nueva
+reemplaza a la anterior del mismo tipo. Con Mito en primer plano el sistema no la muestra.
 
 ### 22.6 Localización
 

@@ -1,14 +1,62 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Esperando al cliente" : {
-
+    "ARAM" : {
+      "comment" : "Settings queue toggle: ARAM (queue 450)."
     },
-    "Próximamente" : {
-
+    "Auto-accept" : {
+      "comment" : "Settings picker label: whether Mito answers the ready check for the user."
+    },
+    "Clasificatoria flexible" : {
+      "comment" : "Settings queue toggle: ranked flex (queue 440)."
+    },
+    "Clasificatoria solo/dúo" : {
+      "comment" : "Settings queue toggle: ranked solo/duo (queue 420)."
+    },
+    "Colas" : {
+      "comment" : "Settings section header: the queues auto-accept answers when set to selected queues only."
+    },
+    "Demora: %lld s" : {
+      "comment" : "Settings stepper: seconds Mito waits before accepting a ready check (0-8)."
+    },
+    "Desactivado" : {
+      "comment" : "Auto-accept option: never answer the ready check."
+    },
+    "Fase: Buscando partida" : {
+      "comment" : "Menu bar gameflow line while the client is in matchmaking."
+    },
+    "Fase: Champ select" : {
+      "comment" : "Menu bar gameflow line during champion select."
+    },
+    "Fase: En partida" : {
+      "comment" : "Menu bar gameflow line while a game is starting, running, or can be rejoined."
+    },
+    "Fase: Lobby" : {
+      "comment" : "Menu bar gameflow line while the user is in a lobby."
+    },
+    "Fase: Partida encontrada" : {
+      "comment" : "Menu bar gameflow line while a ready check is showing."
+    },
+    "Normal a ciegas" : {
+      "comment" : "Settings queue toggle: normal blind pick (queue 430)."
+    },
+    "Normal de reclutamiento" : {
+      "comment" : "Settings queue toggle: normal draft pick (queue 400)."
+    },
+    "Notificar partida encontrada" : {
+      "comment" : "Settings toggle: post a system notification when Mito accepts a match."
+    },
+    "Partida encontrada, aceptada" : {
+      "comment" : "System notification title after Mito accepted the ready check."
+    },
+    "Siempre" : {
+      "comment" : "Auto-accept option: answer every ready check."
     },
     "Sin partida en curso" : {
-
+      "comment" : "Menu bar gameflow line when not connected or not in a lobby, queue, or game."
+    },
+    "Solo colas elegidas" : {
+      "comment" : "Auto-accept option: answer only in the queues the user selected."
     }
   },
   "version" : "1.0"
