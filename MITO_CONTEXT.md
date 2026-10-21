@@ -2401,6 +2401,24 @@ Decisiones de la base personal:
 - `played_at` y `ts` son epoch en milisegundos (el `gameCreation` de la LCU).
 - Si `banned_from_pool` de un override y `pool` no coinciden, gana `banned_from_pool`: una
   exclusión explícita pesa más que la lista del pool.
+- Vive en `~/Library/Application Support/<bundle id>/personal.sqlite`, así Debug y Release no
+  la comparten (§24). Las migraciones son de GRDB (`DatabaseMigrator`) desde `v1`; una
+  migración publicada nunca se edita, se agrega otra.
+- `perks` e `items` son arrays JSON de enteros en el orden del cliente (`[8112,8139,…]`).
+- `fixed_page` es JSON de la `RunePage`:
+  `{"perks":[…],"primaryStyle":8100,"subStyle":8200}`.
+- `fixed_spells` es un array JSON de dos IDs en el orden de la `SpellPair` (`[4,14]`).
+- `fixed_items` es JSON del `ItemSet`:
+  `{"blocks":[{"items":[{"count":1,"id":1056}],"title":"…"}]}`.
+- Las claves JSON van ordenadas; un campo fijo sin valor es `NULL`.
+- `role`, `runes_mode`, `spells_mode`, `items_mode`, `what` y `result` guardan el `rawValue`
+  de los enums de MitoCore (`MIDDLE`, `fixed_set`, `applied`…). Un modo, parte o resultado
+  desconocido carga como `.unknown` sin error; un rol desconocido o un JSON que no decodifica
+  es un error de lectura.
+- `win`, `is_enemy`, `favorite` y `banned_from_pool` son 0/1. `slot` es el índice en
+  `MyMatch.participants`, y los participantes se leen ordenados por `slot`.
+- "Borrar mis datos" (§25) vacía las cinco tablas en una sola transacción: o se borra todo o
+  no se borra nada.
 
 ---
 
