@@ -2354,7 +2354,7 @@ CREATE TABLE champion_overrides (       -- preferencias manuales del usuario
   champion_id INTEGER, role TEXT,
   runes_mode TEXT, fixed_page TEXT,     -- JSON
   spells_mode TEXT, fixed_spells TEXT,
-  items_mode TEXT,
+  items_mode TEXT, fixed_items TEXT,    -- JSON del ItemSet fijo (§21.5 "set fijo")
   favorite INTEGER, banned_from_pool INTEGER,
   PRIMARY KEY (champion_id, role)
 );
@@ -2368,6 +2368,13 @@ CREATE TABLE import_log (
   ts INTEGER, game_id INTEGER, champion_id INTEGER, what TEXT, result TEXT, detail TEXT
 );
 ```
+
+Decisiones de la base personal:
+
+- La maestría no se guarda: se lee en vivo de la LCU (§19.1) cuando hace falta.
+- `played_at` y `ts` son epoch en milisegundos (el `gameCreation` de la LCU).
+- Si `banned_from_pool` de un override y `pool` no coinciden, gana `banned_from_pool`: una
+  exclusión explícita pesa más que la lista del pool.
 
 ---
 
