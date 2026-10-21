@@ -175,7 +175,7 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | P4-05 | Summoner spell importer | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/Spells/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift` | §13.3 | P0-C | merged |
 | P4-06 | `LoadoutImporter` and `ImportReport` | import | `MitoKit/Sources/MitoImport/*.swift` | §13.5 | P4-03, P4-04, P4-05 | todo |
 | P4-07 | Import feature: trigger on lock, toast, "Importación" tab, hand-written builds for 5 champions | import-ui | `Mito/Features/Import/**` | §13.1, §21.4 | P4-06, P3-02 | todo |
-| P4-08 | Data Dragon transport for the icon fallback (HTTPS to `ddragon.leagueoflegends.com` only) | store | `MitoKit/Sources/MitoStore/DataDragon/**` | §9.2, §16.1 | P4-02 | todo |
+| P4-08 | Data Dragon transport for the icon fallback (HTTPS to `ddragon.leagueoflegends.com` only) | store | `MitoKit/Sources/MitoStore/DataDragon/**` | §9.2, §16.1 | P4-02 | in progress |
 
 ## P5 — Pipeline MVP
 
