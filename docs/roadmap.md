@@ -208,7 +208,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | P5-01 | Bring in the snapshot fixture from `mito-data` | store (serial, snapshot contract) | `fixtures/snapshot/**` | §17 | MD-FX | merged |
-| P5-02 | Refresh the contract fixture to mito-data `62ee7b1` (Udyr 4-letter max order; §14.12 loadout rules) and update the contract and fixture-based tests | store (serial, snapshot contract) + engine tests | `fixtures/snapshot/**`, `MitoKit/Tests/MitoStoreTests/Snapshot/**`, `MitoKit/Tests/MitoEngineTests/Loadout/**`, `MitoTests/Features/Import/**` | §17 | P6-06 | todo |
+| P5-02 | Refresh the contract fixture to mito-data `74df9cf` (Udyr 4-letter max order; §14.12 loadout rules; current rune trees) and add Inspiration to the recorded-shape styles case and update the contract and fixture-based tests | store (serial, snapshot contract) + engine tests | `fixtures/snapshot/**`, `fixtures/lcu/cases/runes/**`, `MitoKit/Tests/MitoStoreTests/Snapshot/**`, `MitoKit/Tests/MitoEngineTests/Loadout/**`, `MitoTests/Features/Import/**` | §17 | P6-06 | todo |
 
 ## P6 — The app consumes the snapshot
 
