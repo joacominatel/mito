@@ -246,22 +246,15 @@ private struct SignedPercent: View {
     let value: Double
 
     var body: some View {
-        let shown = (value * 1_000).rounded() / 1_000
+        let shown = SignedNumber.rounded(value * 100, fractionDigits: 1)
         HStack(spacing: 2) {
             Image(systemName: symbol(shown))
                 .imageScale(.small)
                 .accessibilityHidden(true)
-            Text(
-                shown.formatted(
-                    .percent.precision(.fractionLength(1)).sign(
-                        strategy: .always(includingZero: false))
-                )
-            )
-            .monospacedDigit()
+            Text(verbatim: SignedNumber.percentText(value, fractionDigits: 1))
+                .monospacedDigit()
         }
-        .foregroundStyle(
-            shown > 0
-                ? Tone.favorable.color : shown < 0 ? Tone.unfavorable.color : Tone.neutral.color)
+        .foregroundStyle(SignedNumber.tone(value * 100, fractionDigits: 1).color)
     }
 
     private func symbol(_ value: Double) -> String {

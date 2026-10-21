@@ -35,4 +35,18 @@ struct SignedNumberTests {
                 == SignedNumber.text(delta * 100, fractionDigits: 1, locale: Self.locale))
         #expect(WinratePoints.tone(delta) == SignedNumber.tone(delta * 100, fractionDigits: 1))
     }
+
+    nonisolated private static func share(_ value: Double) -> String {
+        value.formatted(.percent.precision(.fractionLength(1)).locale(locale))
+    }
+
+    @Test(arguments: [
+        (0.021, "+"), (-0.034, "\u{2212}"), (-0.5, "\u{2212}"), (0.0, ""), (-0.0004, ""),
+    ])
+    func signedPercentsUseTheTypographicMinus(fraction: Double, sign: String) {
+        #expect(
+            SignedNumber.percentText(fraction, fractionDigits: 1, locale: Self.locale)
+                == sign + Self.share(abs(fraction)))
+        #expect(!SignedNumber.percentText(fraction, fractionDigits: 1).contains("-"))
+    }
 }

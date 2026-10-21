@@ -48,7 +48,7 @@ struct DraftSlotRow: Identifiable, Hashable {
         switch role {
         case .assigned(let role): parts.append(String(localized: role.name))
         case .inferred(let role, let confidence):
-            let percent = confidence.formatted(.percent.precision(.fractionLength(0)))
+            let percent = confidence.percentText()
             parts.append(
                 String(
                     localized: "Rol probable: \(String(localized: role.name)), \(percent)",
@@ -174,6 +174,16 @@ private struct TurnMarker: View {
     }
 }
 
+extension DraftSlotRow.RoleLabel {
+    /// The text of an inferred tag as the header of the analysis reads it: "MID? 82 %".
+    static func inferredTagText(
+        _ role: Role, confidence: Double, locale: Locale = .current
+    ) -> String {
+        String(localized: role.shortLabel) + "? "
+            + confidence.percentText(locale: locale)
+    }
+}
+
 /// Inferred roles carry a "?" and their probability; a guess without data says so.
 private struct RoleTag: View {
     let role: DraftSlotRow.RoleLabel
@@ -184,12 +194,8 @@ private struct RoleTag: View {
             case .assigned(let role):
                 Text(role.shortLabel)
             case .inferred(let role, let confidence):
-                Text(role.shortLabel)
-                Text(verbatim: "?")
-                Text(confidence, format: .percent.precision(.fractionLength(0)))
+                Text(verbatim: DraftSlotRow.RoleLabel.inferredTagText(role, confidence: confidence))
                     .monospacedDigit()
-                    .contentTransition(.numericText(value: confidence))
-                    .foregroundStyle(.secondary)
             case .uncertain(let role):
                 Image(systemName: "questionmark.circle")
                 Text(role.shortLabel)

@@ -3426,7 +3426,8 @@ el panel de análisis:
 - Estados vacíos de la columna: "Sin estadísticas todavía" sin snapshot (§20.3), "Sin rol
   asignado" en ARAM, "Recomendaciones apagadas" si el setting de picks o de bans
   está off, y "Ningún candidato" si el modo no deja pasar a nadie.
-- Abajo, los bans por nombre.
+- Abajo, los bans con ícono y nombre; si los diez nombres no entran, solo los íconos (el nombre
+  queda como label de VoiceOver y tooltip).
 - Debajo de los bans, el panel "Análisis" (`AnalysisPanel`): un selector segmentado con
   Matchup, Composición, Build y Mi historial, y la pestaña elegida (§20.2). El draft toma primero
   la altura que necesita y el panel se queda con el resto, con un mínimo; la pestaña scrollea

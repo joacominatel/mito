@@ -47,4 +47,21 @@ struct DraftSlotRowTests {
         let row = DraftSlotRow(id: 0, pick: pick, role: .none, turn: nil, isMe: false)
         #expect(row.iconState == state)
     }
+
+    @Test func theInferredTagReadsLikeTheAnalysisHeader() {
+        let tag = DraftSlotRow.RoleLabel.inferredTagText(
+            .middle, confidence: 0.82, locale: Locale(identifier: "es_AR"))
+        let percent = 0.82.formatted(
+            .percent.precision(.fractionLength(0)).locale(Locale(identifier: "es_AR")))
+        #expect(tag == "MID? \(percent)")
+    }
+
+    @Test func voiceOverReadsTheProbabilityAsAPercentage() {
+        let row = DraftSlotRow(
+            id: 8, pick: .empty, role: .inferred(.middle, confidence: 0.82), turn: nil,
+            isMe: false)
+        #expect(row.accessibilityLabel.hasPrefix("Rol probable: Mid, "))
+        let percent = 0.82.formatted(.percent.precision(.fractionLength(0)))
+        #expect(row.accessibilityLabel.contains(percent))
+    }
 }

@@ -61,6 +61,18 @@ enum SignedNumber {
         return magnitude
     }
 
+    /// A signed share of one: `0.021` is "+2,1 %". Zero after rounding has no sign.
+    static func percentText(_ fraction: Double, fractionDigits: Int, locale: Locale = .current)
+        -> String
+    {
+        let shown = rounded(fraction * 100, fractionDigits: fractionDigits)
+        let magnitude = (abs(shown) / 100).formatted(
+            .percent.precision(.fractionLength(fractionDigits)).locale(locale))
+        if shown > 0 { return "+" + magnitude }
+        if shown < 0 { return "\u{2212}" + magnitude }
+        return magnitude
+    }
+
     static func tone(_ value: Double, fractionDigits: Int) -> Tone {
         let shown = rounded(value, fractionDigits: fractionDigits)
         return shown > 0 ? .favorable : shown < 0 ? .unfavorable : .neutral
