@@ -1,0 +1,43 @@
+[
+  {
+    "puuid": "fake-puuid-local",
+    "championId": 103,
+    "championLevel": 14,
+    "championPoints": 245310,
+    "lastPlayTime": 1792094400000,
+    "championPointsSinceLastLevel": 11000,
+    "championPointsUntilNextLevel": 0,
+    "markRequiredForNextLevel": 2,
+    "tokensEarned": 1,
+    "championSeasonMilestone": 3,
+    "milestoneGrades": [
+      "A-",
+      "S"
+    ],
+    "highestGrade": "S"
+  },
+  {
+    "puuid": "fake-puuid-local",
+    "championId": 134,
+    "championLevel": 7,
+    "championPoints": 61234,
+    "lastPlayTime": 1792008000000,
+    "highestGrade": "B+"
+  },
+  {
+    "puuid": "fake-puuid-local",
+    "championId": 238,
+    "championLevel": 3
+  },
+  {
+    "puuid": "fake-puuid-local",
+    "championLevel": 5,
+    "championPoints": 30000
+  },
+  {
+    "puuid": "fake-puuid-local",
+    "championId": 222,
+    "championLevel": 1,
+    "championPoints": 0
+  }
+]

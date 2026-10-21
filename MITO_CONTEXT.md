@@ -868,7 +868,7 @@ final class LCUEventStream: Sendable {
 | GET | `/lol-summoner/v1/current-summoner` | `LCUEndpoint.currentSummoner` → `CurrentSummoner`: `puuid`, `summonerId`, `gameName`, `tagLine`, `summonerLevel`, todos opcionales; `riotID` da `gameName#tagLine` solo si ambos vienen no vacíos. Campos sin verificar todavía |
 | GET | `/lol-patch/v1/game-version` | `LCUEndpoint.gameVersion` → `GameVersion`: el body es un string JSON pelado (`"16.21.723.1234"`); `rawValue` es la versión completa recortada (clave del caché de íconos, solo letras ASCII, dígitos y `._-`) y `patch` son los dos primeros componentes (`16.21`), la misma numeración que `clientPatch` de los fixtures y el snapshot. Un body que no es string, con menos de dos componentes numéricos o con otros caracteres es `LCUError.decoding` |
 | GET | `/lol-ranked/v1/current-ranked-stats` | Tier y división por cola (bracket del usuario) |
-| GET | `/lol-champion-mastery/v1/local-player/champion-mastery` | Maestría por campeón |
+| GET | `/lol-champion-mastery/v1/local-player/champion-mastery` | `LCUEndpoint.championMastery` → `ChampionMasteryList.masteries: [ChampionMastery]` (MitoCore): campeón, `championPoints` y `championLevel` por entrada; una entrada sin campeón (o con `0`), sin puntos o sin nivel se descarta; un body que no es array es `LCUError.decoding`. La `puuid` del payload nunca se lee. Se lee en vivo, no se guarda (§17). Campos según el schema comunitario, sin verificar todavía |
 | GET | `/lol-champions/v1/inventories/{summonerId}/champions-minimal` | Campeones que tenés |
 | GET | `/lol-region-locale/v1/region-locale` | Región y locale (para el ruteo de la Riot API) |
 
@@ -921,8 +921,33 @@ final class LCUEventStream: Sendable {
 
 | Método | Path | Uso |
 |---|---|---|
-| GET | `/lol-match-history/v1/products/lol/current-summoner/matches?begIndex=0&endIndex=20` | Últimas partidas |
-| GET | `/lol-match-history/v1/games/{gameId}` | Detalle de una partida |
+| GET | `/lol-match-history/v1/products/lol/current-summoner/matches?begIndex=0&endIndex=20` | `LCUEndpoint.matchHistory(begIndex:endIndex:localPUUID:)` → `MatchHistoryPage.matches: [MyMatch]`, en el orden del cliente; los índices van tal cual en el query (por defecto `0` y `20`). `games.games` es obligatorio (si falta es `LCUError.decoding`); una partida que no se puede mapear se descarta y el resto de la página sigue |
+| GET | `/lol-match-history/v1/games/{gameId}` | `LCUEndpoint.matchHistoryGame(_:localPUUID:)` → `MatchHistoryGame.match: MyMatch`, con los diez participantes; si no se puede mapear es `LCUError.decoding` |
+
+Mapeo de una partida a `MyMatch` (§17), con los campos del schema comunitario, sin verificar
+todavía contra el cliente real:
+
+- **Identificación.** El jugador local es el `participantId` de la entrada de `participantIdentities` cuya
+  `player.puuid` coincide con `localPUUID` (`CurrentSummoner.puuid`), comparada en memoria y
+  descartada; si no hay coincidencia, la única identidad presente, que es como la lista del
+  historial marca al invocador actual. Sin jugador local la partida se descarta. Nombres,
+  Riot IDs e IDs de cuenta nunca se decodifican (§5, §25).
+- **Cabecera.** `gameId`, `queueId`, `gameCreation` (epoch ms → `playedAt`), `gameDuration`
+  (segundos) y el parche, los dos primeros componentes de `gameVersion` (como
+  `GameVersion`). Todos obligatorios.
+- **Jugador local.** `championId`, `teamId`, `spell1Id` y `spell2Id` en orden de slot (el
+  primero es la D), `stats.win`, `kills`, `deaths`, `assists`, y CS =
+  `totalMinionsKilled + neutralMinionsKilled`, todos obligatorios. Runas: `stats.perk0…perk5`
+  sin ceros (el payload no trae los fragmentos de stats). Ítems: `stats.item0…item6` en
+  orden, sin slots vacíos.
+- **Rol.** De `timeline.lane` y `timeline.role`: `TOP`, `JUNGLE`, `MIDDLE`/`MID`;
+  `BOTTOM`/`BOT` con `DUO_CARRY`/`CARRY` es `BOTTOM` y con `DUO_SUPPORT`/`SUPPORT` es
+  `UTILITY`; cualquier otro valor es `nil`. Fuera de la Grieta (`mapId` distinto de 11, como
+  ARAM) todos los roles son `nil`.
+- **Rival.** El único enemigo con el mismo rol que el jugador local; si hay más de uno, ninguno
+  o el rol es `nil`, no hay rival.
+- **Los otros nueve.** Solo campeón, lado (`teamId` distinto del propio) y rol. Un
+  participante sin `participantId`, `teamId` o campeón se descarta.
 
 **Assets (servidos por el propio cliente, sin internet)**
 

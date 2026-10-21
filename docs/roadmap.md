@@ -243,7 +243,7 @@ Can overlap Stage 6.
 | --- | --- | --- | --- | --- | --- | --- |
 | P8-00 | CONTRACT: personal records and `PersonalStore` | core (serial) | `MitoKit/Sources/MitoCore/Personal/**` | §17 (Base personal), §19.1 | P6-00 | merged |
 | P8-01 | Personal database and migrations | store | `MitoKit/Sources/MitoStore/Personal/**` | — | P8-00 | in progress |
-| P8-02 | LCU match history and mastery models | lcu | `MitoKit/Sources/LCUKit/History/**` | lcu-endpoints: History, Session | P8-00 | in progress |
+| P8-02 | LCU match history and mastery models | lcu | `MitoKit/Sources/LCUKit/History/**` | lcu-endpoints: History, Session | P8-00 | merged |
 | P8-03 | Personal score | engine | `MitoKit/Sources/MitoEngine/Personal/**` | §19.2, §19.3 | P8-00 | merged |
 | P8-04 | History sync | profile | `Mito/Features/Profile/**` | — | P8-01, P8-02 | todo |
 | P8-05 | Onboarding: pool by role, Flash position, Diamond+ layer | onboarding | `Mito/Features/Onboarding/**` | — | P8-01 | todo |
