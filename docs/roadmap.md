@@ -281,8 +281,9 @@ Can overlap Stage 6.
 | P9-03 | Build tab | analysis | `Mito/Features/Analysis/Build/**`, `MitoKit/Sources/MitoEngine/Analysis/Build/**`, their tests | §20.2 (Build entry only) | P9-00 | merged |
 | P9-04 | "Mi historial" tab | analysis | `Mito/Features/Analysis/History/**`, `MitoKit/Sources/MitoEngine/Analysis/History/**`, their tests | §20.2 (Mi historial entry only) | P9-00 | merged |
 | P9-05 | Tips download and reader, built on the format in the contract fixture (`fixtures/snapshot/tips/`); the curated content still comes with MD-tips | store | `MitoKit/Sources/MitoStore/Tips/**`, `MitoKit/Sources/MitoStore/Download/SnapshotManifest.swift` (additive), their tests | §14.12 (tips paragraph only) | P5-04 | merged |
-| P9-06 | Special states: blind, Flex/Normal, ARAM degraded, no snapshot, unknown rival | cross-lane (serial) | per card | §20.3 | P9-01, P9-02, P9-03, P9-04, P9-05 | todo |
-| P9-07 | Visual polish, animations, accessibility | cross-lane (serial) | per card | §22.1 | P9-06 | todo |
+| P9-06 | Special states and wiring: import follows the blind-pick selector (AppModel), curated tips load with the snapshot and reach the Matchup tab, fixed per-champion choices import and show without a snapshot (§20.3), Flex/Normal on the 420 snapshot, §20.1 brought current | cross-lane (serial, shell) | `Mito/App/**`, `Mito/Features/Analysis/*` (top level), `Mito/Features/Analysis/Matchup/**`, `Mito/Features/Analysis/Build/**`, `Mito/Features/Import/**`, their tests | §13.1, §20.1, §20.3 | P9-01..05, FX-11 | in progress |
+| P9-08 | Unknown lane rival: "safe" pick recommendations, the expected matchup over the role's likeliest opponents weighted by pick rate (§20.3), with its own reason | engine + design-system | `MitoEngine/Pick/**`, `MitoCore` reason kind (contract), `Mito/DesignSystem/ReasonText.swift`, their tests | §18.3, §20.3, §22.3 | P9-06 | todo |
+| P9-07 | Visual polish, animations, accessibility | cross-lane (serial) | per card | §22.1 | P9-08 | todo |
 
 ## P10 — Beta release
 
