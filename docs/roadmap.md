@@ -175,7 +175,7 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P3-01 | Tolerant champ-select session decoding | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Session/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift`, `fixtures/lcu/cases/champ-select/**` | §12.1, lcu-endpoints: Champ select | P0-C | merged |
 | P3-02 | Session → `DraftContext` mapping | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Mapping/**` | §12.2 | P3-01 | merged |
 | P3-03 | Enemy role inference (§12.3) | engine | `MitoKit/Sources/MitoEngine/RoleInference/**` | §12.3 | P0-C | merged |
-| P3-05 | Typed gameflow-session (queue) and pickable/bannable champion endpoints | lcu | `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Gameflow.swift`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift`, `MitoKit/Sources/LCUKit/Gameflow/Session/**`, `fixtures/lcu/cases/gameflow-lobby/session-*`, `fixtures/lcu/cases/champ-select/pickable-*` | §10.6, §11.1 | P3-01 | in progress |
+| P3-05 | Typed gameflow-session (queue) and pickable/bannable champion endpoints | lcu | `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Gameflow.swift`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift`, `MitoKit/Sources/LCUKit/Gameflow/Session/**`, `fixtures/lcu/cases/gameflow-lobby/session-*`, `fixtures/lcu/cases/champ-select/pickable-*` | §10.6, §11.1 | P3-01 | merged |
 | P3-04 | Champ-select view and model with 150 ms debounce | champ-select | `Mito/Features/ChampSelect/**` | §12.4, §20.1 | P3-02, P3-05, P2-07 | todo |
 
 ## P4 — Importer with fixed data

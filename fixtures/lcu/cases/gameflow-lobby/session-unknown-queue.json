@@ -1,0 +1,8 @@
+{
+  "phase": "Lobby",
+  "gameData": {
+    "queue": { "id": 9999, "mapId": 30, "name": "A mode from a future patch", "fieldFromAFuturePatch": true },
+    "teamOne": [],
+    "teamTwo": []
+  }
+}

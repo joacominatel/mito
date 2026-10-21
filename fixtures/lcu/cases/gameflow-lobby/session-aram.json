@@ -1,0 +1,12 @@
+{
+  "phase": "Lobby",
+  "gameData": {
+    "gameId": 0,
+    "isCustomGame": false,
+    "queue": { "id": 450, "mapId": 12, "name": "ARAM", "type": "ARAM_UNRANKED_5x5", "gameMode": "ARAM", "isRanked": false },
+    "teamOne": [],
+    "teamTwo": [],
+    "playerChampionSelections": []
+  },
+  "map": { "id": 12, "name": "Howling Abyss", "mapStringId": "HA", "gameMode": "ARAM" }
+}

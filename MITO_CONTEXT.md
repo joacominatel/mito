@@ -788,7 +788,7 @@ final class LCUEventStream: Sendable {
 | Método | Path | Uso |
 |---|---|---|
 | GET | `/lol-gameflow/v1/gameflow-phase` | Fase actual |
-| GET | `/lol-gameflow/v1/session` | Cola, mapa y datos de la partida |
+| GET | `/lol-gameflow/v1/session` | `LCUEndpoint.gameflowSession` → `GameflowSession`: solo cola (`gameData.queue.id`) y mapa (`gameData.queue.mapId`), ver §11.1 |
 | POST | `/lol-lobby/v2/lobby` | Crear lobby `{ "queueId": 420 }` |
 | PUT | `/lol-lobby/v2/lobby/members/localMember/position-preferences` | Roles `{ "firstPreference": "MIDDLE", "secondPreference": "TOP" }` |
 | POST | `/lol-lobby/v2/lobby/matchmaking/search` | Buscar partida |
@@ -805,8 +805,8 @@ final class LCUEventStream: Sendable {
 | PATCH | `/lol-champ-select/v1/session/actions/{actionId}` | Hover o pick/ban `{ "championId": 103 }` |
 | POST | `/lol-champ-select/v1/session/actions/{actionId}/complete` | Lockear la acción |
 | PATCH | `/lol-champ-select/v1/session/my-selection` | `{ "spell1Id": 4, "spell2Id": 14 }` |
-| GET | `/lol-champ-select/v1/pickable-champion-ids` | Campeones que se pueden elegir |
-| GET | `/lol-champ-select/v1/bannable-champion-ids` | Campeones que se pueden banear |
+| GET | `/lol-champ-select/v1/pickable-champion-ids` | `LCUEndpoint.pickableChampionIDs` → `Set<ChampionID>`: campeones que se pueden elegir. El body es un array de ids; los `0` y todo lo que no sea entero se descartan; un body que no es array es `LCUError.decoding` |
+| GET | `/lol-champ-select/v1/bannable-champion-ids` | `LCUEndpoint.bannableChampionIDs` → `Set<ChampionID>`: campeones que se pueden banear, con la misma decodificación |
 
 **Runas**
 
@@ -868,6 +868,18 @@ pelado (`"ChampSelect"`), y del `data` de un evento `LCUTopic.gameflowPhase`
 (`GameflowPhase(event)`), que trae el mismo string. Un valor desconocido nunca falla; un body
 que no es string (`null`, número, objeto) es `LCUError.decoding`. Valores sin verificar todavía
 contra una grabación.
+
+**Sesión.** La cola y el mapa salen de `GET /lol-gameflow/v1/session`
+(`LCUEndpoint.gameflowSession`), decodificado en `LCUKit/Gameflow/Session/GameflowSession`.
+Solo se leen `gameData.queue.id` (`queueID: QueueID?`) y `gameData.queue.mapId`
+(`mapID: Int?`, 11 es la Grieta y 12 el Abismo); `queueType` los mapea con
+`QueueType(queueID:)`, así que una cola desconocida es `.other(id)`. Si falta `gameData`,
+`queue` o alguno de los dos campos, o vienen en `null`, queda `nil`. Un body que no es un
+objeto, o un `id`/`mapId` con otro tipo, es `LCUError.decoding`. Los rosters (`teamOne`,
+`teamTwo`, `playerChampionSelections`) y cualquier identidad no se decodifican nunca (§5), así
+que un roster malformado no afecta la sesión. No hay suscripción WAMP a la sesión: se lee por
+REST cuando hace falta la cola. Rutas tomadas del esquema comunitario de la LCU, sin verificar
+todavía contra una grabación.
 
 ### 11.2 Máquina de estados de Mito
 

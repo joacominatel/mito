@@ -1,0 +1,35 @@
+{
+  "phase": "ChampSelect",
+  "gameClient": { "observerServerIp": "", "observerServerPort": 0, "running": false, "serverIp": "", "serverPort": 0, "visible": false },
+  "gameData": {
+    "gameId": 1,
+    "gameName": "",
+    "isCustomGame": false,
+    "password": "",
+    "playerChampionSelections": [
+      { "championId": 103, "puuid": "00000000-0000-0000-0000-000000000001", "selectedSkinIndex": 0, "spell1Id": 4, "spell2Id": 14 }
+    ],
+    "queue": {
+      "id": 420,
+      "mapId": 11,
+      "name": "Ranked Solo/Duo",
+      "shortName": "Ranked",
+      "type": "RANKED_SOLO_5x5",
+      "gameMode": "CLASSIC",
+      "isRanked": true,
+      "numPlayersPerTeam": 5
+    },
+    "spectatorsAllowed": false,
+    "spectatorKey": "",
+    "teamOne": [
+      { "puuid": "00000000-0000-0000-0000-000000000001", "summonerId": 1, "summonerName": "FakeAlly", "gameName": "FakeAlly", "tagLine": "TEST", "championId": 103, "selectedPosition": "MIDDLE", "teamParticipantId": 1 },
+      { "puuid": "00000000-0000-0000-0000-000000000002", "summonerId": 2, "gameName": "FakeDuo", "tagLine": "TEST", "championId": "not-a-number" }
+    ],
+    "teamTwo": [
+      { "puuid": "00000000-0000-0000-0000-000000000003", "summonerId": 3, "gameName": "FakeRival", "tagLine": "TEST" },
+      "not-an-object"
+    ]
+  },
+  "gameDodge": { "dodgeIds": [], "phase": "None", "state": "Invalid" },
+  "map": { "id": 11, "name": "Summoner's Rift", "mapStringId": "SR", "gameMode": "CLASSIC" }
+}
