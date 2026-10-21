@@ -298,7 +298,7 @@ Can overlap Stage 6.
 | --- | --- | --- | --- | --- | --- | --- |
 | P10-01 | Sparkle | shell (serial) + pbxproj + xcconfig | `Mito/App/**`, `Mito.xcodeproj/**`, `Config/*.xcconfig` | §21.1, §22.4, §24; ADR 0009 | P9-09 | merged |
 | P10-06 | General settings take effect: open at login, menu bar icon, Dock icon and the activation policy (§24), the LoL install path in lockfile discovery; Sparkle defers scheduled update prompts while a game is running | shell (serial) | `Mito/App/**`, `Mito/Scenes/**`, `Mito/Features/Onboarding/**`, `LCUKit` discovery (path override), their tests | §21.1, §24 | P10-01 | merged |
-| P10-02 | Signing, notarization, DMG (needs the CEO's secrets) | release | `scripts/release/**` | §24 | P10-01 | todo |
+| P10-02 | Release pipeline: archive, Developer ID signing, notarization, DMG, Sparkle archive signature and appcast; every secret read from the CEO's Keychain at run time, a dry run works without them | release | `scripts/release/**` | §24; ADR 0010 | P10-01 | in progress |
 | P10-03 | About screen and legal disclaimer | about | `Mito/Features/About/**` | — | P9-07 | merged |
 | P10-04 | Register the app in the Riot Developer Portal | CEO | — | — | P10-03 | todo |
 | P10-05 | Beta with friends, then first promotion to `main` | CEO | — | — | P10-01, P10-02, P10-03, P10-04 | todo |
