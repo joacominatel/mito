@@ -445,7 +445,8 @@ snapshot y los tests usan `InMemoryStatsProvider`. Superficie actual:
 - `roleGames(for:)`: `champion_roles`, para la inferencia de roles (§12.3).
 - `meta`: identidad (`patch`, `queue`, `bracket`), `matches`, `blend_patches`, `thresholds`,
   `priors` y `tier_cutoffs`.
-- `championRoleStats(in:)`: `games` y `wins` de `champ_role_stats` por campeón en un rol, más
+- `championRoleStats(in:)`: `games`, `wins` y las sumas `kills`, `deaths`, `assists`, `cs` y
+  `minutes` de `champ_role_stats` por campeón en un rol (para §19.2), más
   `champion_profiles.tl_games` como denominador de timeline.
 - `runePages`, `spellPairs`, `itemBuilds` y `skillOrders(for:role:)`: candidatos generales
   (`opp_id = 0`) con `games` y `wins`. Las páginas ya vienen resueltas desde `rune_page_defs`.
@@ -3100,7 +3101,8 @@ y nunca se guarda.
   ejemplo de `fixtures/snapshot/` (generado por `mito-data`) con `SnapshotReader` y verifica
   `schema_version`, la identidad de `meta`, las claves JSON de `meta` y cada consulta de
   `StatsProvider` contra valores leídos del archivo, incluido el fallback de ítems finales
-  (Zed JUNGLE, `tl_games` 40). `SnapshotReaderTests` cubre los errores (archivo ausente o
+  (Zed JUNGLE, `tl_games` 40), la fila única que queda bajo el mínimo y el `max_order` de 4
+  letras (Udyr JUNGLE). `SnapshotReaderTests` cubre los errores (archivo ausente o
   corrupto, `schema_version` no soportado, clave de `meta` faltante o mal formada) sobre
   copias temporales. `ContractPinTests` (ArchitectureTests) fija las tablas y columnas de
   `schema.sql` que lee el reader: un cambio de schema sin cambio de reader falla.

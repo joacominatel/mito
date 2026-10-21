@@ -114,7 +114,8 @@ extension SnapshotReader {
         try each(
             db, "champ_role_stats",
             """
-            SELECT s.champion_id, s.role, s.games, s.wins, COALESCE(p.tl_games, 0) AS tl_games
+            SELECT s.champion_id, s.role, s.games, s.wins, s.kills, s.deaths, s.assists, s.cs,
+                s.minutes, COALESCE(p.tl_games, 0) AS tl_games
             FROM champ_role_stats s
             LEFT JOIN champion_profiles p ON p.champion_id = s.champion_id AND p.role = s.role
             """
@@ -122,7 +123,12 @@ extension SnapshotReader {
             stats[try role(row), default: [:]][try champion(row)] = ChampionRoleStats(
                 games: try row.decode(forColumn: "games"),
                 wins: try row.decode(forColumn: "wins"),
-                timelineGames: try row.decode(forColumn: "tl_games"))
+                timelineGames: try row.decode(forColumn: "tl_games"),
+                kills: try row.decode(forColumn: "kills"),
+                deaths: try row.decode(forColumn: "deaths"),
+                assists: try row.decode(forColumn: "assists"),
+                cs: try row.decode(forColumn: "cs"),
+                minutes: try row.decode(forColumn: "minutes"))
         }
 
         var loadouts: [ChampionRole: Loadouts] = [:]

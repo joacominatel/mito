@@ -120,7 +120,11 @@ struct SnapshotReaderTests {
             "DELETE FROM champion_profiles WHERE champion_id = 238 AND role = 'JUNGLE'"
         ) { file in
             let stats = try SnapshotReader(fileURL: file).championRoleStats(in: .jungle)
-            #expect(stats[Self.zed] == ChampionRoleStats(games: 2249, wins: 1062, timelineGames: 0))
+            #expect(
+                stats[Self.zed]
+                    == ChampionRoleStats(
+                        games: 2249, wins: 1062, timelineGames: 0, kills: 13494, deaths: 11245,
+                        assists: 8996, cs: 105703, minutes: 60723))
         }
     }
 
@@ -155,9 +159,10 @@ struct SnapshotReaderTests {
         let reader = try SnapshotReader(fileURL: SnapshotCopy.fixture)
         #expect(reader.runePages(for: Self.zed, role: .jungle).map(\.games) == [1686, 563])
         #expect(reader.spellPairs(for: Self.zed, role: .jungle).map(\.games) == [2249])
+        let ahri = ChampionID(rawValue: 103)
         #expect(
-            reader.itemBuilds(for: Self.zed, role: .jungle).filter { $0.layer == .start }
-                .map(\.games) == [1399])
+            reader.itemBuilds(for: ahri, role: .middle).filter { $0.layer == .start }
+                .map(\.games) == [128])
     }
 
     @Test func spellPairsAreNormalizedEvenWhenStoredReversed() throws {

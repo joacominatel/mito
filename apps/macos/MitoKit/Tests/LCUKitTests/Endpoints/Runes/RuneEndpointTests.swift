@@ -34,7 +34,7 @@ struct PerkStylesDecodingTests {
         let styles = try LCUEndpoint.perkStyles.decode(runesCase("styles")).styles
         let domination = try #require(styles.first { $0.id == PerkStyleID(rawValue: 8100) })
 
-        #expect(styles.map(\.id.rawValue) == [8100, 8000, 8200])
+        #expect(styles.map(\.id.rawValue) == [8100, 8000, 8200, 8300])
         #expect(domination.name == "Domination")
         #expect(
             domination.iconPath == "/lol-game-data/assets/v1/perk-images/Styles/7200_Domination.png"

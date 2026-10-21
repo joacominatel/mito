@@ -289,8 +289,8 @@ struct RuneImporterValidationTests {
     }
 
     @Test func anUnknownSecondaryStyleIsNotSent() async throws {
-        let inspiration = PerkStyleID(rawValue: 8300)  // Not in the trimmed styles sample.
-        try await expectInvalid(runePage(sub: inspiration), .unknownStyle(inspiration))
+        let resolve = PerkStyleID(rawValue: 8400)  // Not in the trimmed styles sample.
+        try await expectInvalid(runePage(sub: resolve), .unknownStyle(resolve))
     }
 
     @Test func aKeystoneFromAnotherStyleIsNotSent() async throws {

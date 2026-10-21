@@ -327,5 +327,114 @@
       5008,
       5001
     ]
+  },
+  {
+    "id": 8300,
+    "name": "Inspiration",
+    "tooltip": "Creative tools and rule bending ",
+    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/7203_Whimsy.png",
+    "isAdvanced": true,
+    "allowedSubStyles": [
+      8100,
+      8200,
+      8400,
+      8000
+    ],
+    "subStyleBonus": [
+      {
+        "styleId": 8100,
+        "perkId": 8318
+      },
+      {
+        "styleId": 8200,
+        "perkId": 8319
+      },
+      {
+        "styleId": 8400,
+        "perkId": 8320
+      },
+      {
+        "styleId": 8000,
+        "perkId": 8344
+      }
+    ],
+    "slots": [
+      {
+        "type": "kKeyStone",
+        "slotLabel": "",
+        "perks": [
+          8351,
+          8360,
+          8369
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Contraptions",
+        "perks": [
+          8306,
+          8304,
+          8321
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Tomorrow",
+        "perks": [
+          8313,
+          8352,
+          8345
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Beyond",
+        "perks": [
+          8347,
+          8410,
+          8316
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Offense",
+        "perks": [
+          5008,
+          5005,
+          5007
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Flex",
+        "perks": [
+          5008,
+          5010,
+          5001
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Defense",
+        "perks": [
+          5011,
+          5013,
+          5001
+        ]
+      }
+    ],
+    "defaultPageName": "Inspiration: The Timeless",
+    "defaultSubStyle": 8400,
+    "defaultPerks": [
+      8351,
+      8321,
+      8313,
+      8347,
+      8451,
+      8444,
+      5007,
+      5001,
+      5001
+    ]
   }
 ]

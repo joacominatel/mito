@@ -14,7 +14,7 @@ struct SnapshotDownloaderTests {
 
     // MARK: Happy path
 
-    @Test func theEmbeddedManifestDescribesTheEmbeddedArchive() throws {
+    @Test func theCommittedManifestDescribesTheCommittedArchive() throws {
         let entry = try Self.fixtureEntry()
         #expect(entry["bytes"] as? Int == SnapshotFixture.compressed.count)
         #expect(entry["sha256"] as? String == sha256(SnapshotFixture.compressed))

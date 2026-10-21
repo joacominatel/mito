@@ -35,7 +35,7 @@ private struct Harness {
             settings: { settings }, stats: { stats }, poster: poster, appIsActive: { true })
         if windowInFront { model.windowAppeared() }
         for (path, body) in ImportFixture.gameData { connection.serve(path, body) }
-        connection.serve(LCUEndpoint.perkStyles.path, try ImportFixture.styles())
+        connection.serve(LCUEndpoint.perkStyles.path, try ImportFixture.data("styles", in: "runes"))
         connection.serve(pagesPath, try ImportFixture.data("pages-without-mito-page", in: "runes"))
         connection.serve(
             LCUEndpoint.perkInventory.path,
@@ -293,12 +293,12 @@ struct ImportSnapshotTests {
             try ImportFixture.lockedSession(champion: 238, mySpells: [4, 14], position: "jungle"))
         await harness.stop(run)
 
-        // Zed JUNGLE: the page has 563 games (under rune_page's 800); spells and items are
-        // reliable.
+        // Zed JUNGLE: the page has 563 games (under rune_page's 800) and the start 24 (under
+        // build_layer's 100); the spells are reliable.
         let outcome = try #require(harness.model.outcome)
         #expect(outcome.title == "Zed JGL")
         #expect(outcome.status == .imported)
-        #expect(outcome.rows.map(\.isLowSample) == [true, false, false])
+        #expect(outcome.rows.map(\.isLowSample) == [true, false, true])
     }
 
     @Test func ahriMiddleMarksItsRunesAndItems() async throws {
@@ -327,7 +327,7 @@ struct ImportSnapshotTests {
         let harness = try Harness(windowInFront: true)
         let run = harness.start()
 
-        // Zed: 2,249 JUNGLE games against 1,067 MIDDLE.
+        // Zed: 2,249 JUNGLE games against 723 MIDDLE.
         harness.connection.emit(
             try ImportFixture.lockedSession(champion: 238, mySpells: [4, 14], position: ""))
         await harness.stop(run)

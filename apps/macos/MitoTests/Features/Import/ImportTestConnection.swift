@@ -87,34 +87,6 @@ enum ImportFixture {
         try Data(contentsOf: cases.appending(path: "\(folder)/\(name).json"))
     }
 
-    /// The recorded styles predate the snapshot fixture's pages: Inspiration (8300) and
-    /// Domination's Eyeball Collection (8138) are added so those pages pass the validator.
-    static func styles() throws -> Data {
-        var styles = try #require(
-            try JSONSerialization.jsonObject(with: data("styles", in: "runes")) as? [[String: Any]])
-        styles = try styles.map { style in
-            guard style["id"] as? Int == 8100 else { return style }
-            var domination = style
-            var slots = try #require(style["slots"] as? [[String: Any]])
-            var perks = try #require(slots[2]["perks"] as? [Int])
-            perks.append(8138)
-            slots[2]["perks"] = perks
-            domination["slots"] = slots
-            return domination
-        }
-        let rows: [(String, [Int])] = [
-            ("kKeyStone", [8351, 8360, 8369]), ("kMixedRegularSplashable", [8306, 8304, 8321]),
-            ("kMixedRegularSplashable", [8313, 8352, 8345]),
-            ("kMixedRegularSplashable", [8347, 8410, 8316]), ("kStatMod", [5008, 5005, 5007]),
-            ("kStatMod", [5008, 5010, 5001]), ("kStatMod", [5011, 5013, 5001]),
-        ]
-        styles.append([
-            "id": 8300, "name": "Inspiration",
-            "slots": rows.map { ["type": $0.0, "perks": $0.1] },
-        ])
-        return try JSONSerialization.data(withJSONObject: styles)
-    }
-
     /// `GameDataCatalog`'s five files, naming the champions the snapshot tests import.
     static let gameData: [String: Data] = [
         LCUEndpoint.gameDataChampions.path: Data(

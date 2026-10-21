@@ -11,6 +11,7 @@ import Testing
 struct SnapshotContractTests {
     private static let zed = ChampionID(rawValue: 238)
     private static let ahri = ChampionID(rawValue: 103)
+    private static let udyr = ChampionID(rawValue: 77)
 
     private static func reader() throws -> SnapshotReader {
         try SnapshotReader(fileURL: SnapshotCopy.fixture)
@@ -66,17 +67,23 @@ struct SnapshotContractTests {
 
     @Test func roleGamesListEveryRoleOfTheChampion() throws {
         let reader = try Self.reader()
-        #expect(reader.roleGames(for: Self.zed) == [.jungle: 2249, .middle: 1067])
+        #expect(reader.roleGames(for: Self.zed) == [.jungle: 2249, .middle: 723])
         #expect(reader.roleGames(for: ChampionID(rawValue: 122)) == [.top: 2092, .jungle: 25])
     }
 
-    @Test func championRoleStatsJoinTheTimelineGames() throws {
+    @Test func championRoleStatsCarryTheSumsAndJoinTheTimelineGames() throws {
         let stats = try Self.reader().championRoleStats(in: .jungle)
         #expect(
             stats == [
                 ChampionID(rawValue: 64): ChampionRoleStats(
-                    games: 1716, wins: 820, timelineGames: 429),
-                Self.zed: ChampionRoleStats(games: 2249, wins: 1062, timelineGames: 40),
+                    games: 1716, wins: 849, timelineGames: 429, kills: 13728, deaths: 10296,
+                    assists: 6864, cs: 51480, minutes: 51480),
+                Self.udyr: ChampionRoleStats(
+                    games: 991, wins: 497, timelineGames: 247, kills: 3964, deaths: 2973,
+                    assists: 8919, cs: 83244, minutes: 27748),
+                Self.zed: ChampionRoleStats(
+                    games: 2249, wins: 1062, timelineGames: 40, kills: 13494, deaths: 11245,
+                    assists: 8996, cs: 105703, minutes: 60723),
             ])
     }
 
@@ -88,16 +95,16 @@ struct SnapshotContractTests {
                     page: RunePage(
                         primaryStyle: PerkStyleID(rawValue: 8100),
                         subStyle: PerkStyleID(rawValue: 8300),
-                        perks: [8112, 8143, 8138, 8135, 8345, 8347, 5008, 5008, 5011].map(
+                        perks: [8112, 8143, 8140, 8135, 8345, 8347, 5008, 5008, 5011].map(
                             PerkID.init(rawValue:))),
-                    games: 743, wins: 336),
+                    games: 800, wins: 435),
                 RunePageCandidate(
                     page: RunePage(
                         primaryStyle: PerkStyleID(rawValue: 8200),
                         subStyle: PerkStyleID(rawValue: 8300),
                         perks: [8229, 8226, 8210, 8237, 8304, 8347, 5007, 5008, 5011].map(
                             PerkID.init(rawValue:))),
-                    games: 248, wins: 134),
+                    games: 267, wins: 146),
             ])
     }
 
@@ -107,10 +114,10 @@ struct SnapshotContractTests {
             pairs == [
                 SpellPairCandidate(
                     spellA: SummonerSpellID(rawValue: 4), spellB: SummonerSpellID(rawValue: 14),
-                    games: 690, wins: 379),
+                    games: 687, wins: 364),
                 SpellPairCandidate(
                     spellA: SummonerSpellID(rawValue: 4), spellB: SummonerSpellID(rawValue: 12),
-                    games: 301, wins: 161),
+                    games: 380, wins: 187),
             ])
     }
 
@@ -124,28 +131,58 @@ struct SnapshotContractTests {
         }
         #expect(
             builds == [
-                build(.start, [1056, 2003, 2003], 223, 101),
-                build(.fifth, [3033], 208, 111),
-                build(.core, [6655, 3157, 3089], 189, 85),
-                build(.fourth, [3031], 186, 96),
-                build(.sixth, [3046], 136, 63),
-                build(.boots, [3020], 133, 65),
+                build(.sixth, [3046], 232, 117),
+                build(.fourth, [3031], 216, 113),
+                build(.fifth, [3033], 208, 100),
+                build(.boots, [3020], 161, 86),
+                build(.core, [6655, 3157, 3089], 137, 70),
+                build(.start, [1056, 2003, 2003], 128, 64),
             ])
     }
 
     @Test func skillOrdersCarryTheMaxOrderAndItsSequence() throws {
-        let orders = try Self.reader().skillOrders(for: Self.zed, role: .jungle)
+        let orders = try Self.reader().skillOrders(for: Self.ahri, role: .middle)
+        #expect(
+            orders == [
+                SkillOrderCandidate(
+                    order: SkillOrder(
+                        maxOrder: [.q, .w, .e], sequence: Self.abilities("QWEQQRQQWWRWWEEREE")),
+                    games: 266, wins: 122)
+            ])
+    }
+
+    /// §17: a kit that levels R as a basic has a 4-letter `max_order` (Udyr JUNGLE).
+    @Test func aKitThatLevelsRAsABasicHasAFourLetterMaxOrder() throws {
+        let orders = try Self.reader().skillOrders(for: Self.udyr, role: .jungle)
+        #expect(
+            orders == [
+                SkillOrderCandidate(
+                    order: SkillOrder(
+                        maxOrder: [.r, .q, .w, .e],
+                        sequence: Self.abilities("RQWERRRRQQQQWWWWEE")),
+                    games: 136, wins: 72),
+                SkillOrderCandidate(
+                    order: SkillOrder(
+                        maxOrder: [.q, .r, .w, .e],
+                        sequence: Self.abilities("QRWEQQQQRRRRWWWWEE")),
+                    games: 111, wins: 55),
+            ])
+    }
+
+    /// §14.12: when no row passes a minimum only the most played one is exported, so Zed
+    /// JUNGLE keeps a single skill order under `skill_order`.
+    @Test func aLoadoutUnderItsMinimumKeepsOnlyTheMostPlayedRow() throws {
+        let reader = try Self.reader()
+        let minimum = try #require(reader.meta?.thresholds[.skillOrder]).minimum
+        let orders = reader.skillOrders(for: Self.zed, role: .jungle)
         #expect(
             orders == [
                 SkillOrderCandidate(
                     order: SkillOrder(
                         maxOrder: [.q, .e, .w], sequence: Self.abilities("QEWQQRQQEEREEWWRWW")),
-                    games: 28, wins: 14),
-                SkillOrderCandidate(
-                    order: SkillOrder(
-                        maxOrder: [.q, .w, .e], sequence: Self.abilities("QWEQQRQQWWRWWEEREE")),
-                    games: 12, wins: 6),
+                    games: 40, wins: 21)
             ])
+        #expect(orders.allSatisfy { $0.games < minimum })
     }
 
     /// §14.12: Zed JUNGLE has too few timelines for `build_layer`, so its core and boots come
@@ -164,6 +201,23 @@ struct SnapshotContractTests {
         #expect(boots.map(\.items) == [[ItemID(rawValue: 3158)]])
         #expect(core.allSatisfy { $0.games > stats.timelineGames && $0.games <= stats.games })
         #expect(boots.allSatisfy { $0.games > stats.timelineGames && $0.games <= stats.games })
+    }
+
+    /// §14.12: the fallback covers only core and boots. Zed JUNGLE's start comes from its 40
+    /// timelines, and it has no 4th–6th item rows.
+    @Test func aChampionBelowTheBuildLayerMinimumTakesTheRestFromTimelinesOnly() throws {
+        let reader = try Self.reader()
+        let stats = try #require(reader.championRoleStats(in: .jungle)[Self.zed])
+        let builds = reader.itemBuilds(for: Self.zed, role: .jungle)
+
+        let start = builds.filter { $0.layer == .start }
+        #expect(
+            start == [
+                ItemBuildCandidate(
+                    layer: .start, items: [ItemID(rawValue: 1101)], games: 24, wins: 12)
+            ])
+        #expect(start.allSatisfy { $0.games <= stats.timelineGames })
+        #expect(builds.allSatisfy { ![.fourth, .fifth, .sixth].contains($0.layer) })
     }
 
     private static func abilities(_ letters: String) -> [SkillOrder.Ability] {
