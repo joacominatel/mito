@@ -20,6 +20,8 @@ final class AppModel {
     let overrides: OverridesModel
     var settings: MitoSettings
 
+    private let lifecycle: @Sendable () async -> Void
+
     #if DEBUG
         /// Set with `-MitoLCULockfilePath <path>` to point discovery at `tools/lcu-mock`.
         let lockfileOverridePath: String?
@@ -27,6 +29,7 @@ final class AppModel {
 
     init(
         connection lcu: any LCUConnection,
+        lifecycle: @escaping @Sendable () async -> Void = {},
         settings: MitoSettings = MitoSettings(),
         defaults: UserDefaults = .standard
     ) {
@@ -39,6 +42,7 @@ final class AppModel {
         profile = ProfileModel(connection: lcu)
         onboarding = OnboardingModel(connection: lcu)
         overrides = OverridesModel()
+        self.lifecycle = lifecycle
         self.settings = settings
         #if DEBUG
             lockfileOverridePath = defaults.string(forKey: Self.lockfileOverrideKey)
@@ -52,6 +56,7 @@ final class AppModel {
 
     func start() async {
         await withDiscardingTaskGroup { group in
+            group.addTask { await self.lifecycle() }
             group.addTask { await self.connection.run() }
             group.addTask { await self.gameflow.run() }
             group.addTask { await self.champSelect.run() }

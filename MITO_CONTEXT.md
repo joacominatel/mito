@@ -381,7 +381,8 @@ struct MitoApp: App {
     @State private var app: AppModel
 
     init() {
-        let app = AppModel(connection: DisconnectedLCUConnection())  // LCUClient desde P1-08
+        let client = LCUClient()
+        let app = AppModel(connection: client, lifecycle: { await client.run() })
         _app = State(initialValue: app)
         Task { await app.start() }
     }
@@ -447,12 +448,17 @@ final class AppModel {
     let overrides: OverridesModel
     var settings: MitoSettings
 
-    init(connection: any LCUConnection, settings: MitoSettings = MitoSettings(), ...)
+    init(
+        connection: any LCUConnection,
+        lifecycle: @escaping @Sendable () async -> Void = {},
+        settings: MitoSettings = MitoSettings(), ...
+    )
 
     var menuBarSymbol: String { gameflow.menuBarSymbol ?? connection.menuBarSymbol }
 
     func start() async {
         await withDiscardingTaskGroup { group in
+            group.addTask { await self.lifecycle() }
             group.addTask { await self.connection.run() }
             group.addTask { await self.gameflow.run() }
             // … un addTask por slot
@@ -467,13 +473,18 @@ final class AppModel {
 - **Sin loop central de eventos**: cada modelo se suscribe a sus propios tópicos con
   `connection.events(_:)` (un stream por suscriptor) y al estado con `connection.states()`.
   No hay `switch` de eventos en `AppModel`.
-- **Conexión inyectada** como `any LCUConnection`: el `LCUClient` real en la app (desde P1-08),
-  un fake en los tests. Hasta P1-08 la app usa `DisconnectedLCUConnection` (siempre
-  `.searching`, `send` tira `.notConnected`).
+- **Conexión inyectada** como `any LCUConnection`: el `LCUClient` real en la app, un fake en
+  los tests. `DisconnectedLCUConnection` (siempre `.searching`, `send` tira `.notConnected`)
+  queda solo para las previews.
+- **Ciclo de vida inyectado** como `lifecycle`: `MitoApp` crea `LCUClient()` (ruta de
+  instalación por defecto, §10.1) y pasa `{ await client.run() }`. `start()` lo corre en el
+  mismo task group que los slots, así que vive lo que vive `start()` y cancelarlo desarma la
+  conexión (§10.2). En tests y previews el default `{}` termina al instante.
 - Las vistas leen `@Environment(AppModel.self)` y toman el slot que necesitan; los call sites
   del shell no cambian cuando una feature crece.
-- En Debug, `-MitoLCULockfilePath <ruta>` (argumento de lanzamiento o UserDefaults) apunta el
-  descubrimiento a `tools/lcu-mock`; `AppModel` solo lo guarda.
+- En Debug, `-MitoLCULockfilePath <ruta>` (argumento de lanzamiento o UserDefaults) va a
+  apuntar el descubrimiento a `tools/lcu-mock`; por ahora `AppModel` solo lo guarda y
+  `LCUClient` no lo recibe (P2-06).
 
 ### 9.4 Principios de código
 
