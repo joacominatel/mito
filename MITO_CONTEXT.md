@@ -629,6 +629,16 @@ struct LCUEndpoint<Response: Decodable> {
 }]
 ```
 
+Framing (WAMP 1.0, `LCUKit/Events/Codec/WAMPCodec`): cada frame es un array JSON cuyo
+primer elemento es el opcode. Mito envía `[5, "<topic>"]` para suscribirse y `[6, "<topic>"]`
+para desuscribirse, uno por `LCUTopic`. De lo que llega, solo un `[8, "<topic>", {…}]` cuyo
+topic es un `LCUTopic` y cuyo objeto trae `uri` y `eventType` como strings se decodifica a
+`LCUEvent`; `data` queda como JSON crudo (un `data` ausente o `null` queda como `null`) y cada
+feature lo decodifica después. `eventType` desconocido queda como `.unknown`. Todo lo demás
+(otros opcodes, el firehose u otros topics, frames que no son array, opcode con otro tipo,
+JSON roto) se clasifica como ignorable, sin error que corte el stream. Claves y elementos
+extra se toleran. El codec no loguea payloads: pueden traer datos del jugador.
+
 Recomendación: suscribirse a eventos específicos y no al firehose. El firehose manda muchos
 eventos irrelevantes y cuesta CPU.
 
