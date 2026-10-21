@@ -2846,6 +2846,27 @@ Pantalla con buscador de campeones. Por cada (campeón, rol):
 - **Mi perfil** (historial, mejores campeones, insights)
 - **Overrides** (configuración por campeón)
 
+**Campeones.** `ChampionsModel` lee el `StatsProvider` del snapshot abierto y el `GameData`
+compartido (§9.3) con closures; todos los números salen de `MitoEngine/Stats` (§18.1, §18.2),
+nunca se recalculan en la app.
+
+- Selector de rol segmentado en la toolbar: TOP, JGL, MID, ADC, SUP.
+- Encabezado con el parche y las partidas de `meta` ("Parche 16.21 · 412.339 partidas"), con
+  el formato de números del locale.
+- Tabla con tier, campeón, WR (`wr_smoothed(champ, role)`), PR (`games / meta.matches`) y
+  partidas. Orden: por tier (S a D) y, dentro del tier, por WR suavizado. El tier siempre se
+  muestra como letra; el color solo la acompaña.
+- Debajo del "confiable" de `champ_role` la fila lleva el ícono de "muestra baja" (gris, con
+  tooltip y etiqueta de VoiceOver). Una fila debajo del mínimo no entra en la tier list
+  (§18.2: esos datos no se usan); en la ficha del campeón sí aparece, con "—" en el tier y la
+  marca de muestra baja.
+- Nombres en el locale del cliente; mientras no cargan, "Campeón 103".
+- Sin snapshot (`meta == nil`): estado vacío "Sin estadísticas todavía", con el modo degradado
+  de §20.3.
+- Doble clic (o Return) en una fila abre la ficha del campeón: sus stats en cada rol donde
+  tiene fila este parche (mismas columnas) y un lugar reservado para la build recomendada, que
+  llega con el motor de loadouts.
+
 ### 22.3 Componentes del design system
 
 - `ChampionIcon(id:size:state:)`: con estados hover, lockeado, baneado y no disponible.

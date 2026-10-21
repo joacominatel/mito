@@ -1,8 +1,71 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Sin datos del parche" : {
-
+    "ADC" : {
+      "comment" : "Role picker label for the bottom lane (marksman)."
+    },
+    "Build recomendada" : {
+      "comment" : "Title of the champion page section where the recommended build will go."
+    },
+    "Campeón" : {
+      "comment" : "Tier list column: the champion."
+    },
+    "Campeón %lld" : {
+      "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
+    },
+    "JGL" : {
+      "comment" : "Role picker label for the jungle."
+    },
+    "La build recomendada va a aparecer acá." : {
+      "comment" : "Placeholder on the champion page until the recommended build is available."
+    },
+    "MID" : {
+      "comment" : "Role picker label for the middle lane."
+    },
+    "Mito todavía no descargó los datos del parche. Mientras tanto funcionan el auto-accept, las páginas fijas por campeón y tu historial." : {
+      "comment" : "Empty state description of the Champions tab when no stats snapshot is available (degraded mode)."
+    },
+    "Muestra baja" : {
+      "comment" : "Tooltip and VoiceOver label of the low-sample mark next to a game count."
+    },
+    "PR" : {
+      "comment" : "Tier list column: pick rate."
+    },
+    "Parche %@ · %@ partidas" : {
+      "comment" : "Tier list header. The first argument is the patch (16.21), the second the formatted match count."
+    },
+    "Partidas" : {
+      "comment" : "Tier list column: games played."
+    },
+    "Por rol" : {
+      "comment" : "Title of the champion page section with the champion's stats in each role."
+    },
+    "Rol" : {
+      "comment" : "Label of the role picker and the role column on the champion page."
+    },
+    "SUP" : {
+      "comment" : "Role picker label for support."
+    },
+    "Sin estadísticas para este campeón" : {
+      "comment" : "Champion page when the champion has no stats this patch."
+    },
+    "Sin estadísticas todavía" : {
+      "comment" : "Empty state title of the Champions tab when no stats snapshot is available."
+    },
+    "Sin tier" : {
+      "comment" : "VoiceOver label for a champion with too few games to have a tier."
+    },
+    "TOP" : {
+      "comment" : "Role picker label for the top lane."
+    },
+    "Tier" : {
+      "comment" : "Tier list column: the tier letter (S to D)."
+    },
+    "Tier %@" : {
+      "comment" : "VoiceOver label of a tier badge. The argument is the tier letter."
+    },
+    "WR" : {
+      "comment" : "Tier list column: smoothed win rate."
     }
   },
   "version" : "1.0"
