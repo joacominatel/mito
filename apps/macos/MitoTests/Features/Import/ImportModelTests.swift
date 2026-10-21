@@ -18,8 +18,8 @@ private nonisolated struct NoStats: StatsProvider {
     func roleGames(for champion: ChampionID) -> [Role: Int] { [:] }
 }
 
-/// One model over the snapshot contract fixture and a scripted connection that serves the
-/// recorded cases, and a recording poster.
+/// One model over `ImportStats` and a scripted connection that serves the recorded cases, and a
+/// recording poster.
 private struct Harness {
     let connection = ImportTestConnection()
     let poster = RecordingPoster()
@@ -32,7 +32,7 @@ private struct Harness {
         detectedFlash: ImportSettings.FlashPosition? = nil,
         personal: (any PersonalStore)? = nil, servesGameData: Bool = true
     ) throws {
-        let stats = try stats ?? SnapshotFixture.reader()
+        let stats = stats ?? ImportStats()
         let store = ImportTestStore(overrides: overrides)
         self.store = store
         model = ImportModel(
@@ -307,7 +307,7 @@ struct ImportSnapshotTests {
         #expect(outcome.rows.map(\.isLowSample) == [true, false, true])
     }
 
-    /// Electrocute has 2,118 games (over rune_page's 800); the set is not reliable.
+    /// Electrocute has 2,000 games (over rune_page's 800); the set is not reliable.
     @Test func ahriMiddleMarksOnlyItsItems() async throws {
         let harness = try Harness(windowInFront: true)
         let run = harness.start()
@@ -354,8 +354,8 @@ struct ImportSnapshotTests {
         #expect(harness.model.outcome == nil)
     }
 
-    @Test func mostPlayedRoleBreaksTiesInRoleOrder() throws {
-        let stats = try SnapshotFixture.reader()
+    @Test func mostPlayedRoleBreaksTiesInRoleOrder() {
+        let stats = ImportStats()
 
         #expect(ImportModel.mostPlayedRole(of: zed, in: stats) == .jungle)
         #expect(ImportModel.mostPlayedRole(of: ChampionID(rawValue: 1), in: stats) == nil)
@@ -437,7 +437,7 @@ struct ImportFeedbackTests {
     @Test func postsANotificationWhileAnotherAppIsInFront() async throws {
         let connection = ImportTestConnection()
         let poster = RecordingPoster()
-        let stats = try SnapshotFixture.reader()
+        let stats = ImportStats()
         let model = ImportModel(
             connection: connection, catalog: GameDataCatalog(connection: connection),
             stats: { stats }, poster: poster, appIsActive: { false })
@@ -1118,8 +1118,8 @@ struct ImportAdaptedLoadoutTests {
     @Test func aKnownLaneOpponentSendsTheLoadoutAdaptedToIt() async throws {
         let harness = try await importAhri(against: zedWithTwoHealers)
 
-        // Against Zed the page, the pair, start, core and boots come from his rows; start, core
-        // and boots have the general content in the fixture, so the markers tell them apart.
+        // Against Zed the page, the pair, start, core and boots come from his rows: Mercury's
+        // Treads instead of the general Sorcerer's Shoes.
         #expect(try harness.sentRunePage()?["selectedPerkIds"] as? [Int] == phaseRushPerks)
         #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
         let blocks = try harness.sentBlocks()
@@ -1127,7 +1127,7 @@ struct ImportAdaptedLoadoutTests {
             blocks.map(\.title) == [
                 "Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "6.º ítem",
             ])
-        #expect(blocks[2].items == ["3020"])
+        #expect(blocks[2].items == ["3111"])
         // Darius and Soraka heal, but the fifth item is already Mortal Reminder.
         #expect(blocks[4].items == ["3033"])
         #expect(harness.markers == ["· vs Zed", "· vs Zed", "· vs Zed"])
@@ -1285,7 +1285,7 @@ struct ImportLaneOpponentTests {
     }
 
     @Test func theEnemyAssignedToTheRoleIsTheOpponent() throws {
-        let stats = try SnapshotFixture.reader()
+        let stats = ImportStats()
 
         #expect(
             ImportModel.laneOpponent(
@@ -1293,7 +1293,7 @@ struct ImportLaneOpponentTests {
     }
 
     @Test func aRoleHeldByAnEnemyStillPickingHasNoOpponent() throws {
-        let stats = try SnapshotFixture.reader()
+        let stats = ImportStats()
 
         #expect(
             ImportModel.laneOpponent(
@@ -1301,7 +1301,7 @@ struct ImportLaneOpponentTests {
     }
 
     @Test func theLikeliestEnemyCountsFromEvenOdds() throws {
-        let stats = try SnapshotFixture.reader()
+        let stats = ImportStats()
 
         // Zed: 56 % JUNGLE, 44 % MIDDLE.
         #expect(ImportModel.laneOpponent(among: [slot(5, 238)], in: .jungle, stats: stats) == zed)
@@ -1335,7 +1335,7 @@ struct ImportBlockTitleTests {
 private let heavyADTeam: [(champion: Int, position: String)] = [
     (garen, ""), (leeSin, ""), (jinx, ""),
 ]
-/// Zed shows up MIDDLE: Phase Rush, and Sorcerer's Shoes from his rows.
+/// Zed shows up MIDDLE: Phase Rush, and Mercury's Treads from his rows.
 private let zedRevealed: [(champion: Int, position: String)] = [
     (238, "middle"), (garen, ""), (leeSin, ""), (jinx, ""),
 ]
@@ -1470,9 +1470,10 @@ struct ImportReimportTests {
     }
 
     @Test func aContextChangeThatLeavesTheLoadoutResendsNothing() async throws {
-        // Zed shows up MIDDLE and the team stays heavy_cc and mixed: against him nothing differs
-        // from that profile's Phase Rush and the general items.
-        let (harness, first) = try await reimport(from: mixedWithoutAMid, to: zedWithTwoHealers)
+        // Lee Sin locks JUNGLE and the team stays heavy_cc and mixed, with nobody in MIDDLE: the
+        // profiles' Phase Rush and the general items stand.
+        let (harness, first) = try await reimport(
+            from: mixedWithoutAMid, to: mixedWithoutAMid + [(leeSin, "")])
 
         #expect(harness.pageWrites == 1)
         #expect(harness.spellWrites == 1)

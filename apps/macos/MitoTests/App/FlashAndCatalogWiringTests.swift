@@ -66,8 +66,9 @@ struct FlashAndCatalogWiringTests {
         await waitUntil {
             app.onboarding.resolvedFlashSlot(.auto) == .f && app.snapshots.status == .ready
         }
-        // The session holds Flash on D, the build's spells are Flash and Ignite.
-        connection.emit(try ImportFixture.lockedSession(mySpells: [4, 12]))
+        // The session holds Flash on D and Ignite; the snapshot's pair is Flash and Teleport
+        // (0.512 against Ignite's 0.473).
+        connection.emit(try ImportFixture.lockedSession(mySpells: [4, 14]))
         await waitUntil { !poster.posts.isEmpty }
         connection.finish()
         await start.value
@@ -76,7 +77,7 @@ struct FlashAndCatalogWiringTests {
             connection.writes(.patch, "/lol-champ-select/v1/session/my-selection").first?.body)
         #expect(
             try JSONSerialization.jsonObject(with: spells) as? [String: Int]
-                == ["spell1Id": 14, "spell2Id": 4])
+                == ["spell1Id": 12, "spell2Id": 4])
         #expect(
             poster.posts.map(\.notification) == [
                 .loadoutImported(champion: ChampionID(rawValue: 103), opponent: nil)

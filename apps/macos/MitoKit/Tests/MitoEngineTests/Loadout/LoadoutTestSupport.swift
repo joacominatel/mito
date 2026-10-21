@@ -9,7 +9,7 @@ func evenRow(games: Int = 2_000, timelineGames: Int = 1_000) -> ChampionRoleStat
     ChampionRoleStats(games: games, wins: games / 2, timelineGames: timelineGames)
 }
 
-/// The `item_classes` rows of `fixtures/snapshot/emerald_plus.sqlite` (mito-data `fb793ac`)
+/// The `item_classes` rows of `fixtures/snapshot/emerald_plus.sqlite` (mito-data `8ded78e`)
 /// that the boots and antiheal rules read: every `boots_t2` and every antiheal item.
 let fixtureItemClasses: [ItemID: ItemClass] = Dictionary(
     uniqueKeysWithValues: [3006, 3020, 3047, 3111, 3158].map { (ItemID(rawValue: $0), .bootsT2) }

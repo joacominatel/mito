@@ -9,8 +9,8 @@
       "queue": 420,
       "bracket": "emerald_plus",
       "url": "https://data.example/schema-1/16.21/420/emerald_plus.sqlite.xz",
-      "sha256": "e20651a0866113db9e9b4181eee3861e924206d4d9da7569c723c1a1100130e1",
-      "bytes": 14988,
+      "sha256": "8ab83662bb5a5722940ca8c0129b4dc25a8f4f0454a86871bffa5d3797708242",
+      "bytes": 14876,
       "raw_bytes": 118784,
       "matches": 20000,
       "regions": [

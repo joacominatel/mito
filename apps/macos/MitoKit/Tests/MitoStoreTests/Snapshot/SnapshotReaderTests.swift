@@ -204,15 +204,15 @@ struct SnapshotReaderTests {
             let tank = EnemyProfile.unknown("heavy_tank")
             #expect(
                 reader.profileStats(for: ahri, role: .middle, against: tank)
-                    == RelationStats(games: 770, wins: 377))
+                    == RelationStats(games: 771, wins: 394))
             #expect(
                 reader.runePages(for: ahri, role: .middle, against: tank).map(\.games)
-                    == [482, 287])
+                    == [588, 182])
             #expect(reader.finalItems(for: ahri, role: .middle, against: tank).count == 6)
             #expect(reader.profileStats(for: ahri, role: .middle, against: .heavyCC) == nil)
             #expect(
                 reader.profileStats(for: ahri, role: .middle, against: .heavyAD)
-                    == RelationStats(games: 797, wins: 433))
+                    == RelationStats(games: 752, wins: 365))
         }
     }
 
@@ -228,7 +228,7 @@ struct SnapshotReaderTests {
             #expect(
                 reader.matchup(for: Self.zed, role: .jungle, against: ChampionID(rawValue: 64))
                     == MatchupStats(
-                        games: 443, wins: 242, timelineGames: 0, goldDiffAt15: nil,
+                        games: 425, wins: 233, timelineGames: 0, goldDiffAt15: nil,
                         csDiffAt15: nil))
         }
     }
@@ -266,8 +266,8 @@ struct SnapshotReaderTests {
             #expect(
                 stats[Self.zed]
                     == ChampionRoleStats(
-                        games: 2746, wins: 1344, timelineGames: 0, kills: 10984, deaths: 13730,
-                        assists: 21968, cs: 227918, minutes: 76888))
+                        games: 2746, wins: 1296, timelineGames: 0, kills: 21968, deaths: 8238,
+                        assists: 21968, cs: 340504, minutes: 79634))
         }
     }
 
@@ -317,7 +317,7 @@ struct SnapshotReaderTests {
         let ahri = ChampionID(rawValue: 103)
         #expect(
             reader.itemBuilds(for: ahri, role: .middle).filter { $0.layer == .start }
-                .map(\.games) == [373])
+                .map(\.games) == [194])
     }
 
     @Test func spellPairsAreNormalizedEvenWhenStoredReversed() throws {

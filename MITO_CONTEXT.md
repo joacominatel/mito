@@ -2319,6 +2319,8 @@ Reglas:
   sobre los roles exportados de A tiene las mismas partidas que B contra A sumado sobre los de
   B, y las victorias de un lado son las derrotas del otro (solo se exige cuando todos los roles
   de ambos están exportados). Las partidas sin exactamente un equipo ganador no cuentan.
+- `duration_curves` reparte las partidas y las victorias de cada (campeón, rol) entre sus
+  buckets: para cada uno, la suma de `games` y la de `wins` son las de `champ_role_stats`.
 - En `item_builds`, las capas `fourth`–`sixth` de una fila nunca repiten un ítem del core de esa
   misma partida; entre filas sí puede pasar, y la app descarta repeticiones al armar el set.
 - Sin nombres localizados ni `tags`: los nombres salen del cliente en su locale (§16, §22.6) y
@@ -3804,8 +3806,9 @@ y nunca se guarda.
   con todas sus columnas (Zed JUNGLE sin `item3_s`),
   `champ_vs_profile`, páginas e ítems finales por perfil con `'any'` como línea base y no
   como perfil, loadouts por rival sin cruzarse con los generales (ni en un sentido ni en el
-  otro), bans, flags y `meta.profile_rules`. `SnapshotReaderTests` cubre los errores
-  (archivo ausente o corrupto, `schema_version` no soportado, clave de `meta` faltante o mal
+  otro), bans, flags, `meta.profile_rules` y las curvas de duración, cuyos buckets suman las
+  partidas y las victorias de `champ_role_stats` (Ahri MIDDLE). `SnapshotReaderTests` cubre
+  los errores (archivo ausente o corrupto, `schema_version` no soportado, clave de `meta` faltante o mal
   formada, `profile_rules` mal formado, tabla de Fase 7 faltante) y la tolerancia (sin
   `profile_rules` abre con `profileRules == nil`; flags y perfiles desconocidos quedan como
   `.unknown`) sobre copias temporales. `ContractPinTests` (ArchitectureTests) fija las tablas
