@@ -9,8 +9,9 @@ import Observation
 
 /// Imports the local player's loadout, adapted to the lane opponent and the enemy team, from the
 /// open snapshot once per champion and champ select (§13.1), with the champion's override applied
-/// (§21.5), and reports it as a toast in the main window or, when the window is not in front, a
-/// notification. Each part goes to the `import_log` (§17).
+/// (§21.5), and re-sends what a later lane opponent or enemy profile changes. Reports it as a
+/// toast in the main window or, when the window is not in front, a notification. Each part goes
+/// to the `import_log` (§17).
 @Observable
 final class ImportModel {
     /// The latest import while the window shows it, and any import waiting on a rune confirmation.
@@ -29,6 +30,7 @@ final class ImportModel {
     private let detectedFlash: @MainActor () -> ImportSettings.FlashPosition?
 
     @ObservationIgnored private var imported: Set<ChampionID> = []
+    @ObservationIgnored private var lastImports: [ChampionID: LastImport] = [:]
     @ObservationIgnored private var toldMissingStats = false
     @ObservationIgnored private var pendingRunes: (page: RunePage, context: LoadoutImportContext)?
     @ObservationIgnored private var windows = 0
@@ -96,6 +98,7 @@ final class ImportModel {
         updated.report.runes = report.runes
         await log(updated, parts: [.runes])
         guard generation == self.generation else { return }
+        if report.runes == .applied { lastImports[context.champion]?.runes = pendingRunes.page }
         await present(updated.renumbered(nextID()), runes: (pendingRunes.page, context))
     }
 
@@ -129,10 +132,14 @@ final class ImportModel {
     }
 
     private func handle(_ session: ChampSelectSession) async {
-        var settings = settings()
-        guard let target = Self.target(in: session, onHover: settings.importOnHover),
-            imported.insert(target.champion).inserted
-        else { return }
+        let settings = settings()
+        guard let target = Self.target(in: session, onHover: settings.importOnHover) else {
+            return
+        }
+        guard imported.insert(target.champion).inserted else {
+            await reimportIfNeeded(target, session: session)
+            return
+        }
         let generation = generation
         let stats = readStats()
         guard stats.meta != nil else {
@@ -143,31 +150,61 @@ final class ImportModel {
         guard let role = target.role ?? Self.mostPlayedRole(of: target.champion, in: stats)
         else { return }
         let opponent = Self.laneOpponent(among: target.draft.enemies, in: role, stats: stats)
-        let general = LoadoutSelection.general(for: target.champion, role: role, stats: stats)
+        let profile = Composition.enemyProfile(in: target.draft, stats: stats)
+        guard
+            let prepared = await prepare(
+                target.champion, role: role, against: (opponent, profile), in: target.draft,
+                stats: stats, settings: settings),
+            generation == self.generation
+        else { return }
+        let loadout = prepared.plan.loadout
+        guard loadout.runes != nil || loadout.spells != nil || loadout.itemSet != nil else {
+            return
+        }
+        await importLoadout(prepared, session: session)
+    }
+
+    /// What one import of a champion is built from, before anything reaches the client.
+    private struct Prepared {
+        let champion: ChampionID
+        let role: Role
+        let opponent: ChampionID?
+        let profile: Set<EnemyProfile>
+        let plan: Plan
+        let lowSample: Set<ImportOutcome.Part>
+        let reasons: [Reason]
+        /// With `flashPosition` resolved.
+        let settings: ImportSettings
+    }
+
+    private func prepare(
+        _ champion: ChampionID, role: Role,
+        against enemy: (opponent: ChampionID?, profile: Set<EnemyProfile>), in draft: DraftContext,
+        stats: any StatsProvider, settings: ImportSettings
+    ) async -> Prepared? {
+        let generation = generation
+        let general = LoadoutSelection.general(for: champion, role: role, stats: stats)
         let adapted = LoadoutSelection.adapted(
-            for: target.champion, role: role, opponent: opponent,
-            enemyProfile: Composition.enemyProfile(in: target.draft, stats: stats),
-            enemies: target.draft.enemies.compactMap(\.champion), stats: stats)
-        let override = await championOverride(target.champion, role)
-        guard generation == self.generation else { return }
+            for: champion, role: role, opponent: enemy.opponent, enemyProfile: enemy.profile,
+            enemies: draft.enemies.compactMap(\.champion), stats: stats)
+        let override = await championOverride(champion, role)
+        guard generation == self.generation else { return nil }
+        var settings = settings
         if settings.flashPosition == .auto, let detected = detectedFlash() {
             settings.flashPosition = detected
         }
         let plan = Self.plan(
             general: Self.withBlockTitles(general.loadout),
             adapted: Self.withBlockTitles(adapted.loadout), override: override, settings: settings)
-        let loadout = plan.loadout
-        guard loadout.runes != nil || loadout.spells != nil || loadout.itemSet != nil else {
-            return
-        }
         let lowSample = ImportOutcome.Part.allCases.filter { part in
             plan.origins[part] != .override
                 && (plan.general.contains(part) ? general : adapted).sampleLevels[part]?
                     .isLowSample == true
         }
-        await importLoadout(
-            plan, lowSample: Set(lowSample), reasons: adapted.loadout.explanation,
-            for: (target.champion, role, opponent), session: session, settings: settings)
+        return Prepared(
+            champion: champion, role: role, opponent: enemy.opponent, profile: enemy.profile,
+            plan: plan, lowSample: Set(lowSample), reasons: adapted.loadout.explanation,
+            settings: settings)
     }
 
     /// At least even odds, so a coin-toss guess never picks the matchup (§12.3).
@@ -331,11 +368,9 @@ final class ImportModel {
         data?.item(item)?.name ?? String(item.rawValue)
     }
 
-    private func importLoadout(
-        _ plan: Plan, lowSample: Set<ImportOutcome.Part>, reasons: [Reason],
-        for target: (champion: ChampionID, role: Role, opponent: ChampionID?),
-        session: ChampSelectSession, settings: ImportSettings
-    ) async {
+    private func importLoadout(_ prepared: Prepared, session: ChampSelectSession) async {
+        let plan = prepared.plan
+        let settings = prepared.settings
         let loadout = plan.loadout
         let generation = generation
         async let gameflow = try? connection.send(.gameflowSession)
@@ -364,23 +399,190 @@ final class ImportModel {
                 runes: loadout.runes, spells: loadout.spells, itemSet: nil,
                 skillOrder: loadout.skillOrder)
         let context = LoadoutImportContext(
-            title: Self.title(Self.name(of: target.champion, in: data), target.role),
-            champion: target.champion,
+            title: Self.title(Self.name(of: prepared.champion, in: data), prepared.role),
+            champion: prepared.champion,
             map: map ?? .summonersRift, session: session,
             // Unused without an item set, which is all a missing ID allows.
             summonerId: summonerId ?? 0)
 
         let report = await importer.apply(sent, settings: settings, context: context)
         let outcome = ImportOutcome(
-            id: nextID(), champion: target.champion, opponent: target.opponent,
+            id: nextID(), champion: prepared.champion, opponent: prepared.opponent,
             title: context.title, report: report, itemsUnavailable: itemsUnavailable,
-            lowSample: lowSample, origins: plan.origins,
-            adaptations: Self.adaptations(reasons, in: data).filter {
+            lowSample: prepared.lowSample, origins: plan.origins,
+            adaptations: Self.adaptations(prepared.reasons, in: data).filter {
                 plan.origins[$0.key] == nil && !plan.general.contains($0.key)
             })
         await log(outcome, parts: ImportOutcome.Part.allCases)
         guard generation == self.generation else { return }
+        lastImports[prepared.champion] = LastImport(
+            role: prepared.role, opponent: prepared.opponent, profile: prepared.profile,
+            context: context,
+            runes: report.runes == .applied ? sent.runes : nil,
+            spells: report.spells.leftThePair ? sent.spells : nil,
+            itemSet: report.items == .applied ? sent.itemSet : nil)
         await present(outcome, runes: sent.runes.map { ($0, context) })
+    }
+
+    // MARK: Re-import
+
+    /// What an import left in the client, and the context it was adapted to (§13.1).
+    private struct LastImport {
+        let role: Role
+        var opponent: ChampionID?
+        var profile: Set<EnemyProfile>
+        /// Its session is stale: a re-import sends the current one.
+        let context: LoadoutImportContext
+        /// What Mito put in the client, per part; `nil` once nothing of Mito's is there.
+        var runes: RunePage?
+        var spells: SpellPair?
+        var itemSet: ItemSet?
+    }
+
+    /// Re-sends the parts whose recommendation changed with the lane opponent or the enemy
+    /// profile, leaving alone what the user edited since and any pending rune confirmation.
+    /// Overrides' fixed parts never change with the context, so they are never re-sent.
+    private func reimportIfNeeded(
+        _ target: (champion: ChampionID, role: Role?, draft: DraftContext),
+        session: ChampSelectSession
+    ) async {
+        let current = settings()
+        guard current.reimportOnOpponentChange, var last = lastImports[target.champion],
+            Self.target(in: session, onHover: false)?.champion == target.champion
+        else { return }
+        let generation = generation
+        let stats = readStats()
+        guard stats.meta != nil else { return }
+        let opponent = Self.laneOpponent(among: target.draft.enemies, in: last.role, stats: stats)
+        let profile = Composition.enemyProfile(in: target.draft, stats: stats)
+        guard opponent != last.opponent || profile != last.profile else { return }
+        let previousOpponent = last.opponent
+        // Before any await, so the next session event does not start the same re-import.
+        last.opponent = opponent
+        last.profile = profile
+        lastImports[target.champion] = last
+
+        guard
+            let prepared = await prepare(
+                target.champion, role: last.role, against: (opponent, profile), in: target.draft,
+                stats: stats, settings: current),
+            generation == self.generation
+        else { return }
+        let plan = prepared.plan
+        let settings = prepared.settings
+        func changed<Value: Equatable>(
+            _ part: ImportOutcome.Part, _ isOn: Bool, sent: Value?, now: Value?
+        ) -> Bool {
+            guard isOn, plan.origins[part] == nil, !plan.general.contains(part),
+                let sent, let now
+            else { return false }
+            return sent != now
+        }
+        let parts = ImportOutcome.Part.allCases.filter { part in
+            switch part {
+            case .runes:
+                changed(part, settings.importRunes, sent: last.runes, now: plan.loadout.runes)
+            case .spells:
+                changed(part, settings.importSpells, sent: last.spells, now: plan.loadout.spells)
+            case .items:
+                changed(
+                    part, settings.importItemSets, sent: last.itemSet, now: plan.loadout.itemSet)
+            }
+        }
+        guard !parts.isEmpty else { return }
+
+        var unread: [ImportOutcome.Part: StepResult] = [:]
+        var manual: Set<ImportOutcome.Part> = []
+        if settings.preserveManualChanges {
+            for part in parts {
+                switch await holdsWhatMitoSent(part, last, session: session) {
+                case .success(true): break
+                case .success(false): manual.insert(part)
+                case .failure(let error): unread[part] = .failed(.lcu(error))
+                }
+            }
+        }
+        let resend = Set(parts).subtracting(manual).subtracting(unread.keys)
+        let loadout = Loadout(
+            runes: resend.contains(.runes) ? plan.loadout.runes : nil,
+            spells: resend.contains(.spells) ? plan.loadout.spells : nil,
+            itemSet: resend.contains(.items) ? plan.loadout.itemSet : nil, skillOrder: nil)
+        let context = LoadoutImportContext(
+            title: last.context.title, champion: target.champion, map: last.context.map,
+            session: session, summonerId: last.context.summonerId)
+        var report =
+            resend.isEmpty
+            ? ImportReport(
+                runes: .skipped(.notInLoadout), spells: .skipped(.notInLoadout),
+                items: .skipped(.notInLoadout))
+            : await importer.apply(loadout, settings: settings, context: context)
+        for (part, result) in unread { report[part] = result }
+        let data = try? await catalog.load()
+
+        let reason: ImportOutcome.Reimport.Reason =
+            if let opponent, opponent != previousOpponent {
+                .opponent(Self.name(of: opponent, in: data))
+            } else {
+                .enemyTeam
+            }
+        let outcome = ImportOutcome(
+            id: nextID(), champion: target.champion, opponent: opponent, title: context.title,
+            report: report, itemsUnavailable: nil,
+            lowSample: prepared.lowSample.intersection(resend),
+            adaptations: Self.adaptations(prepared.reasons, in: data).filter {
+                resend.contains($0.key)
+            },
+            reimport: ImportOutcome.Reimport(reason: reason, parts: parts, manual: manual))
+        await log(outcome, parts: parts)
+        guard generation == self.generation, var held = lastImports[target.champion] else {
+            return
+        }
+        // A part the user took over stays theirs for the rest of the champ select.
+        if manual.contains(.runes) || report.runes.isNeedsConfirmation { held.runes = nil }
+        if manual.contains(.spells) { held.spells = nil }
+        if manual.contains(.items) { held.itemSet = nil }
+        if report.runes == StepResult.applied { held.runes = loadout.runes }
+        if report.spells.leftThePair { held.spells = loadout.spells }
+        if report.items == StepResult.applied { held.itemSet = loadout.itemSet }
+        lastImports[target.champion] = held
+        // A pending confirmation keeps its toast: the re-import is told as a notification.
+        guard pendingRunes == nil || outcome.needsConfirmation else {
+            await poster.post(
+                .loadoutImported(champion: outcome.champion, opponent: outcome.opponent),
+                title: outcome.headline)
+            return
+        }
+        await present(outcome, runes: loadout.runes.map { ($0, context) })
+    }
+
+    /// Whether the client still holds what Mito last sent for `part`. Mito's page must still be
+    /// the current one: the user making another page current took the runes over too.
+    private func holdsWhatMitoSent(
+        _ part: ImportOutcome.Part, _ last: LastImport, session: ChampSelectSession
+    ) async -> Result<Bool, LCUError> {
+        do throws(LCUError) {
+            switch part {
+            case .runes:
+                let page = RuneImporter.mitoPage(
+                    in: try await connection.send(.perkPages), title: last.context.title)
+                return .success(page?.current == true && page?.runePage == last.runes)
+            case .spells:
+                let me = session.myTeam.first {
+                    $0.cellId != nil && $0.cellId == session.localPlayerCellId
+                }
+                // Unordered: the Flash rule may have swapped the pair Mito sent.
+                let held = Set([me?.spell1Id, me?.spell2Id])
+                return .success(held == Set([last.spells?.first, last.spells?.second]))
+            case .items:
+                let sets = try await connection.send(
+                    .itemSets(summonerId: last.context.summonerId))
+                return .success(
+                    ItemSetImporter.mitoItemSet(in: sets, champion: last.context.champion)
+                        == last.itemSet)
+            }
+        } catch {
+            return .failure(error)
+        }
     }
 
     /// The toast's markers for each part, in reason order and without repeats.
@@ -443,6 +645,7 @@ final class ImportModel {
     private func reset() {
         generation += 1
         imported = []
+        lastImports = [:]
         toldMissingStats = false
         pendingRunes = nil
         outcome = nil
@@ -511,7 +714,37 @@ extension ImportOutcome {
         ImportOutcome(
             id: id, champion: champion, opponent: opponent, title: title, report: report,
             itemsUnavailable: itemsUnavailable, lowSample: lowSample, origins: origins,
-            adaptations: adaptations, isMissingStats: isMissingStats)
+            adaptations: adaptations, isMissingStats: isMissingStats, reimport: reimport)
+    }
+}
+
+extension ImportReport {
+    fileprivate subscript(part: ImportOutcome.Part) -> StepResult {
+        get {
+            switch part {
+            case .runes: runes
+            case .spells: spells
+            case .items: items
+            }
+        }
+        set {
+            switch part {
+            case .runes: runes = newValue
+            case .spells: spells = newValue
+            case .items: items = newValue
+            }
+        }
+    }
+}
+
+extension StepResult {
+    /// The client holds the pair Mito recommended: sent now, or already chosen.
+    fileprivate var leftThePair: Bool {
+        self == .applied || self == .skipped(.alreadySelected)
+    }
+
+    fileprivate var isNeedsConfirmation: Bool {
+        if case .needsConfirmation = self { true } else { false }
     }
 }
 

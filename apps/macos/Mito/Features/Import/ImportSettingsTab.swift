@@ -88,13 +88,6 @@ struct ImportSettingsTab: View {
                 }
             } header: {
                 Text("Cuándo importar", tableName: "Import")
-            } footer: {
-                Text(
-                    "Re-importar si cambia el rival y no pisar cambios manuales llegan más adelante: hoy se importa una vez, con el rival que se conoce al lockear.",
-                    tableName: "Import"
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

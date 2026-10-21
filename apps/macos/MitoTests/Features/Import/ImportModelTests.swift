@@ -1321,3 +1321,306 @@ struct ImportBlockTitleTests {
         #expect(try harness.sentBlocks().last?.title == "Situacionales")
     }
 }
+
+// MARK: Re-import
+
+/// Darius, Soraka and Ashe: mixed, so the first page is Electrocute, with a Morellonomicon.
+private let mixedTeam: [(champion: Int, position: String)] = [
+    (darius, ""), (soraka, ""), (ashe, ""),
+]
+/// Zed shows up MIDDLE and Lee Sin takes Soraka's place: Phase Rush, and no situationals.
+private let zedRevealed: [(champion: Int, position: String)] = [
+    (238, "middle"), (darius, ""), (leeSin, ""), (ashe, ""),
+]
+private let mitoPageID = 300
+
+extension Harness {
+    /// The client after an import: Mito's page (the last one sent, as `mitoPageID`) and its item
+    /// set as Mito left them, unless `perks` or `items` say the user changed them.
+    fileprivate func clientHoldsWhatMitoSent(
+        perks: [Int]? = nil, mitoPageIsCurrent: Bool = true, items: [String: Any]? = nil
+    ) throws {
+        let sent = try #require(runePageWrites().last?.body)
+        var page = try #require(try JSONSerialization.jsonObject(with: sent) as? [String: Any])
+        page["id"] = mitoPageID
+        page["isEditable"] = true
+        page["isDeletable"] = true
+        page["current"] = mitoPageIsCurrent
+        if let perks { page["selectedPerkIds"] = perks }
+        let mine: [String: Any] = [
+            "id": 201, "name": "My page", "current": !mitoPageIsCurrent, "isEditable": true,
+            "isDeletable": true,
+        ]
+        connection.serve(pagesPath, try JSONSerialization.data(withJSONObject: [mine, page]))
+
+        let put = try #require(connection.writes(.put, itemSetsPath).last?.body)
+        var list = try #require(try JSONSerialization.jsonObject(with: put) as? [String: Any])
+        if let items {
+            var sets = try #require(list["itemSets"] as? [[String: Any]])
+            sets[sets.count - 1]["blocks"] = [["type": "Mis ítems", "items": [items]]]
+            list["itemSets"] = sets
+        }
+        connection.serve(itemSetsPath, try JSONSerialization.data(withJSONObject: list))
+    }
+
+    var pageWrites: Int { runePageWrites().count }
+    var itemSetWrites: Int { connection.writes(.put, itemSetsPath).count }
+}
+
+/// Locks `champion` MIDDLE against `first`, lets the client keep what Mito sent (as `client`
+/// adjusts it), then sends the same pick against `then`, holding `heldSpells`.
+private func reimport(
+    _ champion: Int = 103, from first: [(champion: Int, position: String)],
+    to then: [(champion: Int, position: String)], firstSpells: [Int] = [4, 12],
+    heldSpells: [Int] = [4, 14], settings: ImportSettings = ImportSettings(),
+    overrides: [ChampionOverride] = [], windowInFront: Bool = true,
+    prepare: (Harness) throws -> Void = { _ in },
+    client: (Harness) throws -> Void = { try $0.clientHoldsWhatMitoSent() }
+) async throws -> (harness: Harness, first: ImportOutcome?) {
+    let harness = try Harness(
+        settings: settings, windowInFront: windowInFront, overrides: overrides)
+    try prepare(harness)
+    let run = harness.start()
+    harness.connection.emit(
+        try ImportFixture.lockedSession(champion: champion, mySpells: firstSpells, enemies: first))
+    await waitUntil { harness.model.outcome != nil || !harness.poster.posts.isEmpty }
+    let firstOutcome = harness.model.outcome
+    try client(harness)
+    harness.connection.emit(
+        try ImportFixture.lockedSession(champion: champion, mySpells: heldSpells, enemies: then))
+    await harness.stop(run)
+    return (harness, firstOutcome)
+}
+
+/// §13.1: a later lane opponent or enemy profile re-sends only the parts it changes.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportReimportTests {
+    @Test func aRevealedOpponentResendsTheRunesAndItemsAndSaysWhy() async throws {
+        let (harness, _) = try await reimport(from: mixedTeam, to: zedRevealed)
+
+        #expect(harness.pageWrites == 2)
+        let update = try #require(harness.runePageWrites().last)
+        #expect(update.method == .put)
+        #expect(update.path == "\(pagesPath)/\(mitoPageID)")
+        let page = try JSONSerialization.jsonObject(with: try #require(update.body))
+        #expect((page as? [String: Any])?["selectedPerkIds"] as? [Int] == phaseRushPerks)
+        #expect(harness.itemSetWrites == 2)
+        let put = try #require(harness.connection.writes(.put, itemSetsPath).last?.body)
+        let sets = try #require(
+            (try JSONSerialization.jsonObject(with: put) as? [String: Any])?["itemSets"]
+                as? [[String: Any]])
+        #expect(
+            (sets.last?["blocks"] as? [[String: Any]])?.map { $0["type"] as? String }
+                == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem"])
+        // The pair against Zed is the one already held.
+        #expect(harness.spellWrites == 1)
+
+        let outcome = try #require(harness.model.outcome)
+        #expect(
+            String(localized: outcome.headline)
+                == "Rival revelado: Zed · runas e ítems actualizados")
+        #expect(outcome.rows.map(\.part) == [.runes, .items])
+        #expect(outcome.rows.map(\.adaptationMarker).first == "· vs Zed")
+        #expect(outcome.opponent == zed)
+    }
+
+    @Test func aRevealedOpponentResendsTheSpells() async throws {
+        // Zed MIDDLE takes Teleport in general and Ignite against Ahri.
+        let (harness, _) = try await reimport(
+            238, from: [], to: [(103, "middle")], firstSpells: [4, 14], heldSpells: [4, 12])
+
+        #expect(harness.spellWrites == 2)
+        let last = try #require(harness.connection.writes(.patch, mySelectionPath).last?.body)
+        #expect(
+            try JSONSerialization.jsonObject(with: last) as? [String: Int]
+                == ["spell1Id": 4, "spell2Id": 14])
+        #expect(harness.pageWrites == 1)
+        #expect(harness.itemSetWrites == 1)
+        #expect(
+            String(localized: try #require(harness.model.outcome).headline)
+                == "Rival revelado: Ahri · spells actualizados")
+    }
+
+    @Test func aNewEnemyProfileResendsOnlyTheItems() async throws {
+        let (harness, _) = try await reimport(
+            from: [(238, "middle")], to: [(238, "middle"), (darius, ""), (soraka, ""), (ashe, "")])
+
+        #expect(harness.pageWrites == 1)
+        #expect(harness.spellWrites == 1)
+        #expect(harness.itemSetWrites == 2)
+        #expect(try harness.sentBlocks().count == 5)
+        let put = try #require(harness.connection.writes(.put, itemSetsPath).last?.body)
+        let sets = try #require(
+            (try JSONSerialization.jsonObject(with: put) as? [String: Any])?["itemSets"]
+                as? [[String: Any]])
+        let blocks = try #require(sets.last?["blocks"] as? [[String: Any]])
+        #expect(blocks.last?["type"] as? String == "Situacionales")
+        #expect(
+            String(localized: try #require(harness.model.outcome).headline)
+                == "Cambió el equipo rival · ítems actualizados")
+    }
+
+    @Test func aContextChangeThatLeavesTheLoadoutResendsNothing() async throws {
+        // Lee Sin plays only JUNGLE, which makes Zed the opponent; against him nothing differs.
+        let (harness, first) = try await reimport(from: [(238, "")], to: [(238, ""), (leeSin, "")])
+
+        #expect(harness.pageWrites == 1)
+        #expect(harness.spellWrites == 1)
+        #expect(harness.itemSetWrites == 1)
+        #expect(harness.model.outcome?.id == first?.id)
+        #expect(await harness.store.log.count == 3)
+    }
+
+    @Test func reimportOffImportsOnce() async throws {
+        let (harness, first) = try await reimport(
+            from: mixedTeam, to: zedRevealed,
+            settings: ImportSettings(reimportOnOpponentChange: false))
+
+        #expect(harness.pageWrites == 1)
+        #expect(harness.itemSetWrites == 1)
+        #expect(harness.model.outcome?.id == first?.id)
+        #expect(await harness.store.log.count == 3)
+    }
+
+    @Test func runesTheUserEditedAreLeftAloneAndTheRestIsResent() async throws {
+        let (harness, _) = try await reimport(
+            from: mixedTeam, to: zedRevealed,
+            client: {
+                try $0.clientHoldsWhatMitoSent(perks: phaseRushPerks)
+            })
+
+        #expect(harness.pageWrites == 1)
+        #expect(harness.itemSetWrites == 2)
+        let outcome = try #require(harness.model.outcome)
+        #expect(String(localized: outcome.headline) == "Rival revelado: Zed · ítems actualizados")
+        let runes = try #require(outcome.rows.first)
+        #expect(runes.part == .runes)
+        #expect(
+            "\(String(localized: runes.part.title)) \(String(localized: runes.status))"
+                == "Runas sin tocar: las cambiaste a mano")
+        #expect(runes.adaptations.isEmpty)
+    }
+
+    @Test func anotherCurrentPageCountsAsAManualChange() async throws {
+        let (harness, _) = try await reimport(
+            from: mixedTeam, to: zedRevealed,
+            client: {
+                try $0.clientHoldsWhatMitoSent(mitoPageIsCurrent: false)
+            })
+
+        #expect(harness.pageWrites == 1)
+        #expect(harness.model.outcome?.reimport?.manual == [.runes])
+    }
+
+    @Test func anItemSetTheUserEditedIsLeftAlone() async throws {
+        let (harness, _) = try await reimport(
+            from: mixedTeam, to: zedRevealed,
+            client: {
+                try $0.clientHoldsWhatMitoSent(items: ["id": "3089", "count": 1])
+            })
+
+        #expect(harness.pageWrites == 2)
+        #expect(harness.itemSetWrites == 1)
+        let items = try #require(harness.model.outcome?.rows.last)
+        #expect(String(localized: items.status) == "sin tocar: los cambiaste a mano")
+    }
+
+    @Test func spellsTheUserChangedAreLeftAlone() async throws {
+        let (harness, _) = try await reimport(
+            238, from: [], to: [(103, "middle")], firstSpells: [4, 14], heldSpells: [4, 3])
+
+        #expect(harness.spellWrites == 1)
+        #expect(harness.model.outcome?.reimport?.manual == [.spells])
+        #expect(
+            String(localized: try #require(harness.model.outcome).headline)
+                == "Rival revelado: Ahri · nada actualizado")
+    }
+
+    @Test func withoutPreserveManualChangesTheEditedPageIsOverwritten() async throws {
+        let (harness, _) = try await reimport(
+            from: mixedTeam, to: zedRevealed,
+            settings: ImportSettings(preserveManualChanges: false),
+            client: {
+                try $0.clientHoldsWhatMitoSent(perks: phaseRushPerks, mitoPageIsCurrent: false)
+            })
+
+        #expect(harness.pageWrites == 2)
+        #expect(harness.itemSetWrites == 2)
+        #expect(harness.model.outcome?.reimport?.manual == [])
+        // Nothing is read back to compare.
+        #expect(harness.connection.writes(.get, itemSetsPath).count == 2)
+    }
+
+    @Test func aPendingRuneConfirmationIsLeftAsItIs() async throws {
+        let (harness, first) = try await reimport(
+            from: mixedTeam, to: zedRevealed,
+            prepare: {
+                $0.connection.serve(
+                    LCUEndpoint.perkInventory.path,
+                    try ImportFixture.data("inventory-full", in: "runes"))
+            },
+            client: { harness in
+                let put = try #require(harness.connection.writes(.put, itemSetsPath).last?.body)
+                harness.connection.serve(itemSetsPath, put)
+            })
+
+        #expect(first?.needsConfirmation == true)
+        #expect(harness.pageWrites == 0)
+        #expect(harness.itemSetWrites == 2)
+        #expect(harness.model.outcome?.id == first?.id)
+        #expect(
+            harness.model.outcome?.status == .needsConfirmation(pageID: 201, pageName: "My page"))
+        #expect(harness.poster.posts.map(\.title) == ["Rival revelado: Zed · ítems actualizados"])
+
+        await harness.model.confirmReplacement()
+
+        // The page the user was asked about, not the one adapted to Zed.
+        let page = try JSONSerialization.jsonObject(
+            with: try #require(harness.runePageWrites().last?.body))
+        #expect(harness.runePageWrites().map(\.path) == ["\(pagesPath)/201"])
+        #expect((page as? [String: Any])?["selectedPerkIds"] as? [Int] == electrocutePerks)
+    }
+
+    @Test func aFixedOverrideIsNeverResent() async throws {
+        let (harness, _) = try await reimport(
+            from: mixedTeam, to: zedRevealed,
+            overrides: [ahriOverride(spellMode: .recommended, itemMode: .recommended)])
+
+        #expect(harness.pageWrites == 1)
+        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8100)
+        #expect(harness.itemSetWrites == 2)
+        #expect(harness.model.outcome?.rows.map(\.part) == [.items])
+    }
+
+    @Test func eachReimportLogsItsParts() async throws {
+        let (harness, _) = try await reimport(
+            from: mixedTeam, to: zedRevealed,
+            client: {
+                try $0.clientHoldsWhatMitoSent(perks: phaseRushPerks)
+            })
+
+        let log = await harness.store.log
+        #expect(log.count == 5)
+        let reimported = log.suffix(2)
+        #expect(reimported.map(\.part) == [.runes, .items])
+        #expect(reimported.map(\.outcome) == [.skipped, .applied])
+        #expect(reimported.map(\.detail) == ["manual_change,reimport", "reimport"])
+    }
+
+    @Test func noReimportOnceTheChampSelectEnds() async throws {
+        let harness = try Harness(windowInFront: true)
+        let run = harness.start()
+        harness.connection.emit(
+            try ImportFixture.lockedSession(mySpells: [4, 12], enemies: mixedTeam))
+        harness.connection.emitDelete()
+        await waitUntil { harness.model.outcome == nil && harness.pageWrites == 1 }
+        try harness.clientHoldsWhatMitoSent()
+        harness.connection.emit(
+            try ImportFixture.lockedSession(mySpells: [4, 14], enemies: zedRevealed))
+        await harness.stop(run)
+
+        // The next champ select's pick is a fresh import, never a re-import.
+        #expect(harness.model.outcome?.reimport == nil)
+        #expect(await harness.store.log.allSatisfy { $0.detail?.contains("reimport") != true })
+    }
+}

@@ -1401,8 +1401,8 @@ Casos borde, todos deterministas:
 (`ChampSelectSession.draftContext`): el slot del jugador local cuenta como lockeado solo con
 una acción `pick` completada (o sin acciones de pick para su celda); su hover cuenta solo con
 `importOnHover`. Cada campeón se importa **una vez por champ select**: un hover que ya importó
-no se repite al lockear. El re-import (rival revelado después, composición que cambia) no está
-implementado: el import usa el rival y los rivales que se conocen en ese momento. Un evento `Delete` de la sesión
+no se repite al lockear; después solo se re-importa lo que cambie el contexto (abajo). Un
+evento `Delete` de la sesión
 (fin del champ select) o una desconexión lo resetea, junto con cualquier confirmación
 pendiente. Una sesión que no se puede decodificar se ignora.
 
@@ -1500,6 +1500,39 @@ pendiente. Una sesión que no se puede decodificar se ignora.
   solo) y en la sección de toggles de la barra de menú, con "Reemplazar" y "Ahora no". Nunca se
   confirma solo. "Reemplazar" vuelve a aplicar **solo las runas** con
   `confirmedReplacement` = ese `pageID`; spells e ítems no se reenvían.
+- **Re-import (P7-11).** Con `reimportOnOpponentChange` (default on), cada evento de sesión del
+  campeón **lockeado** que ya se importó recalcula el rival de lane y el perfil rival con el rol
+  de ese import. Si alguno cambió, se vuelve a armar el plan (mismos overrides y toggles) y se
+  re-envía **solo la parte cuya recomendación cambió**: la página, el par de spells o el item
+  set (por ejemplo, los situacionales). Solo cuenta una parte que Mito dejó en el cliente
+  (aplicada, o spells ya elegidos); una que falló, se salteó o espera confirmación no se toca.
+  Las partes que vienen del override (fijas, "no importar") o de la general no cambian con el
+  contexto y nunca se re-envían. El contexto nuevo se guarda antes de mandar nada, así el
+  próximo evento de la sesión no repite el mismo re-import. Va por el mismo `LoadoutImporter`
+  (que serializa los applies), con el título y el `summonerId` del primer import.
+  - **No pisar cambios manuales** (`preserveManualChanges`, default on). Antes de re-enviar
+    una parte se lee lo que tiene el cliente y se compara con lo que mandó Mito: la página
+    `Mito · <título>` de `GET /lol-perks/v1/pages` (`RuneImporter.mitoPage`; tiene que seguir
+    siendo la **actual**: si el usuario puso otra página como actual, incluso otra de Mito,
+    cuenta como cambio), los spells del jugador local en la sesión (sin orden, porque la regla
+    de Flash pudo darlos vuelta), y el set `mito-<id>` de `/lol-item-sets`
+    (`ItemSetImporter.mitoItemSet`). Si no coincide (o ya no está), esa parte no se re-envía,
+    pasa a ser del usuario por el resto del champ select y la fila dice "Runas sin tocar: las
+    cambiaste a mano" (o "Spells/Ítems sin tocar: los cambiaste a mano"). Una lectura que
+    falla deja la parte sin enviar como `lcu`. Apagado, se pisa sin leer.
+  - **Confirmación pendiente.** Un `.needsConfirmation` sin responder nunca se pisa: las runas
+    no se re-envían, el toast de la pregunta queda, y el re-import se avisa como notificación.
+    "Reemplazar" después manda la página por la que se preguntó.
+  - **Feedback.** Toast (o notificación) con el porqué y lo actualizado: "Rival revelado: Zed ·
+    runas e ítems actualizados", o "Cambió el equipo rival · ítems actualizados" si el rival no
+    cambió; "nada actualizado" si todas se dejaron por cambios manuales. Solo lleva filas de
+    las partes re-enviadas o dejadas, con los marcadores de adaptación de siempre.
+  - **Registro.** Una `ImportLogEntry` por parte considerada, con `reimport` en `detail`
+    (`reimport`, `lcu,reimport`, …) y `manual_change,reimport` (`skipped`) para las que se
+    dejaron por cambios manuales.
+  - **Límites (§5).** Solo en champ select: el `Delete` de la sesión (que llega al empezar la
+    partida) o una desconexión borra lo recordado, y el siguiente champ select importa de cero.
+    Un hover no re-importa, y cambiar de campeón es un import nuevo.
 
 ### 13.2 Runas
 
@@ -3408,8 +3441,12 @@ aparece un picker con las páginas editables del cliente (`GET /lol-perks/v1/pag
 - **Posición de Flash**: "Automática" usa el slot detectado de las últimas 20 partidas
   (§21.1); sin mayoría, el slot donde el jugador ya tiene Flash en la sesión (§13.3).
 - Los toggles de importar runas, spells e item sets ganan siempre sobre los overrides.
-- Re-importar si cambia el rival y no pisar cambios manuales se guardan pero todavía no
-  cambian nada (Fase 7); el pie de la sección "Cuándo importar" lo dice.
+- **Re-importar si cambia el rival** (§13.1): durante el champ select, si se revela el rival de
+  lane o cambia el perfil del equipo rival, se re-envía solo la parte que cambia (runas, spells
+  o ítems), nunca una fija del override ni una confirmación de runas sin responder.
+- **No pisar cambios manuales** (§13.1): antes de re-enviar una parte se compara lo que tiene el
+  cliente con lo que puso Mito; si el usuario la cambió (o puso otra página como actual), queda
+  como está y el toast lo dice. Apagado, el re-import pisa sin mirar.
 
 Los toggles rápidos de la barra de menú (§22.4, `QuickTogglesMenuSection`) escriben los mismos
 settings: "Importar runas", "Importar ítems" y "Auto-accept" (§21.2). Este último está tildado

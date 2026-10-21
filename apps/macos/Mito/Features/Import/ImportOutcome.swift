@@ -40,6 +40,22 @@ struct ImportOutcome: Identifiable, Equatable {
         case situational(item: String, profile: EnemyProfile)
     }
 
+    /// A later import of the same champion after the lane opponent or the enemy team changed
+    /// (§13.1).
+    struct Reimport: Equatable {
+        enum Reason: Equatable {
+            /// The new lane opponent's name.
+            case opponent(String)
+            case enemyTeam
+        }
+
+        let reason: Reason
+        /// The parts whose recommendation changed, in `Part` order: re-sent or left alone.
+        let parts: [Part]
+        /// Left alone: the client no longer holds what Mito sent.
+        let manual: Set<Part>
+    }
+
     enum Part: CaseIterable {
         case runes
         case spells
@@ -86,6 +102,7 @@ struct ImportOutcome: Identifiable, Equatable {
     /// Only for the parts that went adapted, neither general nor from the override.
     var adaptations: [Part: [Adaptation]] = [:]
     var isMissingStats = false
+    var reimport: Reimport?
 
     var status: Status {
         if isMissingStats { return .noStats }
@@ -96,7 +113,7 @@ struct ImportOutcome: Identifiable, Equatable {
         if results.contains(where: { if case .failed = $0 { true } else { false } }) {
             return .failed
         }
-        if results.contains(.applied) { return .imported }
+        if results.contains(.applied) || reimport?.manual.isEmpty == false { return .imported }
         return .unchanged
     }
 
@@ -108,7 +125,13 @@ struct ImportOutcome: Identifiable, Equatable {
     var headline: LocalizedStringResource {
         switch status {
         case .imported, .unchanged:
-            LocalizedStringResource("Importado para \(title)", table: "Import")
+            if let reimport {
+                LocalizedStringResource(
+                    "\(String(localized: reimport.reason.text)) · \(String(localized: updated))",
+                    table: "Import")
+            } else {
+                LocalizedStringResource("Importado para \(title)", table: "Import")
+            }
         case .needsConfirmation:
             LocalizedStringResource("Confirmá las runas para \(title)", table: "Import")
         case .failed:
@@ -119,9 +142,18 @@ struct ImportOutcome: Identifiable, Equatable {
         }
     }
 
+    /// "runas e ítems actualizados": the re-import's parts the client took.
+    private var updated: LocalizedStringResource {
+        Reimport.updated(Set(reimport?.parts.filter { result(of: $0) == .applied } ?? []))
+    }
+
     var rows: [Row] {
         guard !isMissingStats else { return [] }
-        return Part.allCases.map { part in
+        return (reimport?.parts ?? Part.allCases).map { part in
+            if reimport?.manual.contains(part) == true {
+                return Row(
+                    part: part, symbol: "hand.raised", tone: .neutral, status: part.leftAlone)
+            }
             if part == .items, let itemsUnavailable {
                 return Row(
                     part: part, symbol: "minus.circle", tone: .neutral,
@@ -191,12 +223,15 @@ extension ImportOutcome {
     func logEntries(_ parts: [Part], at date: Date) -> [ImportLogEntry] {
         parts.map { part in
             let (outcome, reason): (ImportLogEntry.Outcome, String?) =
-                if part == .items, let itemsUnavailable {
+                if reimport?.manual.contains(part) == true {
+                    (.skipped, "manual_change")
+                } else if part == .items, let itemsUnavailable {
                     (.skipped, itemsUnavailable.logCode)
                 } else {
                     result(of: part).logged
                 }
-            let detail = [reason, origins[part]?.logCode].compactMap(\.self)
+            let detail = [reason, origins[part]?.logCode, reimport.map { _ in "reimport" }]
+                .compactMap(\.self)
             return ImportLogEntry(
                 timestamp: date, game: nil, champion: champion, part: part.logged,
                 outcome: outcome, detail: detail.isEmpty ? nil : detail.joined(separator: ","))
@@ -263,6 +298,47 @@ extension ImportOutcome.Part {
         case .runes: LocalizedStringResource("Runas", table: "Import")
         case .spells: LocalizedStringResource("Spells", table: "Import")
         case .items: LocalizedStringResource("Ítems", table: "Import")
+        }
+    }
+}
+
+extension ImportOutcome.Part {
+    /// After the part's title: "Runas sin tocar: las cambiaste a mano".
+    fileprivate var leftAlone: LocalizedStringResource {
+        switch self {
+        case .runes: LocalizedStringResource("sin tocar: las cambiaste a mano", table: "Import")
+        case .spells, .items:
+            LocalizedStringResource("sin tocar: los cambiaste a mano", table: "Import")
+        }
+    }
+}
+
+extension ImportOutcome.Reimport {
+    /// Spelled out per combination: the participle agrees with "runas".
+    fileprivate static func updated(_ parts: Set<ImportOutcome.Part>) -> LocalizedStringResource {
+        switch (parts.contains(.runes), parts.contains(.spells), parts.contains(.items)) {
+        case (true, false, false): LocalizedStringResource("runas actualizadas", table: "Import")
+        case (false, true, false): LocalizedStringResource("spells actualizados", table: "Import")
+        case (false, false, true): LocalizedStringResource("ítems actualizados", table: "Import")
+        case (true, true, false):
+            LocalizedStringResource("runas y spells actualizados", table: "Import")
+        case (true, false, true):
+            LocalizedStringResource("runas e ítems actualizados", table: "Import")
+        case (false, true, true):
+            LocalizedStringResource("spells e ítems actualizados", table: "Import")
+        case (true, true, true):
+            LocalizedStringResource("runas, spells e ítems actualizados", table: "Import")
+        case (false, false, false): LocalizedStringResource("nada actualizado", table: "Import")
+        }
+    }
+}
+
+extension ImportOutcome.Reimport.Reason {
+    fileprivate var text: LocalizedStringResource {
+        switch self {
+        case .opponent(let name):
+            LocalizedStringResource("Rival revelado: \(name)", table: "Import")
+        case .enemyTeam: LocalizedStringResource("Cambió el equipo rival", table: "Import")
         }
     }
 }
