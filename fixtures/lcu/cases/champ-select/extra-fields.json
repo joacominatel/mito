@@ -1,0 +1,21 @@
+{
+  "localPlayerCellId": 2,
+  "gameId": 0,
+  "isSpectating": false,
+  "allowRerolling": false,
+  "myTeam": [
+    { "cellId": 2, "championId": 0, "championPickIntent": 103, "assignedPosition": "middle", "spell1Id": 4, "spell2Id": 14, "team": 1,
+      "puuid": "00000000-0000-0000-0000-000000000000", "summonerId": 1, "gameName": "Tester", "tagLine": "TEST", "selectedSkinId": 103000, "wardSkinId": -1 }
+  ],
+  "theirTeam": [
+    { "cellId": 7, "championId": 238, "assignedPosition": "",
+      "puuid": "00000000-0000-0000-0000-000000000001", "summonerId": 2, "gameName": "Rival", "tagLine": "TEST", "nameVisibilityType": "HIDDEN" }
+  ],
+  "actions": [
+    [
+      { "id": 11, "actorCellId": 2, "championId": 0, "type": "pick", "isInProgress": false, "completed": false, "isAllyAction": true, "pickTurn": 1, "duration": 30000 }
+    ]
+  ],
+  "bans": { "myTeamBans": [], "theirTeamBans": [], "numBans": 10 },
+  "timer": { "phase": "BAN_PICK", "adjustedTimeLeftInPhase": 27000, "totalTimeInPhase": 30000, "isInfinite": false }
+}

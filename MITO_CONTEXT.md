@@ -953,6 +953,29 @@ Notas:
 - `championPickIntent` es el hover. Sirve para recomendar antes de que el aliado lockee.
 - `timer.phase`: `PLANNING`, `BAN_PICK`, `FINALIZATION`.
 
+**Modelo en LCUKit.** `LCUEndpoint.champSelectSession` (GET, 404 fuera de champ select)
+decodifica `ChampSelectSession`; `ChampSelectSession(_ event:)` decodifica el `data` del
+evento `LCUTopic.champSelectSession` con el mismo decoder. Los nombres de campos de arriba
+**todavía no están verificados** contra una grabación (`docs/lcu-endpoints.md`). Reglas de
+tolerancia:
+
+- Todo campo escalar es opcional; `myTeam`, `theirTeam`, `actions` y los arrays de `bans`
+  valen `[]` si faltan, son `null` o no son un array. Las claves desconocidas se ignoran.
+- `championId`, `championPickIntent`, `spell1Id` y `spell2Id` en `0` se decodifican como
+  `nil` (sin campeón o sin spell). Los `0` de `bans` se descartan.
+- `assignedPosition` es `.role(Role)` para los valores en minúscula, `.unassigned` si viene
+  vacío o falta, y `.unknown(String)` para cualquier otro valor.
+- `type` de una acción (`ban`, `pick`, `ten_bans_reveal`) y `timer.phase` tienen
+  `.unknown(String)` para valores nuevos.
+- **Un elemento malformado se descarta**, no se decodifica como desconocido: un miembro, una
+  acción, un grupo de acciones o un ban que no es un objeto (o un número) o trae un campo con
+  tipo inesperado se saltea, y el resto de la sesión sigue. Se eligió descartar porque un
+  elemento así no aporta datos confiables; un campo que solo falta no lo invalida.
+- `timer.adjustedTimeLeftInPhase` (ms) acepta decimales y se redondea; si viene con otro tipo
+  queda `nil` sin tumbar la sesión.
+- **No se modela ninguna identidad** (`puuid`, `summonerId`, nombres), ni propia ni ajena
+  (§5). La sesión nunca se loguea.
+
 ### 12.2 Modelo de dominio
 
 ```swift

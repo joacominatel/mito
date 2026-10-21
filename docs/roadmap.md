@@ -158,7 +158,7 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P3-01 | Tolerant champ-select session decoding | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Session/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift`, `fixtures/lcu/cases/champ-select/**` | §12.1, lcu-endpoints: Champ select | P0-C | in progress |
+| P3-01 | Tolerant champ-select session decoding | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Session/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift`, `fixtures/lcu/cases/champ-select/**` | §12.1, lcu-endpoints: Champ select | P0-C | merged |
 | P3-02 | Session → `DraftContext` mapping | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Mapping/**` | §12.2 | P3-01 | todo |
 | P3-03 | Enemy role inference (§12.3) | engine | `MitoKit/Sources/MitoEngine/RoleInference/**` | §12.3 | P0-C | in progress |
 | P3-04 | Champ-select view and model with 150 ms debounce | champ-select | `Mito/Features/ChampSelect/**` | §12.4, §20.1 | P3-02 | todo |

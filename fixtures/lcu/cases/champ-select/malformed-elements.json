@@ -1,0 +1,22 @@
+{
+  "localPlayerCellId": 2,
+  "myTeam": [
+    { "cellId": 2, "championId": 0, "championPickIntent": 103, "assignedPosition": "middle", "spell1Id": 4, "spell2Id": 14, "team": 1 },
+    { "cellId": "three" },
+    null
+  ],
+  "theirTeam": "not-an-array",
+  "actions": [
+    [
+      { "id": 1, "actorCellId": 0, "championId": 157, "type": "ban", "isInProgress": false, "completed": true, "isAllyAction": true },
+      { "id": "two", "type": "ban" },
+      42
+    ],
+    "not-a-group",
+    [
+      { "id": 11, "actorCellId": 2, "championId": 0, "type": "pick", "isInProgress": true, "completed": false, "isAllyAction": true }
+    ]
+  ],
+  "bans": { "myTeamBans": [157, "x", null], "theirTeamBans": [] },
+  "timer": { "phase": "BAN_PICK", "adjustedTimeLeftInPhase": 27000 }
+}

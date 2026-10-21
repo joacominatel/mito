@@ -1,0 +1,9 @@
+{
+  "myTeam": [
+    { "cellId": 2 }
+  ],
+  "actions": [
+    [ { "id": 11, "type": "pick" } ]
+  ],
+  "timer": {}
+}

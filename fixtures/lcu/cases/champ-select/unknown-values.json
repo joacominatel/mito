@@ -1,0 +1,14 @@
+{
+  "localPlayerCellId": 0,
+  "myTeam": [
+    { "cellId": 0, "championId": 0, "championPickIntent": 0, "assignedPosition": "flex", "spell1Id": 4, "spell2Id": 14, "team": 1 }
+  ],
+  "theirTeam": [],
+  "actions": [
+    [
+      { "id": 1, "actorCellId": 0, "championId": 0, "type": "vote_from_a_future_patch", "isInProgress": true, "completed": false, "isAllyAction": true }
+    ]
+  ],
+  "bans": { "myTeamBans": [], "theirTeamBans": [] },
+  "timer": { "phase": "PHASE_FROM_A_FUTURE_PATCH", "adjustedTimeLeftInPhase": 10000 }
+}
