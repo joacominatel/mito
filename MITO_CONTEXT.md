@@ -2728,6 +2728,31 @@ Los bonus son chicos (±0,5 a ±2 puntos) y se calibran comparando contra el win
 composiciones en los datos (v1.5: aprender los pesos con una regresión logística sobre
 features de composición).
 
+Decisiones del comp fit (`Composition` en `MitoEngine/Composition/`):
+
+- Los miembros de un equipo son los lockeados, cada uno en su rol asignado o, sin rol, en el
+  inferido entre los lockeados sin rol (§12.3). Un lockeado sin `champion_profiles` en ese
+  rol no cuenta para el perfil ni para el mínimo, igual que en el pipeline. Si el daño total
+  de los perfilados es 0, `team_phys` y `team_magic` valen 0.
+- Perfil rival: los umbrales de `profile_rules` son mínimos inclusivos, `min_champions` cuenta
+  perfilados y `mixed` es "ninguno de `mixed.not`". Sin `profile_rules` o con menos perfilados
+  que el mínimo, el equipo no tiene perfil.
+- Ninguna regla aplica con menos de 3 aliados perfilados (sin contar el slot propio): con el
+  equipo vacío el comp fit es 0.
+- Balance de daño: estricto `> 0,7`; "share alto" del candidato es `≥ 0,5` del tipo que falta.
+- Frontline y CC: "top 30 %" es `tankiness` o `cc_score` `≥ 0,7`. El equipo no tiene
+  frontline si ningún perfilado llega a 0,7; su CC es bajo si la media de `cc_score` es
+  `< 0,5` (la mediana del rol), es decir `team_cc < 0,5 · perfilados`. `engage` cuenta en
+  cualquier lockeado, tenga perfil o no.
+- Bonus iniciales: balance de daño +1,5; frontline +1,5 en top, jungla y support y +0,75 en
+  otro rol; CC +1; `engage` +1. CC y `engage` suman por separado. Por ahora no hay
+  penalidades.
+- Curva de poder: pendiente. `duration_curves` no está en `StatsProvider`, así que no se
+  calcula `team_early` ni la razón `powerCurve`.
+- Las razones de perfil llevan el nivel de muestra `champ_role` del candidato; `addsEngage`
+  no lleva muestra (es un flag). Van de mayor a menor bonus y, a igual bonus, en el orden de
+  las reglas de arriba.
+
 ### 18.5 Score de ban
 
 Para el jugador en su rol:
