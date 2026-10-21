@@ -485,13 +485,15 @@ final class AppModel {
     let onboarding: OnboardingModel
     let overrides: OverridesModel
     let settingsModel: SettingsModel
+    let personal: any PersonalStore
     var settings: MitoSettings { get set }  // reenvía a settingsModel.value
 
     init(
         connection: any LCUConnection,
         lifecycle: @escaping @Sendable () async -> Void = {},
         settings: SettingsModel = SettingsModel(),
-        snapshots: SnapshotModel = SnapshotModel(), ...
+        snapshots: SnapshotModel = SnapshotModel(),
+        personal: any PersonalStore = UnavailablePersonalStore(), ...
     )
 
     var menuBarSymbol: String { gameflow.menuBarSymbol ?? connection.menuBarSymbol }
@@ -567,6 +569,12 @@ final class AppModel {
   Campeones se actualiza sola cuando abre un snapshot. La fuente es `SnapshotModel.Origin`:
   `MitoApp` usa `.live(underTest:)`, que bajo XCTest da `.none` (no abre nada, no descarga, no
   toca el caché real) y en la app da el caché + la descarga.
+- **Base personal compartida:** `AppModel.personal` es el único `PersonalStore` (§17, "Base
+  personal"); las features que leen o escriben datos personales lo reciben en su `init`
+  (hoy `ProfileModel`). `MitoApp` pasa `UnavailablePersonalStore.live(underTest:)`: en la app
+  da `PersonalDatabase()` (ruta por bundle ID, se abre en el primer uso) y bajo XCTest da
+  `UnavailablePersonalStore`, que no toca ningún archivo y falla cada llamada. Es también el
+  default de `AppModel`, para previews y tests.
 - En Debug, `-MitoSnapshotFile <ruta>` (argumento de lanzamiento o UserDefaults) abre ese
   `.sqlite` directamente y no descarga nada; sirve para correr la app sobre
   `fixtures/snapshot/emerald_plus.sqlite` o sobre la salida local de `mito-data`.
@@ -2726,7 +2734,19 @@ decide el importador (§13.3).
 ### 19.1 Fuentes
 
 1. **LCU match history** (sin API key): últimas partidas del usuario. Se sincroniza al
-   abrir Mito y después de cada partida (`EndOfGame`).
+   abrir Mito y después de cada partida (`EndOfGame`). `ProfileModel` sincroniza en cada
+   entrada a `connected` y en cada cambio de fase de gameflow hacia `EndOfGame`, una
+   sincronización a la vez (un disparo que llega a mitad de una deja una más pendiente).
+   Lee `currentSummoner` para la PUUID; sin ella no sincroniza. La PUUID solo arma la
+   decodificación en memoria: no se guarda ni se loguea. La primera sincronización de cada
+   ejecución pagina de a 20 hasta las últimas 100 partidas o hasta una página vacía; las
+   siguientes leen solo la primera página. De las partidas que todavía no están guardadas,
+   las incompletas (menos de 9 participantes más, o rol sin rival) piden la partida completa
+   con `matchHistoryGame`, de a una; si ese pedido falla queda la versión de la lista. Una
+   partida ya guardada no se vuelve a escribir, así que resincronizar no cambia nada. Se
+   guardan todas las colas; quien lee filtra. El estado (`idle`, `syncing`,
+   `synced(newGames:)`, `failed(.client | .storage)`) es el del último intento; una falla
+   no reintenta sola, espera al próximo disparo.
 2. **LCU champion mastery:** puntos y nivel por campeón.
 3. **Pool declarado:** el usuario marca sus campeones por rol (onboarding).
 4. **Opcional (v1.5):** historial profundo vía pipeline con la puuid del usuario (meses de

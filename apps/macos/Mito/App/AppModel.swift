@@ -22,6 +22,8 @@ final class AppModel {
     let onboarding: OnboardingModel
     let overrides: OverridesModel
     let settingsModel: SettingsModel
+    /// The one personal database; features that read or write it get it in their `init`.
+    let personal: any PersonalStore
 
     private let lifecycle: @Sendable () async -> Void
 
@@ -35,6 +37,7 @@ final class AppModel {
         lifecycle: @escaping @Sendable () async -> Void = {},
         settings: SettingsModel = SettingsModel(),
         snapshots: SnapshotModel = SnapshotModel(),
+        personal: any PersonalStore = UnavailablePersonalStore(),
         defaults: UserDefaults = .standard
     ) {
         connection = ConnectionModel(connection: lcu)
@@ -50,7 +53,8 @@ final class AppModel {
             stats: { snapshots.provider })
         champions = ChampionsModel(stats: { snapshots.provider }, gameData: clientData.gameData)
         analysis = AnalysisModel()
-        profile = ProfileModel(connection: lcu)
+        self.personal = personal
+        profile = ProfileModel(connection: lcu, store: personal)
         onboarding = OnboardingModel(connection: lcu)
         overrides = OverridesModel()
         self.lifecycle = lifecycle

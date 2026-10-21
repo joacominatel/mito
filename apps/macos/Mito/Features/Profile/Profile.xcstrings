@@ -1,7 +1,38 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
+    "Historial al día: %lld partidas nuevas" : {
+      "localizations" : {
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Historial al día: %lld partida nueva"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Historial al día: %lld partidas nuevas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "No se pudo guardar el historial" : {
+
+    },
+    "No se pudo leer el historial del cliente" : {
+
+    },
     "Sin historial" : {
+
+    },
+    "Sincronizando historial…" : {
 
     }
   },
