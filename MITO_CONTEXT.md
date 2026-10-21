@@ -707,7 +707,7 @@ func events() -> AsyncStream<LCUEvent> {
 
 | Método | Path | Uso |
 |---|---|---|
-| GET | `/lol-summoner/v1/current-summoner` | puuid, summonerId, gameName, tagLine, nivel |
+| GET | `/lol-summoner/v1/current-summoner` | `LCUEndpoint.currentSummoner` → `CurrentSummoner`: `puuid`, `summonerId`, `gameName`, `tagLine`, `summonerLevel`, todos opcionales; `riotID` da `gameName#tagLine` solo si ambos vienen no vacíos. Campos sin verificar todavía |
 | GET | `/lol-ranked/v1/current-ranked-stats` | Tier y división por cola (bracket del usuario) |
 | GET | `/lol-champion-mastery/v1/local-player/champion-mastery` | Maestría por campeón |
 | GET | `/lol-champions/v1/inventories/{summonerId}/champions-minimal` | Campeones que tenés |
