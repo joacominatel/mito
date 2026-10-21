@@ -163,9 +163,10 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P2-01 | Tolerant `GameflowPhase` and pure Mito state machine | lcu | `MitoKit/Sources/LCUKit/Gameflow/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Gameflow.swift`, `fixtures/lcu/cases/gameflow-lobby/**` | §11.1, §11.2 | P0-C | merged |
 | P2-02 | Ready check and auto-accept policy | lcu | `MitoKit/Sources/LCUKit/Matchmaking/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Matchmaking.swift`, `fixtures/lcu/cases/gameflow-lobby/ready-check-*` | §11.3 | P2-01 | merged |
 | P2-03 | Settings persistence in Application Support, named from the bundle id | store | `MitoKit/Sources/MitoStore/Settings/**` | §21 (intro) | P0-C | merged |
-| P2-04 | Gameflow feature: menu section, notification, "Partida" settings tab | gameflow | `Mito/Features/Gameflow/**` | §21.2, §22.5 | P2-01, P2-02, P2-03 | todo |
+| P2-04 | Gameflow feature: menu section, notification, "Partida" settings tab | gameflow | `Mito/Features/Gameflow/**` | §21.2, §22.5 | P2-01, P2-02, P2-07, P3-05 | todo |
 | P2-05 | `tools/lcu-mock` with synthetic test scenarios; the recorded ready-check scenario follows Q3 | tools-lcu-mock | `tools/lcu-mock/**` | §23.1 | P1-07 | in progress |
 | P2-06 | Debug lockfile override (`-MitoLCULockfilePath`) on `LCUClient` and in `AppModel`, to point discovery at `tools/lcu-mock` | lcu + shell (serial) | `MitoKit/Sources/LCUKit/Connection/**`, `Mito/App/**` | §9.3, §10.2 | P1-08, P2-05 | todo |
+| P2-07 | Load and save `MitoSettings` through `SettingsStore` in `AppModel`; give feature models read access to the current settings | shell (serial) | `Mito/App/**`, `Mito/MitoApp.swift`, `MitoTests/App/**` | §9.3, §21 | P2-03 | todo |
 
 ## P3 — Live champ select
 
@@ -174,7 +175,8 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P3-01 | Tolerant champ-select session decoding | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Session/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift`, `fixtures/lcu/cases/champ-select/**` | §12.1, lcu-endpoints: Champ select | P0-C | merged |
 | P3-02 | Session → `DraftContext` mapping | lcu | `MitoKit/Sources/LCUKit/ChampSelect/Mapping/**` | §12.2 | P3-01 | merged |
 | P3-03 | Enemy role inference (§12.3) | engine | `MitoKit/Sources/MitoEngine/RoleInference/**` | §12.3 | P0-C | merged |
-| P3-04 | Champ-select view and model with 150 ms debounce | champ-select | `Mito/Features/ChampSelect/**` | §12.4, §20.1 | P3-02 | todo |
+| P3-05 | Typed gameflow-session (queue) and pickable/bannable champion endpoints | lcu | `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Gameflow.swift`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift`, `MitoKit/Sources/LCUKit/Gameflow/Session/**`, `fixtures/lcu/cases/gameflow-lobby/session-*`, `fixtures/lcu/cases/champ-select/pickable-*` | §10.6, §11.1 | P3-01 | in progress |
+| P3-04 | Champ-select view and model with 150 ms debounce | champ-select | `Mito/Features/ChampSelect/**` | §12.4, §20.1 | P3-02, P3-05, P2-07 | todo |
 
 ## P4 — Importer with fixed data
 
@@ -187,7 +189,7 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P4-04 | Item set importer that keeps the user's sets | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/ItemSets/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ItemSets.swift`, `fixtures/lcu/cases/item-sets/**` | §13.4, lcu-endpoints: Item sets | P4-00 | merged |
 | P4-05 | Summoner spell importer | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/Spells/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift` | §13.3 | P0-C | merged |
 | P4-06 | `LoadoutImporter` and `ImportReport` | import | `MitoKit/Sources/MitoImport/*.swift` | §13.5 | P4-03, P4-04, P4-05 | merged |
-| P4-07 | Import feature: trigger on lock, toast, "Importación" tab, hand-written builds for 5 champions | import-ui | `Mito/Features/Import/**` | §13.1, §21.4 | P4-06, P3-02 | todo |
+| P4-07 | Import feature: trigger on lock, toast, "Importación" tab, hand-written builds for 5 champions | import-ui | `Mito/Features/Import/**` | §13.1, §21.4 | P4-06, P3-02, P3-05, P2-07 | todo |
 | P4-08 | Data Dragon transport for the icon fallback (HTTPS to `ddragon.leagueoflegends.com` only) | store | `MitoKit/Sources/MitoStore/DataDragon/**` | §9.2, §16.1 | P4-02 | merged |
 
 ## P5 — Pipeline MVP
