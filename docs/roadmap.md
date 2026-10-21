@@ -132,7 +132,7 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | P1-03 | WAMP message codec | lcu | `MitoKit/Sources/LCUKit/Events/Codec/**` | §10.5 | P0-C | merged |
 | P1-04 | Event stream over WebSocket, one stream per subscriber | lcu | `MitoKit/Sources/LCUKit/Events/Stream/**` | §10.5 | P1-02, P1-03 | todo |
 | P1-05 | Connection lifecycle; `LCUClient` conforms to `LCUConnection` | lcu | `MitoKit/Sources/LCUKit/Connection/**` | §10.2 | P1-01, P1-04 | todo |
-| P1-06 | Connection menu section and `ConnectionModel` against the fake | connection | `Mito/Features/Connection/**` | §22.4 | P0-C | ready |
+| P1-06 | Connection menu section and `ConnectionModel` against the fake | connection | `Mito/Features/Connection/**` | §22.4 | P0-C | in progress |
 | P1-07 | `tools/lcu-recorder` with anonymization (the CEO runs it against the real client) | tools-lcu-recorder | `tools/lcu-recorder/**` | §23.2 | P0-C | in progress |
 | P1-08 | Wire the live `LCUClient` into `AppModel` | shell (serial) | `Mito/App/**`, `Mito/MitoApp.swift` | §9.3 | P1-05, P1-06 | todo |
 
