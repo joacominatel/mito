@@ -36,4 +36,4 @@ apps/macos/Config/Local.xcconfig
 *.dmg
 *.xcarchive
 *.xcresult
-build/
+/build/
