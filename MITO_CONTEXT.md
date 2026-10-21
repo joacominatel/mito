@@ -2720,6 +2720,30 @@ comfort(c, r) = 0,6 · min(1, my_games / 30) + 0,4 · min(1, recency / 5)
 Escalado a puntos de winrate: un comfort máximo vale unos +3 puntos, ajustable. Es
 consistente con la evidencia de que jugar campeones con experiencia mejora el winrate.
 
+Decisiones del score personal (`PersonalScoring` en `MitoEngine/Personal/`):
+
+- Cuentan solo las partidas propias con ese campeón y ese rol; las que no tienen rol (ARAM)
+  no cuentan para ningún rol. Qué colas entran lo decide quien llama.
+- `wr_s(c, r)` es el `wr_smoothed(champ, role)` del snapshot (§18.1). Sin fila de
+  `champ_role_stats` es el `p0` de `meta.priors`; sin snapshot abierto, 0,5.
+- `recency`: una partida con fecha posterior a "ahora" (reloj desfasado) cuenta como jugada
+  ahora, así ninguna vale más de 1.
+- `mastery_norm`: `max_puntos` es el máximo entre los campeones del usuario; si es 0, la
+  maestría normalizada es 0.
+- "Mi KDA" y "mi CS/min" son agregados, con la misma forma que el promedio:
+  `(Σkills + Σassists) / max(1, Σdeaths)` y `Σcs / Σminutos`. Un cociente sin datos de un
+  lado (sin partidas propias, sin fila, `minutes` o el promedio en 0) vale 1: "como el
+  promedio".
+- `in_pool` vale 1 si el campeón está en el pool de ese rol y ningún override de ese
+  (campeón, rol) lo excluye; la exclusión gana sobre el pool (§17).
+- Rendimiento relativo = `clamp(((kda_vs_avg − 1) + (cs_vs_avg − 1)) / 2, −1, 1)`: 0 es
+  jugar como el promedio.
+- Sin partidas propias ni snapshot, todo componente está definido: `my_wr_smoothed = wr_s`,
+  `recency = 0`, cocientes en 1, rendimiento relativo 0. Nunca hay NaN.
+- El escalado no entra en la fórmula: `personal` se devuelve crudo, con cada componente, y
+  `winratePoints(maxComfortWorth:)` lo multiplica por `maxComfortWorth / 0,3`, de modo que
+  el término de comfort al máximo (0,3 · 1) vale `maxComfortWorth`. Por defecto 0,03.
+
 ### 19.4 Insights personales (para la UI)
 
 - "Tu Ahri vs equipos de mucho AD: 7 partidas, 2 victorias. Considerá Zhonya antes". El
