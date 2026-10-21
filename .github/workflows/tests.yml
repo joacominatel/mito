@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: tests-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   mitokit:
@@ -20,3 +20,23 @@ jobs:
       - run: xcodebuild -version && swift --version
       - name: Run package tests
         run: swift test --package-path apps/macos/MitoKit --enable-code-coverage -Xswiftc -warnings-as-errors
+
+  app:
+    name: App
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - run: xcodebuild -version
+      - name: Build and test the app
+        run: |
+          set -o pipefail
+          xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' \
+            -resultBundlePath "$RUNNER_TEMP/Mito.xcresult" \
+            test CODE_SIGNING_ALLOWED=NO
+      - name: Upload result bundle
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Mito-xcresult
+          path: ${{ runner.temp }}/Mito.xcresult
