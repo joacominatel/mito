@@ -103,17 +103,4 @@ struct AppModelTests {
         #expect(app.shouldOpenWindowForChampSelect() == enabled)
         #expect(!app.shouldOpenWindowForChampSelect())
     }
-
-    #if DEBUG
-        @Test func readsTheLockfileOverrideFromDefaults() throws {
-            let suite = "MitoTests.\(UUID().uuidString)"
-            let defaults = try #require(UserDefaults(suiteName: suite))
-            defer { defaults.removePersistentDomain(forName: suite) }
-            defaults.set("/tmp/lockfile", forKey: AppModel.lockfileOverrideKey)
-
-            let app = AppModel(connection: ScriptedLCUConnection(script: []), defaults: defaults)
-
-            #expect(app.lockfileOverridePath == "/tmp/lockfile")
-        }
-    #endif
 }

@@ -10,6 +10,7 @@ struct LCUDiscovery: Sendable {
         subsystem: Bundle.main.bundleIdentifier ?? "com.joacominatel.mito", category: "LCUKit")
 
     let lockfileURL: URL
+    private let searchesProcesses: Bool
     private let commandLines: @Sendable () async -> [String]
     private let readFile: @Sendable (URL) async -> String?
 
@@ -20,20 +21,27 @@ struct LCUDiscovery: Sendable {
     ) {
         self.lockfileURL = URL(filePath: installPath ?? Self.defaultInstallPath)
             .appending(path: "Contents/LoL/lockfile")
+        self.searchesProcesses = true
+        self.commandLines = commandLines
+        self.readFile = readFile
+    }
+
+    /// Reads only `lockfilePath` and never lists processes, so a running client cannot win
+    /// over `tools/lcu-mock` (§10.2).
+    init(
+        lockfilePath: String,
+        commandLines: @escaping @Sendable () async -> [String] = runningCommandLines,
+        readFile: @escaping @Sendable (URL) async -> String? = contents(of:)
+    ) {
+        self.lockfileURL = URL(filePath: lockfilePath)
+        self.searchesProcesses = false
         self.commandLines = commandLines
         self.readFile = readFile
     }
 
     /// `nil` when no client is running.
     func discover() async -> LCUCredentials? {
-        for line in await commandLines() {
-            if let found = ProcessArguments.credentials(fromCommandLine: line) {
-                let port = found.port
-                Self.logger.info(
-                    "Client found in process arguments, port \(port, privacy: .public)")
-                return found
-            }
-        }
+        if searchesProcesses, let found = await fromProcessArguments() { return found }
         guard let contents = await readFile(lockfileURL) else { return nil }
         guard let found = Lockfile.credentials(fromContents: contents) else {
             Self.logger.notice("Lockfile present but unreadable as credentials")
@@ -42,6 +50,18 @@ struct LCUDiscovery: Sendable {
         let port = found.port
         Self.logger.info("Client found in lockfile, port \(port, privacy: .public)")
         return found
+    }
+
+    private func fromProcessArguments() async -> LCUCredentials? {
+        for line in await commandLines() {
+            if let found = ProcessArguments.credentials(fromCommandLine: line) {
+                let port = found.port
+                Self.logger.info(
+                    "Client found in process arguments, port \(port, privacy: .public)")
+                return found
+            }
+        }
+        return nil
     }
 
     static func port(_ text: String) -> Int? {

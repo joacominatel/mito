@@ -31,8 +31,21 @@ Try it: `curl -k -u riot:$(cut -d: -f4 .run/lockfile) https://127.0.0.1:$(cut -d
 
 ## Pointing the app at it
 
-Once P2-06 lands, a Debug-only flag makes Mito's discovery read this lockfile instead of the
-client's. The app already accepts any certificate on `127.0.0.1` (§10.3), so nothing else changes.
+With the mock running, launch a Debug build from the repository root with the lockfile's
+absolute path:
+
+```sh
+open build/DerivedData/Build/Products/Debug/Mito.app --args -MitoLCULockfilePath "$PWD/tools/lcu-mock/.run/lockfile"
+```
+
+Discovery then reads only that lockfile and never the running processes, so an open League
+client cannot win over the mock (`MITO_CONTEXT.md` §10.2). Release builds ignore the flag. The
+app already accepts any certificate on `127.0.0.1` (§10.3), so nothing else changes. Quitting
+the mock removes the lockfile, which the app sees as the client going away.
+
+`open` passes `--args` only when Mito is not already running, so quit it first. At
+`--speed 4x` the scenario's own accept lands as Mito's default 2 s auto-accept delay ends, so
+Mito usually withdraws; use `--speed 1x` to see its `POST …/ready-check/accept` arrive.
 
 ## Limits
 

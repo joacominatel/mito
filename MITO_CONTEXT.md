@@ -520,10 +520,12 @@ final class AppModel {
 - **Conexión inyectada** como `any LCUConnection`: el `LCUClient` real en la app, un fake en
   los tests. `DisconnectedLCUConnection` (siempre `.searching`, `send` tira `.notConnected`)
   queda solo para las previews.
-- **Ciclo de vida inyectado** como `lifecycle`: `MitoApp` crea `LCUClient()` (ruta de
-  instalación por defecto, §10.1) y pasa `{ await client.run() }`. `start()` lo corre en el
-  mismo task group que los slots, así que vive lo que vive `start()` y cancelarlo desarma la
-  conexión (§10.2). En tests y previews el default `{}` termina al instante.
+- **Ciclo de vida inyectado** como `lifecycle`: `MitoApp` crea el cliente con
+  `AppModel.liveClient()` (ruta de instalación por defecto, §10.1, o el override de Debug de
+  abajo) y pasa `AppModel.lifecycle(running:underTest:)`, que corre `client.run()` salvo bajo
+  XCTest, donde termina al instante y nada se conecta. `start()` lo corre en el mismo task group
+  que los slots, así que vive lo que vive `start()` y cancelarlo desarma la conexión (§10.2). En
+  tests y previews el default `{}` termina al instante.
 - Las vistas leen `@Environment(AppModel.self)` y toman el slot que necesitan; los call sites
   del shell no cambian cuando una feature crece.
 - **Settings** (§21): `SettingsModel` (en `App/`) tiene el `MitoSettings` vivo. `MitoApp` le
@@ -588,9 +590,12 @@ final class AppModel {
 - En Debug, `-MitoSnapshotFile <ruta>` (argumento de lanzamiento o UserDefaults) abre ese
   `.sqlite` directamente y no descarga nada; sirve para correr la app sobre
   `fixtures/snapshot/emerald_plus.sqlite` o sobre la salida local de `mito-data`.
-- En Debug, `-MitoLCULockfilePath <ruta>` (argumento de lanzamiento o UserDefaults) va a
-  apuntar el descubrimiento a `tools/lcu-mock`; por ahora `AppModel` solo lo guarda y
-  `LCUClient` no lo recibe (P2-06).
+- En Debug, `-MitoLCULockfilePath <ruta absoluta>` (argumento de lanzamiento o UserDefaults)
+  hace que `AppModel.liveClient()` arme `LCUClient(lockfilePath:)`: el descubrimiento lee solo
+  ese lockfile (§10.2), el que escribe `tools/lcu-mock` (§23.1). Release no lee la clave:
+  `AppModel.lockfileOverride(in:)` da siempre `nil` y la clave existe solo bajo `#if DEBUG`; un
+  test de MitoTests verifica que toda mención de la clave en `Mito/` esté dentro de un
+  `#if DEBUG`.
 
 ### 9.4 Principios de código
 
@@ -675,6 +680,12 @@ toda forma textual.
   proceso no da credenciales, `nil` si no hay cliente. No lanza errores: si `ps` falla se
   loguea y cuenta como "no encontrado". La cadencia y el backoff son del ciclo de vida de la
   conexión.
+- **Override de lockfile** (`LCUClient(lockfilePath:)`, para `tools/lcu-mock`): el
+  descubrimiento lee **solo** ese archivo y no lista procesos, así un cliente real abierto no le
+  gana al mock. Si el archivo no está, el intento da "no encontrado" y la búsqueda sigue con el
+  backoff de siempre; verificación, pérdida y TLS (§10.3) no cambian. El mock sirve
+  `current-summoner` y borra el lockfile al salir, así que cerrarlo es una pérdida normal. La
+  app lo usa solo en Debug (§9.3).
 El ciclo de vida es de `LCUClient` (`LCUKit/Connection/`, actor público), que implementa
 `LCUConnection` y lo corre `run()` hasta que se cancela la tarea que lo llama:
 
@@ -719,6 +730,7 @@ Contrato hacia las features (§9.3):
 ```swift
 public actor LCUClient: LCUConnection {
     public init(installPath: String? = nil)
+    public init(lockfilePath: String)
     public func run() async
     public func send<R: Decodable & Sendable>(_ endpoint: LCUEndpoint<R>) async throws(LCUError) -> R
     public nonisolated func events(_ topics: Set<LCUTopic>) -> AsyncStream<LCUEvent>
@@ -3321,9 +3333,10 @@ uv run lcu-mock --scenario ../../fixtures/lcu/ready-check --speed 4x
 ```
 
 `--scenario` es un directorio en formato v0 (`fixtures/lcu/README.md`), grabado o sintético.
-La reproducción arranca con la primera suscripción WAMP. La app lo encuentra con el flag de
-Debug `-MitoLCULockfilePath` (P2-06); no hace falta aceptar otra CA porque la app ya acepta el
-certificado solo para `127.0.0.1` (§10.3). El certificado del mock se genera en cada arranque
+La reproducción arranca con la primera suscripción WAMP. La app de Debug lo encuentra con
+`-MitoLCULockfilePath <ruta absoluta del lockfile>` (§9.3, §10.2) y lee solo ese lockfile; no
+hace falta aceptar otra CA porque la app ya acepta el certificado solo para `127.0.0.1`
+(§10.3). El certificado del mock se genera en cada arranque
 y nunca se guarda.
 
 ### 23.2 Recorder (`tools/lcu-recorder`)

@@ -73,6 +73,35 @@ struct LCUDiscoveryTests {
                 == "/Volumes/Games/LoL.app/Contents/LoL/lockfile")
     }
 
+    @Test func anOverrideReadsOnlyItsLockfileEvenWhenAProcessWouldMatch() async {
+        let listed = Mutex(false)
+        let requested = Mutex<URL?>(nil)
+        let discovery = LCUDiscovery(
+            lockfilePath: "/tmp/lcu-mock/lockfile",
+            commandLines: {
+                listed.withLock { $0 = true }
+                return [Self.processLine]
+            },
+            readFile: { url in
+                requested.withLock { $0 = url }
+                return Self.lockfile
+            })
+
+        let found = await discovery.discover()
+
+        #expect(found == LCUCredentials(port: 61_000, token: "FromLockfile"))
+        #expect(requested.withLock { $0 }?.path(percentEncoded: false) == "/tmp/lcu-mock/lockfile")
+        #expect(!listed.withLock { $0 })
+    }
+
+    @Test func aMissingOverrideLockfileIsNotFoundEvenWhenAProcessWouldMatch() async {
+        let discovery = LCUDiscovery(
+            lockfilePath: "/tmp/lcu-mock/lockfile",
+            commandLines: { [Self.processLine] },
+            readFile: { _ in nil })
+        #expect(await discovery.discover() == nil)
+    }
+
     @Test func discoveredCredentialsNeverRenderTheToken() async throws {
         let found = try #require(
             await discovery(processes: [Self.processLine], lockfile: nil).discover())

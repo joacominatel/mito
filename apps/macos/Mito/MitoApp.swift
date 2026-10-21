@@ -9,13 +9,13 @@ struct MitoApp: App {
     @State private var app: AppModel
 
     init() {
-        let client = LCUClient()
+        let client = AppModel.liveClient()
         // MitoTests run inside this app; they must never reach a live League client, the real
         // settings file, the snapshot cache and its download, or the personal database.
         let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         let app = AppModel(
             connection: client,
-            lifecycle: { @Sendable in if !underTest { await client.run() } },
+            lifecycle: AppModel.lifecycle(running: client, underTest: underTest),
             settings: SettingsModel(persistence: underTest ? nil : SettingsStore()),
             snapshots: SnapshotModel(origin: .live(underTest: underTest)),
             personal: UnavailablePersonalStore.live(underTest: underTest))

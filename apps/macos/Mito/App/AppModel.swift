@@ -7,7 +7,9 @@ import Observation
 /// `run()`; there is no central event loop.
 @Observable
 final class AppModel {
-    static let lockfileOverrideKey = "MitoLCULockfilePath"
+    #if DEBUG
+        static let lockfileOverrideKey = "MitoLCULockfilePath"
+    #endif
 
     let connection: ConnectionModel
     let clientData: ClientDataModel
@@ -27,18 +29,12 @@ final class AppModel {
 
     private let lifecycle: @Sendable () async -> Void
 
-    #if DEBUG
-        /// Set with `-MitoLCULockfilePath <path>` to point discovery at `tools/lcu-mock`.
-        let lockfileOverridePath: String?
-    #endif
-
     init(
         connection lcu: any LCUConnection,
         lifecycle: @escaping @Sendable () async -> Void = {},
         settings: SettingsModel = SettingsModel(),
         snapshots: SnapshotModel = SnapshotModel(),
-        personal: any PersonalStore = UnavailablePersonalStore(),
-        defaults: UserDefaults = .standard
+        personal: any PersonalStore = UnavailablePersonalStore()
     ) {
         connection = ConnectionModel(connection: lcu)
         let clientData = ClientDataModel(connection: lcu)
@@ -71,9 +67,27 @@ final class AppModel {
         overrides = OverridesModel(store: personal)
         self.lifecycle = lifecycle
         settingsModel = settings
+    }
+
+    /// The client `MitoApp` runs. In Debug, `-MitoLCULockfilePath <path>` makes it discover only
+    /// through that lockfile, the one `tools/lcu-mock` writes (§10.2).
+    static func liveClient(defaults: UserDefaults = .standard) -> LCUClient {
+        lockfileOverride(in: defaults).map(LCUClient.init(lockfilePath:)) ?? LCUClient()
+    }
+
+    /// Always `nil` in Release, which never reads the key.
+    static func lockfileOverride(in defaults: UserDefaults) -> String? {
         #if DEBUG
-            lockfileOverridePath = defaults.string(forKey: Self.lockfileOverrideKey)
+            defaults.string(forKey: lockfileOverrideKey)
+        #else
+            nil
         #endif
+    }
+
+    /// Under XCTest the client never runs, so tests never reach a client or the mock.
+    static func lifecycle(running client: LCUClient, underTest: Bool) -> @Sendable () async -> Void
+    {
+        { @Sendable in if !underTest { await client.run() } }
     }
 
     /// Settings tabs bind here; every write is saved (§21).

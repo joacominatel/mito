@@ -41,15 +41,30 @@ public actor LCUClient: LCUConnection {
 
     /// `installPath` defaults to `/Applications/League of Legends.app` (§10.1).
     public init(installPath: String? = nil) {
-        let discovery = LCUDiscovery(installPath: installPath)
+        self.init(discovery: LCUDiscovery(installPath: installPath))
+    }
+
+    /// Discovers only through this lockfile, never process arguments: for `tools/lcu-mock`
+    /// (§10.2).
+    public init(lockfilePath: String) {
+        self.init(discovery: LCUDiscovery(lockfilePath: lockfilePath))
+    }
+
+    init(
+        discovery: LCUDiscovery,
+        makeREST: @escaping @Sendable (LCUCredentials) -> any LCURequestSending = {
+            LCURESTClient(credentials: $0)
+        },
+        makeSocket: @escaping @Sendable (LCUCredentials) throws(LCUError) -> any WAMPSocket = {
+            credentials throws(LCUError) in try URLSessionWAMPSocket(credentials: credentials)
+        },
+        sleep: @escaping @Sendable (Duration) async throws -> Void = {
+            try await Task.sleep(for: $0)
+        }
+    ) {
         self.init(
-            discover: { await discovery.discover() },
-            makeREST: { LCURESTClient(credentials: $0) },
-            makeSocket: { credentials throws(LCUError) in
-                try URLSessionWAMPSocket(credentials: credentials)
-            },
-            sleep: { try await Task.sleep(for: $0) }
-        )
+            discover: { await discovery.discover() }, makeREST: makeREST, makeSocket: makeSocket,
+            sleep: sleep)
     }
 
     init(
