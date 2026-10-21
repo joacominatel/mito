@@ -2942,6 +2942,31 @@ loguea. `AppModel` lo carga al arrancar y guarda cada cambio con debounce (§9.3
 | Ruta de instalación de LoL | path | auto |
 | Datos Diamante+ (capa sobre la base Esmeralda+) | auto (según tu elo) / on / off | auto |
 
+La pestaña "General" (`Features/Onboarding/OnboardingSettingsTab`, modelo `OnboardingModel`)
+es un `Form` agrupado en cuatro secciones:
+
+- **General**: toggles, idioma y ruta con bindings a `app.settings.general`. La ruta se elige
+  con un selector de archivos y "Detectar sola" la vuelve a `nil`. Por ahora solo "Mostrar
+  ventana al entrar en champ select" tiene efecto (§20.1); el resto se guarda y el pie de la
+  sección lo dice.
+- **Pool de campeones** (§19.1.3): un selector de rol y la lista ordenada del rol, que se lee
+  y se guarda con `PersonalStore.pool(for:)` / `setPool(_:for:)`. El primero es el principal.
+  Cada fila tiene subir, bajar y quitar (con etiquetas de VoiceOver); cada cambio guarda el
+  pool entero del rol y, si falla, se deshace y se avisa. Si el pool no se puede leer, la
+  edición se apaga. "Agregar campeón…" abre un buscador sobre los campeones del cliente
+  (`GET /lol-game-data/assets/v1/champion-summary.json`, sin el `-1` "None"), sin los que ya
+  están en el pool; sin cliente se deshabilita y el pie explica por qué.
+- **Flash**: el mismo `app.settings.importing.flashPosition` de §21.4, más una sugerencia
+  leída del historial guardado: de las últimas 20 partidas (`PersonalStore.matches`), cuántas
+  tenían Flash (4) en D (`spells.first`) y cuántas en F. Las partidas sin Flash no cuentan.
+  Se muestra "Detectado: F en 18 de 20 partidas"; con empate o sin partidas con Flash no hay
+  mayoría. `OnboardingModel.resolvedFlashSlot(_:)` resuelve `auto` a la mayoría (o a nada);
+  el importador todavía no lo usa (§13.3).
+- **Datos**: el picker de "Datos Diamante+" (`diamondPlusData`). La capa todavía no se
+  descarga.
+
+No hay flujo de primer arranque: todo se configura desde Settings.
+
 ### 21.2 Partida
 
 | Setting | Tipo | Default |

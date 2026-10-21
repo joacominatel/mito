@@ -1,8 +1,152 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Próximamente" : {
-
+    "Abrir Mito al iniciar sesión" : {
+      "comment" : "General setting: launch Mito at login."
+    },
+    "Abrí el cliente de League para elegir campeones: la lista sale de sus datos." : {
+      "comment" : "Champion pool footer without a client: the champion list comes from the League client."
+    },
+    "Activado" : {
+      "comment" : "Diamond+ data option: always on."
+    },
+    "Agregar %@" : {
+      "comment" : "VoiceOver label: add this champion to the pool. The argument is the champion name."
+    },
+    "Agregar campeón…" : {
+      "comment" : "Button: add a champion to the role's pool."
+    },
+    "Automática" : {
+      "comment" : "Install path value or Flash position option: detected automatically."
+    },
+    "Automático (según tu elo)" : {
+      "comment" : "Diamond+ data option: on when the user's own rank is Diamond or above."
+    },
+    "Bajar %@" : {
+      "comment" : "VoiceOver label: move this champion down in the pool. The argument is the champion name."
+    },
+    "Buscar campeón" : {
+      "comment" : "Search field placeholder in the add-champion popover."
+    },
+    "Campeón %lld" : {
+      "comment" : "Fallback champion name when the client's data has no name for this ID."
+    },
+    "Con «Automática», Mito usa la posición detectada en tus últimas %lld partidas." : {
+      "comment" : "Flash section footer: the automatic option follows the slot detected in the most recent games."
+    },
+    "D" : {
+      "comment" : "Flash position option: the D key (first summoner spell slot)."
+    },
+    "Datos" : {
+      "comment" : "Settings section header: statistics data."
+    },
+    "Datos Diamante+" : {
+      "comment" : "Setting: use the Diamond+ stats layer."
+    },
+    "Del sistema" : {
+      "comment" : "Language option: follow the macOS language."
+    },
+    "Desactivado" : {
+      "comment" : "Diamond+ data option: always off."
+    },
+    "Detectado: D en %lld de %lld partidas" : {
+      "comment" : "Flash detection result: Flash was on D in the first number of the second number of recent games with Flash."
+    },
+    "Detectado: F en %lld de %lld partidas" : {
+      "comment" : "Flash detection result: Flash was on F in the first number of the second number of recent games with Flash."
+    },
+    "Detectar sola" : {
+      "comment" : "Button: forget the chosen install path and detect it automatically."
+    },
+    "El primero de cada rol es tu principal." : {
+      "comment" : "Champion pool footer: the first champion of each role is the main."
+    },
+    "Elegir…" : {
+      "comment" : "Button: choose the League of Legends install location."
+    },
+    "Empate: D y F en %lld partidas cada una" : {
+      "comment" : "Flash detection result: Flash was on D and on F in the same number of games."
+    },
+    "F" : {
+      "comment" : "Flash position option: the F key (second summoner spell slot)."
+    },
+    "Flash" : {
+      "comment" : "Settings section header: the Flash summoner spell."
+    },
+    "General" : {
+      "comment" : "Settings section header: general app behavior."
+    },
+    "Idioma" : {
+      "comment" : "General setting: the app language."
+    },
+    "Jungla" : {
+      "comment" : "Role name: jungle."
+    },
+    "Leyendo tus partidas…" : {
+      "comment" : "Flash detection status: reading the stored match history."
+    },
+    "Mid" : {
+      "comment" : "Role name: middle lane."
+    },
+    "Mostrar ventana al entrar en champ select" : {
+      "comment" : "General setting: bring the main window up when champ select starts."
+    },
+    "No se pudo guardar el último cambio." : {
+      "comment" : "Champion pool error: the last change was not saved and was undone."
+    },
+    "No se pudo leer tu historial" : {
+      "comment" : "Flash detection status: the stored match history could not be read."
+    },
+    "No se pudo leer tu pool." : {
+      "comment" : "Champion pool error: the pool could not be read from the personal database."
+    },
+    "Pool de campeones" : {
+      "comment" : "Settings section header: the champions the user plays per role."
+    },
+    "Por ahora solo «Mostrar ventana al entrar en champ select» tiene efecto; el resto se guarda y llega más adelante." : {
+      "comment" : "General section footer: only one of these settings works today; the rest are saved for later."
+    },
+    "Posición de Flash" : {
+      "comment" : "Setting: which key Flash goes on."
+    },
+    "Principal" : {
+      "comment" : "Badge on the first champion of a role's pool: the main pick."
+    },
+    "Quitar %@" : {
+      "comment" : "VoiceOver label: remove this champion from the pool. The argument is the champion name."
+    },
+    "Rol" : {
+      "comment" : "Champion pool role picker label."
+    },
+    "Ruta de instalación de LoL" : {
+      "comment" : "General setting: where League of Legends is installed."
+    },
+    "Sin partidas con Flash en tu historial" : {
+      "comment" : "Flash detection result: no recent game used Flash."
+    },
+    "Soporte" : {
+      "comment" : "Role name: support."
+    },
+    "Subir %@" : {
+      "comment" : "VoiceOver label: move this champion up in the pool. The argument is the champion name."
+    },
+    "Tirador" : {
+      "comment" : "Role name: bottom lane (ADC)."
+    },
+    "Todavía no elegiste campeones para este rol." : {
+      "comment" : "Champion pool empty state for the selected role."
+    },
+    "Top" : {
+      "comment" : "Role name: top lane."
+    },
+    "Una capa sobre la base Esmeralda+. La descarga llega más adelante; por ahora Mito usa solo Esmeralda+." : {
+      "comment" : "Data section footer: the Diamond+ layer is not downloaded yet."
+    },
+    "Ícono en el Dock" : {
+      "comment" : "General setting: show the Dock icon."
+    },
+    "Ícono en la barra de menú" : {
+      "comment" : "General setting: show the menu bar icon."
     }
   },
   "version" : "1.0"
