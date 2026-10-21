@@ -799,6 +799,7 @@ final class LCUEventStream: Sendable {
 | Método | Path | Uso |
 |---|---|---|
 | GET | `/lol-summoner/v1/current-summoner` | `LCUEndpoint.currentSummoner` → `CurrentSummoner`: `puuid`, `summonerId`, `gameName`, `tagLine`, `summonerLevel`, todos opcionales; `riotID` da `gameName#tagLine` solo si ambos vienen no vacíos. Campos sin verificar todavía |
+| GET | `/lol-patch/v1/game-version` | `LCUEndpoint.gameVersion` → `GameVersion`: el body es un string JSON pelado (`"16.21.723.1234"`); `rawValue` es la versión completa recortada (clave del caché de íconos, solo letras ASCII, dígitos y `._-`) y `patch` son los dos primeros componentes (`16.21`), la misma numeración que `clientPatch` de los fixtures y el snapshot. Un body que no es string, con menos de dos componentes numéricos o con otros caracteres es `LCUError.decoding` |
 | GET | `/lol-ranked/v1/current-ranked-stats` | Tier y división por cola (bracket del usuario) |
 | GET | `/lol-champion-mastery/v1/local-player/champion-mastery` | Maestría por campeón |
 | GET | `/lol-champions/v1/inventories/{summonerId}/champions-minimal` | Campeones que tenés |
