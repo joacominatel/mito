@@ -145,6 +145,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | --- | --- | --- | --- | --- | --- | --- |
 | FX-01 | MitoKit audit fixes: cancelled accepter, typeless perk rows, Data Dragon host case | lcu + store | `LCUKit/Matchmaking/AutoAccepter.swift`, `LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `MitoStore/DataDragon/DataDragonClient.swift` and their tests | — | — | merged |
 | FX-02 | Personal contract gaps: `ChampionOverride.fixedItems`; `my_match_participants` keyed by `(game_id, slot)` | core + docs (serial) | `MitoCore/Personal/ChampionOverride.swift`, `MITO_CONTEXT.md` §17 | §17 | P8-00 | merged |
+| FX-03 | Hand the personal store to `OnboardingModel` and `OverridesModel` so P8-05 and P8-08 run in parallel without shell edits | shell (serial) | `Mito/App/AppModel.swift`, `Mito/Features/{Onboarding,Overrides}/*Model.swift` | — | P8-04 | in progress |
 
 ## P1 — Connection
 
@@ -246,10 +247,10 @@ Can overlap Stage 6.
 | P8-02 | LCU match history and mastery models | lcu | `MitoKit/Sources/LCUKit/History/**` | lcu-endpoints: History, Session | P8-00 | merged |
 | P8-03 | Personal score | engine | `MitoKit/Sources/MitoEngine/Personal/**` | §19.2, §19.3 | P8-00 | merged |
 | P8-04 | History sync: `PersonalDatabase` slot in `AppModel`, sync on connect and after `EndOfGame` (list + per-game detail), into `PersonalStore` | profile + shell (serial) | `Mito/Features/Profile/**`, `MitoTests/Features/Profile/**`, `Mito/App/**`, `Mito/MitoApp.swift`, `MitoTests/App/**` | §19.1, §9.3 | P8-01, P8-02 | merged |
-| P8-05 | Onboarding: pool by role, Flash position, Diamond+ layer | onboarding | `Mito/Features/Onboarding/**` | — | P8-01 | todo |
-| P8-06 | "Mi perfil" and insights | profile | `Mito/Features/Profile/**` | §19.4 | P8-04, P8-03 | todo |
+| P8-05 | Onboarding: pool by role, Flash position, Diamond+ layer | onboarding | `Mito/Features/Onboarding/**` | — | P8-01 | in progress |
+| P8-06 | "Mi perfil" and insights | profile | `Mito/Features/Profile/**` | §19.4 | P8-04, P8-03 | in progress |
 | P8-07 | Meta ↔ Comfort slider; decide whether the §19.3 points scaling applies to the whole personal total or only to comfort/pool/performance (the winrate edge is already in points) | engine | `MitoKit/Sources/MitoEngine/Pick/**` | §18.3 | P7-04, P8-03 | todo |
-| P8-08 | Per-champion overrides (§21.5) | overrides | `Mito/Features/Overrides/**` | §21.5 | P8-01 | todo |
+| P8-08 | Per-champion overrides (§21.5) | overrides | `Mito/Features/Overrides/**` | §21.5 | P8-01 | in progress |
 
 ## P9 — Full pre-game analysis
 
