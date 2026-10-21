@@ -1739,6 +1739,28 @@ Archivos de Data Dragon:
 - Los ítems tienen IDs numéricos. Al exportar se filtran los no comprables en SR y los
   retirados.
 
+Tipos en `MitoCore/GameData/` (valores puros, `Hashable` y `Sendable`, sin `Codable` ni
+decodificación; el catálogo los arma desde `/lol-game-data/assets/v1/...`). Los íconos
+quedan como el path crudo del asset del cliente (`/lol-game-data/assets/...`), el que recibe
+`IconRequest` en MitoAssets.
+
+| Tipo | Campos | De dónde sale |
+|---|---|---|
+| `Champion` | `id: ChampionID`, `alias` (`"Ahri"`), `name` (locale del cliente), `iconPath` | `champion-summary.json` (`id`, `alias`, `name`, `squarePortraitPath`) |
+| `Item` | `id: ItemID`, `name`, `totalGold`, `iconPath`, `itemClass: ItemClass?` | `items.json` (`priceTotal`, `iconPath`); la clase, del snapshot |
+| `ItemClass` | `starter`, `consumable`, `component`, `bootsT1`, `bootsT2`, `legendary`, `supportUpgrade`, `unknown(String)` | `item_classes.class` (§16.3, §17); el raw value es esa codificación |
+| `PerkStyle` | `id: PerkStyleID`, `name`, `iconPath`, `slots: [Slot]` | `perkstyles.json` |
+| `PerkStyle.Slot` | `kind` (`keystone`, `regular`, `statMod`, `unknown(String)`), `perks: [PerkID]` en orden | `slots[].type` y `slots[].perks` |
+| `Perk` | `id: PerkID`, `name`, `iconPath` | `perks.json` |
+| `SummonerSpell` | `id: SummonerSpellID`, `name`, `iconPath`, `gameModes: Set<String>` (`CLASSIC`, `ARAM`, …) | `summoner-spells.json` |
+
+- La clase de ítem no viene del cliente: `itemClass` es `nil` hasta que se cruza con el
+  snapshot, así un `Item` existe sin snapshot (Fase 4) y el importador decide qué hacer.
+- Cada estilo trae también las filas de shards (`statMod`); en una página los shards salen
+  de las filas `statMod` de la primaria y la secundaria elige solo de filas `regular` (§13.2).
+  Un mismo shard puede aparecer en más de una fila, así que "la fila de un perk" no siempre
+  es única.
+
 ### 16.3 Clasificación de ítems (necesaria para builds)
 
 En el pipeline se clasifica cada ítem como:
