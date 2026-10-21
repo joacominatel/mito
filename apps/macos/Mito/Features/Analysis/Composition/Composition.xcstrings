@@ -1,11 +1,122 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Composición" : {
-      "comment" : "Title of the empty Composición tab of the analysis panel."
+    "%@ AD · %@ AP" : {
+      "comment" : "A team's damage profile. Arguments: physical share and magic share as percentages (78 %)."
     },
-    "Los dos equipos, cara a cara: muy pronto." : {
-      "comment" : "Says the Composición tab of the analysis panel is not built yet."
+    "%@ físico, %@ mágico" : {
+      "comment" : "VoiceOver value of a team's damage bar. Arguments: physical and magic share percentages."
+    },
+    "%@, %@" : {
+      "comment" : "VoiceOver label of a cell in the Composición tab. Arguments: the metric (Frontline) and the team (Tu equipo, Rival)."
+    },
+    "%lld de %lld con datos" : {
+      "comment" : "A team whose read is partial. Arguments: champions with a profile, slots in the team."
+    },
+    "Aparece cuando se lockean campeones." : {
+      "comment" : "Empty Composición tab: nobody is locked yet."
+    },
+    "CC" : {
+      "comment" : "Row of the Composición tab: crowd control level of each team."
+    },
+    "Condiciones de victoria" : {
+      "comment" : "Heading of the win conditions derived from both teams."
+    },
+    "Curva" : {
+      "comment" : "Row of the Composición tab: whether each team is stronger early or late."
+    },
+    "Daño" : {
+      "comment" : "Row of the Composición tab: physical and magic damage share of each team."
+    },
+    "Ellos: %@ AD, la armadura rinde más" : {
+      "comment" : "Win condition: the enemy deals mostly physical damage. The argument is its physical share (78 %)."
+    },
+    "Ellos: %@ AP, la resistencia mágica rinde más" : {
+      "comment" : "Win condition: the enemy deals mostly magic damage. The argument is its magic share (78 %)."
+    },
+    "Ellos: early fuerte, no regalar peleas antes del minuto %lld" : {
+      "comment" : "Win condition: the enemy team is stronger early. The argument is the minute the early segment ends."
+    },
+    "Ellos: escalan mejor, sacar ventaja antes del minuto %lld" : {
+      "comment" : "Win condition: the enemy team scales better. The argument is the minute the late segment starts."
+    },
+    "Ellos: más CC, no agruparse sin visión" : {
+      "comment" : "Win condition: the enemy has more crowd control."
+    },
+    "Ellos: más frontline, evitar pelear de frente y buscar flancos" : {
+      "comment" : "Win condition: the enemy has more frontline."
+    },
+    "Frontline" : {
+      "comment" : "Row of the Composición tab: frontline level of each team."
+    },
+    "Lectura parcial: no todos tienen datos" : {
+      "comment" : "Tooltip on a team whose champions do not all have a profile."
+    },
+    "Los campeones lockeados no tienen perfil en este parche." : {
+      "comment" : "Empty Composición tab: the locked champions have no profile rows."
+    },
+    "Más fuerte early (%@)" : {
+      "comment" : "A team stronger in short games. The argument is its signed early strength in winrate points (+1,2)."
+    },
+    "Más fuerte late (%@)" : {
+      "comment" : "A team stronger in long games. The argument is its signed late strength in winrate points (+1,2)."
+    },
+    "Nivel 6 en %@ · legendarios %@, %@, %@" : {
+      "comment" : "A team's power spikes. Arguments: mean time of level 6, then of the first, second and third legendary item (7:20), or a dash."
+    },
+    "Pareja" : {
+      "comment" : "A team with no early or late lean."
+    },
+    "Perfil del rival: %@" : {
+      "comment" : "The enemy team profiles. The argument is the labels joined (mucho AD y mucho CC)."
+    },
+    "Pocos datos" : {
+      "comment" : "A team without enough champions with a duration curve to tell early from late."
+    },
+    "Power spikes" : {
+      "comment" : "Row of the Composición tab: when each team hits level 6 and its legendary items."
+    },
+    "Rival" : {
+      "comment" : "Column of the Composición tab: the enemy team."
+    },
+    "Roles del rival inferidos: su lectura es estimada." : {
+      "comment" : "Note: some enemy roles are inferred, so the enemy read is an estimate."
+    },
+    "Si elegís %@ (el pick recomendado), tu equipo queda así." : {
+      "comment" : "Note: the read includes the top pick recommendation as your champion. The argument is the champion."
+    },
+    "Si elegís %@ (en hover), tu equipo queda así." : {
+      "comment" : "Note: the read includes your hovered champion. The argument is the champion."
+    },
+    "Sin datos" : {
+      "comment" : "A team value without any champion with a profile."
+    },
+    "Sin datos de composición" : {
+      "comment" : "Title of the empty Composición tab."
+    },
+    "Tu equipo" : {
+      "comment" : "Column of the Composición tab: the user's team."
+    },
+    "Ustedes: early fuerte, buscar cerrar antes del minuto %lld" : {
+      "comment" : "Win condition: the user's team is stronger early. The argument is the minute the early segment ends."
+    },
+    "Ustedes: escalan mejor, jugar seguro hasta el minuto %lld" : {
+      "comment" : "Win condition: the user's team scales better. The argument is the minute the late segment starts."
+    },
+    "Ustedes: más CC, buscar enganchar y pelear agrupados" : {
+      "comment" : "Win condition: the user's team has more crowd control."
+    },
+    "Ustedes: más frontline, buscar peleas de frente en grupo" : {
+      "comment" : "Win condition: the user's team has more frontline."
+    },
+    "alta" : {
+      "comment" : "A team's frontline or crowd control level: high."
+    },
+    "baja" : {
+      "comment" : "A team's frontline or crowd control level: low."
+    },
+    "media" : {
+      "comment" : "A team's frontline or crowd control level: medium."
     }
   },
   "version" : "1.0"

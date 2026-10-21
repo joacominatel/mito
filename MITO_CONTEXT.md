@@ -3389,7 +3389,45 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
 2. **Composición:** perfil de daño de ambos equipos (ponderado por `dmg_per_min`), perfiles
    del rival (`heavy_ad`, `heavy_cc`…), frontline, CC, early vs late (de `duration_curves`),
    power spikes de cada equipo y "condiciones de victoria" textuales derivadas (por ejemplo,
-   "Ustedes: early fuerte, buscar cerrar antes del minuto 30").
+   "Ustedes: early fuerte, buscar cerrar antes del minuto 25"). Implementado
+   (`Composition.read` en `MitoEngine/Analysis/Composition/`, `CompositionSummary` en la app):
+   - **Miembros:** los mismos que cuenta el comp fit (`Composition.members`, §18.4): los
+     lockeados en su rol asignado o, sin rol, en el inferido entre los lockeados sin rol. Tu
+     campeón cuenta aunque sea un hover o la recomendación, en tu rol, y la pestaña lo avisa
+     ("Si elegís Ahri (el pick recomendado), tu equipo queda así."; con hover, "(en hover)").
+     El hover de otro aliado no cuenta. Si algún rival lockeado cuenta con rol inferido, una
+     nota dice "Roles del rival inferidos: su lectura es estimada"; el rol nunca se muestra
+     como hecho.
+   - **Tabla** con una columna por equipo ("Tu equipo", "Rival"): daño ("78 % AD · 20 % AP" y
+     una barra física/mágica/verdadera), frontline, CC, curva y power spikes. Si no todos los
+     del equipo tienen perfil, el encabezado dice "2 de 5 con datos" (lectura parcial). Cada
+     celda es un elemento de VoiceOver con la métrica, el equipo y el valor.
+   - **Frontline y CC:** cuántos perfilados están en el top 30 % de su rol (`tankiness` o
+     `cc_score` `≥ 0,7`, el mismo corte del comp fit): ninguno es baja, uno media y dos o más
+     alta. Sin perfilados, "Sin datos".
+   - **Perfil rival:** `Composition.enemyProfile` con `meta.profile_rules`, con las etiquetas de
+     §22.3 ("Perfil del rival: mucho AD y mucho CC"); sin perfil no se muestra.
+   - **Curva:** la media de `early_strength` y `late_strength` (`PowerCurve`) de los miembros
+     con curva. Con 3 o más, el equipo es early, late o parejo con la regla del comp fit
+     (`team_early ≥ 0,005` early, `≤ −0,005` late); "Más fuerte early (+1,2)" lleva el
+     `early_strength` medio en puntos y "Más fuerte late" el `late_strength`. Con menos de 3,
+     "Pocos datos".
+   - **Power spikes:** la media de las medianas de `champion_profiles` de los perfilados que
+     las tienen, en minutos: "Nivel 6 en 7:20 · legendarios 9:40, 16:10, —".
+   - **Condiciones de victoria**, en este orden: un equipo early contra uno que no lo es
+     ("Ustedes: early fuerte, buscar cerrar antes del minuto 25"; "Ellos: early fuerte, no
+     regalar peleas antes del minuto 25"), uno late contra uno que no lo es ("…escalan mejor"
+     con el minuto 35), un equipo un nivel arriba en frontline o en CC, y un rival con más del
+     70 % de un tipo de daño ("Ellos: 78 % AD, la armadura rinde más"). Los minutos son los
+     cortes de `PowerCurve` (25 y 35). Las comparaciones de frontline y CC piden 3 o más
+     perfilados en cada equipo; las de curva, 3 o más con curva; la de daño, 3 rivales
+     perfilados. Sin ninguna, la sección no aparece.
+   - **ARAM:** los roles salen todos de la inferencia, así que el perfil de daño, frontline y CC
+     se muestran si hay filas; curva y power spikes no, porque miden partidas de la Grieta, y
+     con ellos se van sus condiciones de victoria.
+   - **Vacío:** sin ningún perfilado, "Sin datos de composición", con "Aparece cuando se
+     lockean campeones." si todavía no cuenta nadie o "Los campeones lockeados no tienen perfil
+     en este parche." si cuentan pero sin filas.
 3. **Build:** runas, ítems por capas con alternativas, spells y habilidades, cada uno con su
    winrate, muestra y motivo.
 4. **Mi historial:** tu rendimiento con ese campeón, vs ese rival y en ese rol.
