@@ -53,6 +53,9 @@ graph LR
   P0C --> P201[P2-01] & P203[P2-03] & P301[P3-01] & P303[P3-03]
   P0C --> P400[P4-00] & P402[P4-02] & P405[P4-05] & P601[P6-01]
   P102 --> P104[P1-04]
+  P102 --> P109[P1-09]
+  P109 --> P105
+  P109 --> P110[P1-10]
   P102 --> P601
   P103 --> P104
   P101 --> P105[P1-05]
@@ -133,10 +136,12 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | P1-02 | REST client, TLS accepted only for 127.0.0.1, network-sentinel fitness test | lcu | `MitoKit/Sources/LCUKit/Client/**`, `MitoKit/Tests/ArchitectureTests/NetworkSentinelTests.swift` | §10.3, §10.4 | P0-C | merged |
 | P1-03 | WAMP message codec | lcu | `MitoKit/Sources/LCUKit/Events/Codec/**` | §10.5 | P0-C | merged |
 | P1-04 | Event stream over WebSocket, one stream per subscriber | lcu | `MitoKit/Sources/LCUKit/Events/Stream/**` | §10.5 | P1-02, P1-03 | in progress |
-| P1-05 | Connection lifecycle; `LCUClient` conforms to `LCUConnection` | lcu | `MitoKit/Sources/LCUKit/Connection/**` | §10.2 | P1-01, P1-04 | todo |
+| P1-05 | Connection lifecycle; `LCUClient` conforms to `LCUConnection` | lcu | `MitoKit/Sources/LCUKit/Connection/**` | §10.2 | P1-01, P1-04, P1-09 | todo |
 | P1-06 | Connection menu section and `ConnectionModel` against the fake | connection | `Mito/Features/Connection/**` | §22.4 | P0-C | merged |
 | P1-07 | `tools/lcu-recorder` with anonymization (the CEO runs it against the real client) | tools-lcu-recorder | `tools/lcu-recorder/**` | §23.2 | P0-C | in progress |
 | P1-08 | Wire the live `LCUClient` into `AppModel` | shell (serial) | `Mito/App/**`, `Mito/MitoApp.swift` | §9.3 | P1-05, P1-06 | todo |
+| P1-09 | Typed `current-summoner` endpoint and tolerant model (session group) | lcu | `MitoKit/Sources/LCUKit/Session/**` | §10.4, lcu-endpoints: Session | P1-02 | in progress |
+| P1-10 | Riot ID on the connection line ("Conectado como X", §26 Phase 1 done criterion) | connection | `Mito/Features/Connection/**` | §22.4 | P1-09 | todo |
 
 ## P2 — Gameflow and auto-accept
 
