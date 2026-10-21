@@ -407,3 +407,53 @@ struct OverridesModelTests {
         #expect(model.isEditing)
     }
 }
+
+struct OverridesGapTests {
+    /// The store lists a champion's roles in `Role.allCases` order, so top comes before middle.
+    @Test func openingWithoutARolePicksTheFirstStoredRoleInRoleOrder() async {
+        let store = OverridesTestStore(overrides: [
+            ChampionOverride(champion: Fixture.ahri, role: .middle),
+            ChampionOverride(champion: Fixture.ahri, role: .top, isFavorite: true),
+        ])
+        let model = OverridesModel(store: store)
+        await model.run()
+
+        model.open(Fixture.ahri, styles: styles)
+
+        #expect(model.draft?.role == .top)
+        #expect(model.draft?.isFavorite == true)
+    }
+
+    @Test func aRenamedAndARemovedBlockAreSavedThatWay() async throws {
+        let store = OverridesTestStore()
+        let model = await editing(store: store)
+        model.draft?.itemMode = .fixedSet
+        model.draft?.items.addBlock(title: "Inicio")
+        model.draft?.items.addBlock(title: "Sobra")
+        let blocks = try #require(model.draft?.items.blocks.map(\.id))
+        model.draft?.items.add(ItemID(rawValue: 1056), to: blocks[0])
+        model.draft?.items.add(ItemID(rawValue: 2003), to: blocks[1])
+
+        model.draft?.items.setTitle("Arranque", of: blocks[0])
+        model.draft?.items.setCount(3, of: ItemID(rawValue: 1056), in: blocks[0])
+        model.draft?.items.removeBlock(blocks[1])
+        await model.save(styles: styles)
+
+        #expect(
+            await store.stored.first?.fixedItems
+                == ItemSet(blocks: [
+                    ItemSet.Block(
+                        title: "Arranque",
+                        items: [ItemSet.Block.Item(id: ItemID(rawValue: 1056), count: 3)])
+                ]))
+    }
+
+    @Test func closingTheSheetDropsTheDraft() async {
+        let model = await editing()
+
+        model.isEditing = false
+
+        #expect(model.draft == nil)
+        #expect(!model.hasChanges)
+    }
+}

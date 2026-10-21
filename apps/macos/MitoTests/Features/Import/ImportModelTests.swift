@@ -29,17 +29,20 @@ private struct Harness {
     init(
         settings: ImportSettings = ImportSettings(), windowInFront: Bool = false,
         stats: (any StatsProvider)? = nil, overrides: [ChampionOverride] = [],
-        detectedFlash: ImportSettings.FlashPosition? = nil
+        detectedFlash: ImportSettings.FlashPosition? = nil,
+        personal: (any PersonalStore)? = nil, servesGameData: Bool = true
     ) throws {
         let stats = try stats ?? SnapshotFixture.reader()
         let store = ImportTestStore(overrides: overrides)
         self.store = store
         model = ImportModel(
             connection: connection, catalog: GameDataCatalog(connection: connection),
-            settings: { settings }, stats: { stats }, store: store,
+            settings: { settings }, stats: { stats }, store: personal ?? store,
             detectedFlash: { detectedFlash }, poster: poster, appIsActive: { true })
         if windowInFront { model.windowAppeared() }
-        for (path, body) in ImportFixture.gameData { connection.serve(path, body) }
+        if servesGameData {
+            for (path, body) in ImportFixture.gameData { connection.serve(path, body) }
+        }
         connection.serve(LCUEndpoint.perkStyles.path, try ImportFixture.data("styles", in: "runes"))
         connection.serve(pagesPath, try ImportFixture.data("pages-without-mito-page", in: "runes"))
         connection.serve(
@@ -886,5 +889,168 @@ struct ImportDetectedFlashTests {
             mySpells: [12, 4])
 
         #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
+    }
+}
+
+/// The §13.1 paths the trigger, override, and log suites above leave out.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportEdgeTests {
+    @Test func aDisconnectDropsTheConfirmationAndTheNextChampSelectAsksAgain() async throws {
+        let harness = try Harness(windowInFront: true)
+        harness.connection.serve(
+            LCUEndpoint.perkInventory.path, try ImportFixture.data("inventory-full", in: "runes"))
+        let run = harness.start()
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await waitUntil { harness.model.outcome?.needsConfirmation == true }
+
+        harness.connection.enter(.searching)
+        await waitUntil { harness.model.outcome == nil }
+        await harness.model.confirmReplacement()
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        #expect(harness.runePageWrites().isEmpty)
+        #expect(harness.model.outcome?.needsConfirmation == true)
+    }
+
+    @Test func anUndecodableSessionIsSkippedAndTheNextOneImports() async throws {
+        let harness = try Harness()
+        let run = harness.start()
+
+        harness.connection.emit(Data(#""not a session""#.utf8))
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        #expect(
+            harness.poster.posts.map(\.notification) == [
+                .loadoutImported(champion: ahri, opponent: nil)
+            ])
+    }
+
+    @Test func aHoverThenALockOfAnotherChampionImportsBoth() async throws {
+        let harness = try Harness(settings: ImportSettings(importOnHover: true))
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.data("ban-pick-in-progress"))
+        harness.connection.emit(try ImportFixture.lockedSession(champion: 238))
+        await harness.stop(run)
+
+        #expect(
+            harness.poster.posts.map(\.notification) == [
+                .loadoutImported(champion: ahri, opponent: nil),
+                .loadoutImported(champion: zed, opponent: nil),
+            ])
+    }
+
+    @Test func anOlderToastsTimeoutLeavesTheNewerToast() async throws {
+        let harness = try Harness(
+            settings: ImportSettings(importOnHover: true), windowInFront: true)
+        let run = harness.start()
+        harness.connection.emit(try ImportFixture.data("ban-pick-in-progress"))
+        await waitUntil { harness.model.outcome != nil }
+        let first = try #require(harness.model.outcome?.id)
+        harness.connection.emit(try ImportFixture.lockedSession(champion: 238))
+        await harness.stop(run)
+
+        harness.model.dismiss(first)
+
+        #expect(harness.model.outcome?.champion == zed)
+    }
+
+    @Test func everyPartSkippedTellsNothingWithTheWindowClosed() async throws {
+        let harness = try Harness(
+            settings: ImportSettings(importRunes: false, importSpells: false, importItemSets: false)
+        )
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        #expect(harness.poster.posts.isEmpty)
+        #expect(harness.model.outcome == nil)
+    }
+
+    @Test func withoutASnapshotNothingIsLogged() async throws {
+        let harness = try Harness(stats: NoStats())
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        #expect(harness.poster.posts.count == 1)
+        #expect(await harness.store.log.isEmpty)
+    }
+
+    /// No override can be read and no log entry written: the general loadout still goes.
+    @Test func anUnavailableStoreStillImportsTheGeneralLoadout() async throws {
+        let harness = try Harness(windowInFront: true, personal: UnavailablePersonalStore())
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession(mySpells: [4, 12]))
+        await harness.stop(run)
+
+        #expect(try harness.sentRunePage()?["primaryStyleId"] as? Int == 8200)
+        #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
+        #expect(harness.connection.writes(.put, itemSetsPath).count == 1)
+        let outcome = try #require(harness.model.outcome)
+        #expect(outcome.status == .imported)
+        #expect(outcome.origins.isEmpty)
+    }
+
+    @Test func anUnreadableGameflowSessionSkipsTheItems() async throws {
+        let harness = try Harness(windowInFront: true)
+        harness.connection.serve(LCUEndpoint.gameflowSession.path, Data("not json".utf8))
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        #expect(harness.model.outcome?.itemsUnavailable == .unsupportedMap)
+        #expect(harness.model.outcome?.report.runes == .applied)
+        #expect(!harness.connection.requests.contains { $0.path.hasPrefix("/lol-item-sets") })
+    }
+
+    @Test func withoutTheClientCatalogTheTitleUsesTheChampionID() async throws {
+        let harness = try Harness(windowInFront: true, servesGameData: false)
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        #expect(harness.model.outcome?.title == "103 MID")
+        #expect(try harness.sentRunePage()?["name"] as? String == "Mito · 103 MID")
+    }
+}
+
+/// §13.1: a fixed mode with nothing saved, and modes this build does not know.
+@Suite(.timeLimit(.minutes(1)))
+struct ImportOverrideFallbackTests {
+    @Test func fixedSpellsAndItemsWithNothingSavedSendTheGeneralOnesAndSaySo() async throws {
+        let harness = try await importAhri(
+            overrides: [ahriOverride(runeMode: .general, spells: nil, items: nil)],
+            mySpells: [4, 12])
+
+        #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
+        let blocks = try #require(try harness.sentItemSet()?["blocks"] as? [[String: Any]])
+        #expect(blocks.first?["type"] as? String == "Inicio")
+        let outcome = try #require(harness.model.outcome)
+        #expect(outcome.origins == [.spells: .noFixedChoice, .items: .noFixedChoice])
+        #expect(outcome.rows.map(\.origin) == [nil, .noFixedChoice, .noFixedChoice])
+        #expect(
+            await harness.store.log.map(\.detail) == [nil, "no_fixed_choice", "no_fixed_choice"])
+    }
+
+    @Test func unknownSpellAndItemModesFollowTheEngine() async throws {
+        let harness = try await importAhri(
+            overrides: [
+                ahriOverride(
+                    runeMode: .general, spellMode: .unknown("swap_v2"),
+                    itemMode: .unknown("situational_v2"))
+            ], mySpells: [4, 12])
+
+        #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
+        let blocks = try #require(try harness.sentItemSet()?["blocks"] as? [[String: Any]])
+        #expect(blocks.first?["type"] as? String == "Inicio")
+        #expect(harness.model.outcome?.origins == [:])
     }
 }

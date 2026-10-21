@@ -75,6 +75,34 @@ struct SnapshotModelTests {
         #expect(snapshots.status == .failed(.download(.insecureURL)))
     }
 
+    @Test func anUnreadableCacheStillGetsTheDownload() async {
+        let snapshots = SnapshotModel(
+            origin: .source(FakeSnapshotSource(cached: "broken", download: .success("16.21"))),
+            open: { url throws(SnapshotReadError) in
+                guard url.lastPathComponent != "broken" else { throw .unreadable }
+                return PatchOnlyStats(patch: url.lastPathComponent)
+            })
+
+        await snapshots.run()
+
+        #expect(snapshots.meta?.patch == Patch(rawValue: "16.21"))
+        #expect(snapshots.status == .ready)
+    }
+
+    @Test func anUnreadableDownloadKeepsTheCachedSnapshot() async {
+        let snapshots = SnapshotModel(
+            origin: .source(FakeSnapshotSource(cached: "16.20", download: .success("broken"))),
+            open: { url throws(SnapshotReadError) in
+                guard url.lastPathComponent != "broken" else { throw .unsupportedSchemaVersion(9) }
+                return PatchOnlyStats(patch: url.lastPathComponent)
+            })
+
+        await snapshots.run()
+
+        #expect(snapshots.meta?.patch == Patch(rawValue: "16.20"))
+        #expect(snapshots.status == .failed(.unreadable(.unsupportedSchemaVersion(9))))
+    }
+
     @Test func anUnreadableFileIsNotOpened() async {
         let snapshots = SnapshotModel(
             origin: .file(URL(filePath: "/nonexistent/emerald_plus.sqlite")))
@@ -110,8 +138,14 @@ struct SnapshotModelTests {
             defer { defaults.removePersistentDomain(forName: suite) }
             defaults.set(SnapshotFixture.file.path, forKey: SnapshotModel.fileOverrideKey)
 
-            let snapshots = SnapshotModel(
-                origin: .live(underTest: false, defaults: defaults))
+            // Any other origin would download and write the real cache: never run it here.
+            let origin = SnapshotModel.Origin.live(underTest: false, defaults: defaults)
+            guard case .file(let url) = origin else {
+                Issue.record("The override must open its file, not \(origin)")
+                return
+            }
+            #expect(url == SnapshotFixture.file)
+            let snapshots = SnapshotModel(origin: origin)
             await snapshots.run()
 
             #expect(snapshots.meta?.patch == Patch(rawValue: "16.21"))

@@ -47,3 +47,30 @@ struct ClientDataModelTests {
         #expect(model.patch == Patch(rawValue: ""))
     }
 }
+
+@Suite(.timeLimit(.minutes(1)))
+struct ClientDataReloadTests {
+    @Test func aFailedReloadKeepsTheLastDataAndDropsTheVersion() async {
+        let connection = GameflowTestConnection()
+        for (path, body) in ClientDataFixture.bodies() {
+            connection.answer(path, json: String(decoding: body, as: UTF8.self))
+        }
+        let model = ClientDataModel(connection: connection)
+        let run = Task { await model.run() }
+        connection.enter(.connected)
+        await waitUntil { model.gameData != nil && model.gameVersion != nil }
+
+        connection.answer(
+            LCUEndpoint.gameDataChampions.path, error: .http(status: 500, body: Data()))
+        connection.answer(LCUEndpoint.gameVersion.path, error: .http(status: 500, body: Data()))
+        connection.enter(.searching)
+        connection.enter(.connected)
+        connection.finish()
+        await run.value
+
+        #expect(connection.count(.get, LCUEndpoint.gameDataChampions.path) == 2)
+        #expect(model.gameData?.champion(ChampionID(rawValue: 103))?.name == "Ahri")
+        #expect(model.gameVersion == nil)
+        #expect(model.patch == Patch(rawValue: ""))
+    }
+}

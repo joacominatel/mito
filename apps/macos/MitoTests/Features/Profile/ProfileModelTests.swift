@@ -330,3 +330,33 @@ extension ProfileModelTests {
         #expect(after.winrateEdge < before.winrateEdge)
     }
 }
+
+struct ProfileRecordFailureTests {
+    @Test func aFailedRecordIsAStorageFailureAndTheHistoryStaysAsItWas() async throws {
+        let stored = TestGame.make(1, champion: 103, win: true)
+        let store = HistoryTestStore(matches: [stored])
+        await store.failRecords(with: .writeFailed)
+        let model = ProfileModel(connection: try rankedHistory(), store: store)
+
+        await model.run()
+
+        #expect(model.syncStatus == .failed(.storage))
+        #expect(model.history == [stored])
+        #expect(await store.stored == [stored])
+    }
+
+    /// Nothing landed, so the next sync still pages back for the backfill.
+    @Test func theSyncAfterAFailedRecordStillPagesBack() async throws {
+        let connection = try rankedHistory()
+        let store = HistoryTestStore()
+        await store.failRecords(with: .writeFailed)
+        let model = ProfileModel(connection: connection, store: store)
+        await model.run()
+
+        await store.failRecords(with: nil)
+        await model.run()
+
+        #expect(connection.requests(to: Fixture.pagePath(20)) == 2)
+        #expect(model.syncStatus == .synced(newGames: 3))
+    }
+}

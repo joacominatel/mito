@@ -60,6 +60,8 @@ nonisolated final class HistoryTestConnection: LCUConnection {
 actor HistoryTestStore: PersonalStore {
     private var byGame: [GameID: MyMatch]
     private var failure: PersonalStoreError?
+    /// Fails `record` alone, after the reads that come before it succeed.
+    private var recordFailure: PersonalStoreError?
     private let poolEntries: [PoolEntry]
     private let championOverrides: [ChampionOverride]
 
@@ -75,18 +77,29 @@ actor HistoryTestStore: PersonalStore {
 
     var stored: [MyMatch] { byGame.values.sorted { $0.game.rawValue < $1.game.rawValue } }
 
+    func failRecords(with failure: PersonalStoreError?) { recordFailure = failure }
+
     func record(_ matches: [MyMatch]) throws(PersonalStoreError) {
-        if let failure { throw failure }
+        if let failure = failure ?? recordFailure { throw failure }
         for match in matches { byGame[match.game] = match }
     }
 
+    /// Newest first, ties by game ID, as `PersonalDatabase` orders them.
     func matches(_ query: MyMatchQuery) throws(PersonalStoreError) -> [MyMatch] {
         if let failure { throw failure }
-        let newest = byGame.values.sorted { $0.playedAt > $1.playedAt }
-        return query.limit.map { Array(newest.prefix($0)) } ?? newest
+        let newest = byGame.values
+            .filter { match in
+                (query.champion.map { $0 == match.champion } ?? true)
+                    && (query.role.map { $0 == match.role } ?? true)
+                    && (query.patch.map { $0 == match.patch } ?? true)
+            }
+            .sorted { ($0.playedAt, $0.game.rawValue) > ($1.playedAt, $1.game.rawValue) }
+        return query.limit.map { Array(newest.prefix(max(0, $0))) } ?? newest
     }
 
-    func pool(for role: Role) -> [PoolEntry] { poolEntries.filter { $0.role == role } }
+    func pool(for role: Role) -> [PoolEntry] {
+        poolEntries.filter { $0.role == role }.sorted { $0.priority < $1.priority }
+    }
     func setPool(_ champions: [ChampionID], for role: Role) {}
     func overrides() -> [ChampionOverride] { championOverrides }
     func save(_ override: ChampionOverride) {}

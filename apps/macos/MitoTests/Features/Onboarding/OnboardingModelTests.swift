@@ -233,3 +233,27 @@ struct OnboardingFlashTests {
         #expect(model.resolvedFlashSlot(.d) == .d)
     }
 }
+
+struct OnboardingFlashSummaryTests {
+    @Test(
+        arguments: [
+            (5, 2, "Detectado: D en 5 de 7 partidas"),
+            (3, 3, "Empate: D y F en 3 partidas cada una"),
+        ])
+    func theSummaryNamesTheMajorityOrTheTie(d: Int, f: Int, summary: String) async {
+        let model = model(PoolTestStore(history: Fixture.history(d: d, f: f)))
+
+        await model.detectFlash()
+
+        #expect(String(localized: model.flashSummary) == summary)
+    }
+
+    @Test func theSummarySaysWhenTheHistoryIsUnreadableOrStillLoading() async {
+        let model = model(PoolTestStore(failsReads: true))
+        #expect(String(localized: model.flashSummary) == "Leyendo tus partidas…")
+
+        await model.detectFlash()
+
+        #expect(String(localized: model.flashSummary) == "No se pudo leer tu historial")
+    }
+}

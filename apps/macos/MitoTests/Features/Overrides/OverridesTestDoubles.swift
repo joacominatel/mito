@@ -14,8 +14,13 @@ actor OverridesTestStore: PersonalStore {
         self.failure = failure
     }
 
+    /// The protocol's order: champion ID, then `Role.allCases`.
     var stored: [ChampionOverride] {
-        byKey.values.sorted { Self.key($0.champion, $0.role) < Self.key($1.champion, $1.role) }
+        let roles = Role.allCases
+        return byKey.values.sorted {
+            ($0.champion.rawValue, roles.firstIndex(of: $0.role) ?? 0)
+                < ($1.champion.rawValue, roles.firstIndex(of: $1.role) ?? 0)
+        }
     }
 
     func fail(with failure: PersonalStoreError?) { self.failure = failure }

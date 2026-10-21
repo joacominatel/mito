@@ -471,3 +471,38 @@ extension MitoStateMachine {
         return machine.state
     }
 }
+
+@Suite(.timeLimit(.minutes(1)))
+struct GameflowModelMatchFlowTests {
+    @Test(
+        arguments: [
+            ("Lobby", true), ("Matchmaking", true), ("ReadyCheck", true), ("ChampSelect", true),
+            ("InProgress", true), ("EndOfGame", false), ("None", false),
+        ])
+    func isInMatchFlowFromTheLobbyUntilTheGameEnds(phase: String, inFlow: Bool) async {
+        let harness = Harness()
+        let run = harness.start()
+        await harness.connect()
+        #expect(!harness.model.isInMatchFlow)
+
+        harness.connection.emitPhase(phase)
+        await waitUntil { harness.model.state == MitoStateMachine.state(after: phase) }
+
+        #expect(harness.model.isInMatchFlow == inFlow)
+        await harness.stop(run)
+    }
+
+    @Test func aDisconnectLeavesTheMatchFlow() async {
+        let harness = Harness()
+        harness.connection.answer(phasePath, json: #""InProgress""#)
+        let run = harness.start()
+        await harness.connect()
+        await waitUntil { harness.model.state == .inGame }
+
+        harness.connection.enter(.searching)
+        await waitUntil { harness.model.state == .searching }
+
+        #expect(!harness.model.isInMatchFlow)
+        await harness.stop(run)
+    }
+}
