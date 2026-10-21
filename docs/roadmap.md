@@ -152,6 +152,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | FX-07 | Match history skips games with no winning team (server-aborted games), like mito-data's `no_winner` | lcu | `MitoKit/Sources/LCUKit/History/**`, `MitoKit/Tests/LCUKitTests/History/**`, `fixtures/lcu/cases/history/**` | §10.6 | P8-02 | merged |
 | FX-08 | `PersonalScore.winratePoints` uses the P8-07 formula (edge unscaled), so "Mi perfil" and the pick score agree | engine | `MitoEngine/Personal/PersonalScore.swift`, `MitoEngine/Pick/PersonalPoints.swift`, tests | §19.3 | P8-07 | merged |
 | FX-09 | For re-import: `PerkPage` decodes styles and perks; MitoImport exposes how it finds Mito's rune page and item set blocks | lcu + import | `LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `MitoImport/Runes/**`, `MitoImport/ItemSets/**`, their tests | §13.2, §13.4 | P7-10 | merged |
+| FX-10 | The analysis subject carries the client's `GameData`, so the tabs can name and draw runes, items and spells | analysis (serial) | `Mito/Features/Analysis/AnalysisSubject.swift`, `AnalysisModel.swift`, their tests | §20.2 (intro only) | P9-00 | in progress |
 
 ## P1 — Connection
 
