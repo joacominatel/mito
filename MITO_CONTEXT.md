@@ -381,12 +381,13 @@ struct MitoApp: App {
     @State private var app: AppModel
 
     init() {
-        let client = LCUClient()
+        // En Debug, -MitoLCULockfilePath apunta al mock (§23.1).
+        let client = AppModel.liveClient()
         // Bajo XCTest no hay cliente en vivo ni archivo de settings real.
         let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         let app = AppModel(
             connection: client,
-            lifecycle: { @Sendable in if !underTest { await client.run() } },
+            lifecycle: AppModel.lifecycle(running: client, underTest: underTest),
             settings: SettingsModel(persistence: underTest ? nil : SettingsStore()))
         _app = State(initialValue: app)
         Task { await app.start() }
