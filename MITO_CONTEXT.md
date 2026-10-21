@@ -2307,6 +2307,12 @@ Reglas:
   los que filtra el exporter. Así no pueden divergir.
 - Las relaciones se escriben en las dos orientaciones (A vs B y B vs A, A con B y B con A):
   no hacen falta índices por rival ni por aliado.
+- `vs_team_stats` cierra en las dos orientaciones: para cada par de campeones, A contra B sumado
+  sobre los roles exportados de A tiene las mismas partidas que B contra A sumado sobre los de
+  B, y las victorias de un lado son las derrotas del otro (solo se exige cuando todos los roles
+  de ambos están exportados). Las partidas sin exactamente un equipo ganador no cuentan.
+- En `item_builds`, las capas `fourth`–`sixth` de una fila nunca repiten un ítem del core de esa
+  misma partida; entre filas sí puede pasar, y la app descarta repeticiones al armar el set.
 - Sin nombres localizados ni `tags`: los nombres salen del cliente en su locale (§16, §22.6) y
   lo que antes salía de los tags lo cubre `champion_flags`.
 - Cualquier cambio (tabla, columna, semántica o clave de `meta`) sube `schema_version`.
