@@ -396,7 +396,7 @@ struct MitoApp: App {
         MenuBarExtra {
             MenuBarView().environment(app)
         } label: {
-            Label { Text(verbatim: "Mito") } icon: { Image(systemName: app.menuBarSymbol) }
+            MenuBarLabel().environment(app)  // además abre la ventana al entrar a champ select
         }
         .menuBarExtraStyle(.window)
 
@@ -1205,9 +1205,9 @@ Casos borde, todos deterministas:
 - Con la primera sesión de cada champ select pide una vez, en paralelo, la cola
   (`gameflowSession`) y `pickableChampionIDs`, y los reusa hasta que se borra el draft. Si la
   cola no se puede leer queda `QueueType.other(0)`; si falla `pickable`, queda vacío.
-- **Parche provisorio:** LCUKit todavía no expone la versión del juego, así que el
-  `DraftContext` lleva `Patch("")` (`ChampSelectModel.placeholderPatch`) hasta que el parche
-  del snapshot lo reemplace (Fase 6).
+- **Parche:** el `DraftContext` lleva el parche del cliente (`.gameVersion`, §10.6) que lee el
+  shell una vez por conexión (`ClientDataModel`, §9.3); vale `Patch("")` mientras no se pudo
+  leer.
 - Mapea con `draftContext(queue:patch:pickable:)` (§12.2); si devuelve `nil`, no hay draft y la
   vista no muestra nada.
 - Los roles de los rivales lockeados sin posición se infieren con `RoleInference` (§12.3) solo
@@ -1215,8 +1215,8 @@ Casos borde, todos deterministas:
   la UI los marca como inciertos.
 - Además publica las celdas con un ban o pick en curso y el intervalo del timer de la fase
   (`adjustedTimeLeftInPhase` contado desde que llega la sesión). Los nombres de campeones salen
-  de un `GameDataCatalog` propio, recargado en cada conexión; sin datos se muestra
-  "Campeón <id>". No loguea la sesión.
+  del `GameDataCatalog` compartido del shell (`ClientDataModel`, §9.3), recargado en cada
+  conexión; sin datos se muestra "Campeón <id>". No loguea la sesión.
 
 ### 12.5 Auto-hover, auto-pick y auto-ban (opcionales)
 
@@ -1267,9 +1267,8 @@ pendiente. Una sesión que no se puede decodificar se ignora.
   VoiceOver lo anuncia. Si no, va como notificación `.loadoutImported` (§22.5) con el mismo
   título: "Importado para Ahri MID", "Confirmá las runas para Ahri MID" o "No se pudo
   importar todo para Ahri MID". Si todas las partes se saltearon, no se avisa nada.
-  La ventana lo aloja con el modificador `.importToast()`, que además le avisa al modelo
-  cuándo está abierta; mientras el shell no lo aplique en `MainWindowView`, todo import se
-  avisa por notificación.
+  La ventana lo aloja con el modificador `.importToast()` en `MainWindowView`, que además le
+  avisa al modelo cuándo está abierta.
 - **Confirmación de runas.** Un `.needsConfirmation` queda pendiente en el toast (no se cierra
   solo) y en la sección de toggles de la barra de menú, con "Reemplazar" y "Ahora no". Nunca se
   confirma solo. "Reemplazar" vuelve a aplicar **solo las runas** con
