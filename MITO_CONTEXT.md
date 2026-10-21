@@ -3052,6 +3052,37 @@ Pantalla con buscador de campeones. Por cada (campeón, rol):
 - Ítems: recomendado / set fijo / no importar.
 - Marcar como favorito o excluir del pool.
 
+Implementación (`Features/Overrides`). Cada (campeón, rol) es un `ChampionOverride` de la base
+personal (§17), leído con `overrides()`, guardado con `save(_:)` y borrado con
+`deleteOverride(champion:role:)`. Los nombres, árboles de runas, spells e ítems salen del
+`GameData` compartido (§9.3); sin datos del cliente la pantalla muestra un estado vacío
+"Sin datos del cliente" y no se edita nada.
+
+- Lista con buscador por nombre (en el locale del cliente): arriba los overrides guardados,
+  ordenados por campeón y rol, con el resumen de modos y las marcas de favorito y excluido
+  (ícono, tooltip y etiqueta de VoiceOver); debajo todos los campeones. Doble clic, Return o
+  "Editar…" abre el editor.
+- El editor es una hoja con Cancelar, Guardar y, si hay override guardado, Eliminar (con
+  confirmación). Se guarda solo con Guardar. Con cambios sin guardar no se cambia de rol.
+- Runas: un picker por fila, ubicadas por tipo de fila (`keystone`, `regular`, `statMod`) y
+  nunca por posición. Rama principal, runa clave, 3 filas principales, rama secundaria (nunca
+  la misma), 2 runas secundarias de filas distintas (una tercera reemplaza a la más vieja,
+  como en el cliente) y 3 fragmentos de las filas de la principal. Al cambiar la principal se
+  conservan los fragmentos que siguen en su fila. La página fija solo se guarda completa y
+  válida según `RunePage.validationError(against:)` de `MitoImport`, el mismo validador del
+  importador (§13.2).
+- Spells: dos pickers con los spells de `CLASSIC` (`SummonerSpell.gameModes`); el fijo pide
+  dos distintos, en el orden de la `SpellPair` (la posición de Flash la sigue resolviendo el
+  importador, §13.3).
+- Ítems: el set fijo es una lista de bloques con título y una búsqueda de ítems por nombre;
+  repetir un ítem en un bloque sube su cantidad. Necesita al menos un ítem. La búsqueda
+  todavía muestra ítems de otros modos y retirados: `Item` no trae mapa ni si está en tienda.
+- Los valores fijos se conservan aunque el modo no sea fijo, así cambiar de modo no los
+  pierde; solo el modo fijo los exige.
+
+Pendiente: que el importador (§13.5) respete los overrides; hasta entonces se guardan pero no
+cambian lo que se importa.
+
 ---
 
 ## 22. Diseño de UI nativa

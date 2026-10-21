@@ -1,8 +1,233 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "Sin overrides" : {
-
+    "%@ de oro" : {
+      "comment" : "Item search result: the item's total cost. The argument is the formatted gold amount."
+    },
+    "%@ · %@" : {
+      "comment" : "Override row title. The first argument is the champion name, the second the role."
+    },
+    "%@×" : {
+      "comment" : "Item count in a fixed item set block. The argument is the formatted count."
+    },
+    "ADC" : {
+      "comment" : "Role label: the bottom lane (marksman)."
+    },
+    "Adaptativo" : {
+      "comment" : "Rune mode: the page adapts to the lane matchup."
+    },
+    "Agregar bloque" : {
+      "comment" : "Button that adds a block to the fixed item set."
+    },
+    "Agregar ítem…" : {
+      "comment" : "Button that opens the item search for a block of the fixed item set."
+    },
+    "Agregá al menos un ítem al set." : {
+      "comment" : "Why the override cannot be saved: the fixed item set is empty."
+    },
+    "Bloque %lld" : {
+      "comment" : "Default title of a new item set block. The argument is its position."
+    },
+    "Buscar campeón" : {
+      "comment" : "Prompt of the champion search field."
+    },
+    "Buscar ítem" : {
+      "comment" : "Prompt and label of the item search field."
+    },
+    "Campeones" : {
+      "comment" : "List section with every champion."
+    },
+    "Campeón %lld" : {
+      "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
+    },
+    "Cancelar" : {
+      "comment" : "Closes the override editor without saving."
+    },
+    "Cantidad de %@" : {
+      "comment" : "VoiceOver label of an item count stepper. The argument is the item name."
+    },
+    "Completá la página para poder guardarla." : {
+      "comment" : "Why the override cannot be saved: the fixed rune page is incomplete."
+    },
+    "Con overrides" : {
+      "comment" : "List section with the champions that already have an override."
+    },
+    "Desconocido" : {
+      "comment" : "A mode saved by a newer version of Mito that this one does not know."
+    },
+    "Editar…" : {
+      "comment" : "Context menu item that opens the override editor."
+    },
+    "Elegí dos runas secundarias de filas distintas; una tercera reemplaza a la más vieja." : {
+      "comment" : "Help under the secondary rune pickers."
+    },
+    "Elegí dos spells distintos." : {
+      "comment" : "Why the override cannot be saved: the fixed spells are incomplete or repeated."
+    },
+    "Eliminar" : {
+      "comment" : "Confirms deleting the override."
+    },
+    "Eliminar override" : {
+      "comment" : "Button that deletes the stored override for this champion and role."
+    },
+    "Escribí parte del nombre." : {
+      "comment" : "Item search hint while the query is empty."
+    },
+    "Excluido del pool" : {
+      "comment" : "Tooltip and VoiceOver label of the mark on an override excluded from the pool."
+    },
+    "Excluir del pool" : {
+      "comment" : "Toggle: exclude the champion from the pool in this role."
+    },
+    "Favorito" : {
+      "comment" : "Toggle, tooltip, and VoiceOver label: the champion is a favorite in this role."
+    },
+    "Fijos" : {
+      "comment" : "Spell mode: a fixed pair."
+    },
+    "Fragmento de ataque" : {
+      "comment" : "Rune picker: the offense stat shard."
+    },
+    "Fragmento de defensa" : {
+      "comment" : "Rune picker: the defense stat shard."
+    },
+    "Fragmento flexible" : {
+      "comment" : "Rune picker: the flex stat shard."
+    },
+    "General" : {
+      "comment" : "Rune mode: the champion's general page for the role."
+    },
+    "Guardar" : {
+      "comment" : "Saves the override."
+    },
+    "Guardá o cancelá los cambios para pasar a otro rol." : {
+      "comment" : "Why the role picker is disabled while the editor has unsaved changes."
+    },
+    "Jungla" : {
+      "comment" : "Role label: the jungle."
+    },
+    "La página no es válida para el parche actual. Revisá cada fila." : {
+      "comment" : "Why the override cannot be saved: the fixed rune page fails the client's rules."
+    },
+    "Mid" : {
+      "comment" : "Role label: the middle lane."
+    },
+    "Mito vuelve a usar la configuración general para este campeón en este rol." : {
+      "comment" : "Message of the delete confirmation."
+    },
+    "Modo de runas" : {
+      "comment" : "Picker label: how runes are chosen for this champion and role."
+    },
+    "Modo de spells" : {
+      "comment" : "Picker label: how summoner spells are chosen for this champion and role."
+    },
+    "Modo de ítems" : {
+      "comment" : "Picker label: how the item set is chosen for this champion and role."
+    },
+    "Ninguna" : {
+      "comment" : "Empty choice of a rune or rune tree picker."
+    },
+    "Ninguno" : {
+      "comment" : "Empty choice of a summoner spell picker."
+    },
+    "Ningún ítem con ese nombre." : {
+      "comment" : "Item search with no results."
+    },
+    "No importar" : {
+      "comment" : "Item mode: no item set is imported."
+    },
+    "No se pudieron leer los overrides." : {
+      "comment" : "Error: the personal database could not be read."
+    },
+    "No se pudo eliminar el override." : {
+      "comment" : "Error: the personal database could not delete the override."
+    },
+    "No se pudo guardar el override." : {
+      "comment" : "Error: the personal database could not save the override."
+    },
+    "Para editar los overrides, Mito necesita los campeones, runas, spells e ítems del cliente. Abrí League of Legends y vuelven a estar disponibles." : {
+      "comment" : "Description of the empty state shown while the client's static data is not loaded."
+    },
+    "Pool" : {
+      "comment" : "Editor section with the favorite and pool exclusion toggles."
+    },
+    "Primer spell" : {
+      "comment" : "Picker label: the first fixed summoner spell."
+    },
+    "Principal, fila %lld" : {
+      "comment" : "Rune picker: a row of the primary tree. The argument is the row number."
+    },
+    "Página fija" : {
+      "comment" : "Rune mode: a page the user built."
+    },
+    "Quitar %@" : {
+      "comment" : "VoiceOver label of the button that removes an item. The argument is the item name."
+    },
+    "Quitar bloque" : {
+      "comment" : "Tooltip and VoiceOver label of the button that removes an item set block."
+    },
+    "Quitar ítem" : {
+      "comment" : "Tooltip of the button that removes an item from a block."
+    },
+    "Rama principal" : {
+      "comment" : "Rune picker: the primary tree."
+    },
+    "Rama secundaria" : {
+      "comment" : "Rune picker: the secondary tree."
+    },
+    "Recomendados" : {
+      "comment" : "Spell or item mode: Mito's recommendation."
+    },
+    "Rol" : {
+      "comment" : "Picker label: the role being edited."
+    },
+    "Runa %lld" : {
+      "comment" : "Fallback name for a rune whose static data has not loaded. The argument is the rune ID."
+    },
+    "Runa clave" : {
+      "comment" : "Rune picker: the keystone."
+    },
+    "Runas" : {
+      "comment" : "Editor section: runes."
+    },
+    "Runas: %@ · Spells: %@ · Ítems: %@" : {
+      "comment" : "Override row summary. The arguments are the rune, spell, and item modes."
+    },
+    "Secundaria, fila %lld" : {
+      "comment" : "Rune picker: a row of the secondary tree. The argument is the row number."
+    },
+    "Segundo spell" : {
+      "comment" : "Picker label: the second fixed summoner spell."
+    },
+    "Set fijo" : {
+      "comment" : "Item mode: a set the user built."
+    },
+    "Sin datos del cliente" : {
+      "comment" : "Title of the empty state shown while the client's static data is not loaded."
+    },
+    "Spell %lld" : {
+      "comment" : "Fallback name for a summoner spell whose static data has not loaded. The argument is the spell ID."
+    },
+    "Spells" : {
+      "comment" : "Editor section: summoner spells."
+    },
+    "Support" : {
+      "comment" : "Role label: the support."
+    },
+    "Top" : {
+      "comment" : "Role label: the top lane."
+    },
+    "Título del bloque" : {
+      "comment" : "Prompt and label of an item set block's title field; the client shows it as the block heading."
+    },
+    "¿Eliminar este override?" : {
+      "comment" : "Title of the delete confirmation."
+    },
+    "Ítem %lld" : {
+      "comment" : "Fallback name for an item whose static data has not loaded. The argument is the item ID."
+    },
+    "Ítems" : {
+      "comment" : "Editor section: items."
     }
   },
   "version" : "1.0"
