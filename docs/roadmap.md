@@ -169,12 +169,13 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | --- | --- | --- | --- | --- | --- | --- |
 | P4-00 | CONTRACT: static game-data types | core (serial) | `MitoKit/Sources/MitoCore/GameData/**` | §16.2 | P0-C | ready |
 | P4-01 | Static data catalog from `/lol-game-data` | assets | `MitoKit/Sources/MitoAssets/GameData/**` | §16.1, §16.3, lcu-endpoints: Assets | P4-00 | todo |
-| P4-02 | Icon loading and disk cache | assets | `MitoKit/Sources/MitoAssets/Icons/**` | — | P0-C | in progress |
+| P4-02 | Icon loading and disk cache | assets | `MitoKit/Sources/MitoAssets/Icons/**` | — | P0-C | merged |
 | P4-03 | Rune page importer | import | `MitoKit/Sources/MitoImport/Runes/**` | §13.2, lcu-endpoints: Runes | P4-00 | todo |
 | P4-04 | Item set importer that keeps the user's sets | import | `MitoKit/Sources/MitoImport/ItemSets/**` | §13.4, lcu-endpoints: Item sets | P4-00 | todo |
 | P4-05 | Summoner spell importer | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/Spells/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift` | §13.3 | P0-C | merged |
 | P4-06 | `LoadoutImporter` and `ImportReport` | import | `MitoKit/Sources/MitoImport/*.swift` | §13.5 | P4-03, P4-04, P4-05 | todo |
 | P4-07 | Import feature: trigger on lock, toast, "Importación" tab, hand-written builds for 5 champions | import-ui | `Mito/Features/Import/**` | §13.1, §21.4 | P4-06, P3-02 | todo |
+| P4-08 | Data Dragon transport for the icon fallback (HTTPS to `ddragon.leagueoflegends.com` only) | store | `MitoKit/Sources/MitoStore/DataDragon/**` | §9.2, §16.1 | P4-02 | todo |
 
 ## P5 — Pipeline MVP
 

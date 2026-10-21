@@ -423,7 +423,7 @@ que esté siempre abierta para colgarle un `.task`.
 | `LCUKit` | Descubrir el cliente, credenciales, REST tipado, WebSocket WAMP, reconexión | MitoCore |
 | `MitoStore` | Abrir el snapshot (read-only), DB personal (read-write), settings, migraciones | MitoCore, GRDB |
 | `MitoEngine` | Scoring de picks, bans, runas, ítems y spells. **Funciones puras** | MitoCore |
-| `MitoAssets` | Íconos de campeones, ítems y runas con caché | MitoCore, LCUKit |
+| `MitoAssets` | Íconos de campeones, ítems, runas y spells con caché en disco; sin red propia (el cliente vía LCUKit, Data Dragon vía un transporte que provee MitoStore) | MitoCore, LCUKit |
 | `MitoImport` | Importador: aplica runas, spells e item sets en el cliente (`LoadoutImporter`) | MitoCore, LCUKit |
 | App target | Features, vistas, `AppModel`, orquestación | todos |
 
@@ -1659,7 +1659,7 @@ Base: `https://{routing}.api.riotgames.com`, con el header `X-Riot-Token: <key>`
 | Fuente | Qué tiene | Cuándo usarla |
 |---|---|---|
 | **Cliente local** (`/lol-game-data/assets/v1/...`) | Campeones, ítems, runas, spells e íconos en la versión exacta del cliente | **Prioridad en la app** (offline, versión exacta) |
-| **Data Dragon** (`ddragon.leagueoflegends.com`) | JSON y assets oficiales por versión, con locales (incluye `es_AR`) | Pipeline y fallback en la app |
+| **Data Dragon** (`ddragon.leagueoflegends.com`) | JSON y assets oficiales por versión, con locales (incluye `es_AR`) | Pipeline y fallback en la app (lo pide MitoStore, el único módulo de la app con salida a internet) |
 | **CommunityDragon** (`raw.communitydragon.org`) | Mismos datos del cliente, más completos y con IDs crudos | Pipeline, cuando a Data Dragon le falta algo |
 
 Archivos de Data Dragon:
