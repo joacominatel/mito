@@ -248,7 +248,7 @@ Can overlap Stage 6.
 | P8-04 | History sync | profile | `Mito/Features/Profile/**` | — | P8-01, P8-02 | todo |
 | P8-05 | Onboarding: pool by role, Flash position, Diamond+ layer | onboarding | `Mito/Features/Onboarding/**` | — | P8-01 | todo |
 | P8-06 | "Mi perfil" and insights | profile | `Mito/Features/Profile/**` | §19.4 | P8-04, P8-03 | todo |
-| P8-07 | Meta ↔ Comfort slider | engine | `MitoKit/Sources/MitoEngine/Pick/**` | §18.3 | P7-04, P8-03 | todo |
+| P8-07 | Meta ↔ Comfort slider; decide whether the §19.3 points scaling applies to the whole personal total or only to comfort/pool/performance (the winrate edge is already in points) | engine | `MitoKit/Sources/MitoEngine/Pick/**` | §18.3 | P7-04, P8-03 | todo |
 | P8-08 | Per-champion overrides (§21.5) | overrides | `Mito/Features/Overrides/**` | §21.5 | P8-01 | todo |
 
 ## P9 — Full pre-game analysis
