@@ -139,6 +139,12 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | MD7 | `mito-data` Phase 7 aggregations, curated flags, `meta.profile_rules` | mito-data | — | — | MD5 | todo |
 | MD-tips | Curated es-AR tips file published by `mito-data` | mito-data | — | — | MD5 | todo |
 
+## Fixes
+
+| ID | Title | Lane | Writes | Docs § | Depends on | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| FX-01 | MitoKit audit fixes: cancelled accepter, typeless perk rows, Data Dragon host case | lcu + store | `LCUKit/Matchmaking/AutoAccepter.swift`, `LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `MitoStore/DataDragon/DataDragonClient.swift` and their tests | — | — | in progress |
+
 ## P1 — Connection
 
 Done criterion verified by the CEO against the real client on 2026-10-21.
