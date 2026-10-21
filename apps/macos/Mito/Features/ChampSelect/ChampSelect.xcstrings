@@ -16,17 +16,29 @@
     "ARAM" : {
       "comment" : "Queue name in the champ select header."
     },
+    "Ban recomendado: %@" : {
+      "comment" : "Menu bar line during the ban phase: the top ban suggestion. The argument is the champion name."
+    },
     "Baneando" : {
       "comment" : "A player whose ban is in progress."
     },
     "Bans" : {
       "comment" : "Title of the row that lists banned champions."
     },
+    "Bans recomendados (%@)" : {
+      "comment" : "Title of the recommendations column during the ban phase. The argument is the short role label (MID)."
+    },
     "Bans y picks" : {
       "comment" : "Champ select phase: bans and picks in progress."
     },
+    "Campeones que tengo" : {
+      "comment" : "Candidate mode: every champion the user can pick."
+    },
     "Campeón %lld" : {
       "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
+    },
+    "Candidatos" : {
+      "comment" : "Label of the candidate-mode picker in the recommendations column."
     },
     "Champ select · %lld de %lld lockeados" : {
       "comment" : "Menu bar summary during champ select: locked champions out of all cells, both teams."
@@ -36,6 +48,9 @@
     },
     "Champ select · tu turno de elegir" : {
       "comment" : "Menu bar summary when it is the user's turn to pick."
+    },
+    "Comfort" : {
+      "comment" : "Right end of the Meta to Comfort slider: weigh the user's own history more."
     },
     "Eligiendo" : {
       "comment" : "A player whose pick is in progress."
@@ -52,14 +67,20 @@
     "Jungla" : {
       "comment" : "Spoken role name for the jungle."
     },
-    "Las recomendaciones van a aparecer acá" : {
-      "comment" : "Placeholder title where pick recommendations will appear."
-    },
-    "Llegan con los datos del parche." : {
-      "comment" : "Placeholder detail: recommendations need the patch statistics."
+    "Las recomendaciones llegan con los datos del parche." : {
+      "comment" : "Empty recommendations column without a stats snapshot."
     },
     "MID" : {
       "comment" : "Short role label for the middle lane."
+    },
+    "Meta" : {
+      "comment" : "Left end of the Meta to Comfort slider: weigh patch statistics more."
+    },
+    "Meta o comfort" : {
+      "comment" : "Accessibility label of the slider that balances patch statistics against the user's own history."
+    },
+    "Mi pool" : {
+      "comment" : "Candidate mode: only the champions in the user's pool for the role."
     },
     "Mid" : {
       "comment" : "Spoken role name for the middle lane."
@@ -69,6 +90,9 @@
     },
     "Ninguno todavía" : {
       "comment" : "The bans row before any champion is banned."
+    },
+    "Ningún candidato" : {
+      "comment" : "Title when no champion passes the current candidate mode."
     },
     "Normal (blind)" : {
       "comment" : "Queue name in the champ select header."
@@ -82,14 +106,26 @@
     "Planificación" : {
       "comment" : "Champ select phase: planning, before bans start."
     },
+    "Probá con otro modo de candidatos, o sumá campeones a tu pool." : {
+      "comment" : "Explains how to get candidates back when none passes the mode."
+    },
     "Ranked Flex" : {
       "comment" : "Queue name in the champ select header."
     },
     "Ranked Solo/Duo" : {
       "comment" : "Queue name in the champ select header."
     },
+    "Recomendaciones apagadas" : {
+      "comment" : "Title when the pick or ban recommendations setting is off."
+    },
+    "Recomendado: %@ (%@)" : {
+      "comment" : "Menu bar line with the top pick. Arguments: champion name, signed score in winrate points (+3,8)."
+    },
     "Recomendados" : {
       "comment" : "Title of the recommendations column."
+    },
+    "Recomendados para vos (%@)" : {
+      "comment" : "Title of the recommendations column. The argument is the short role label (MID)."
     },
     "Rol incierto, quizás %@" : {
       "comment" : "VoiceOver: an enemy role guessed without data. The argument is the role name."
@@ -100,8 +136,20 @@
     "SUP" : {
       "comment" : "Short role label for support."
     },
+    "Se prenden en Settings, pestaña Champ select." : {
+      "comment" : "Where to turn the recommendations back on."
+    },
     "Sin campeón" : {
       "comment" : "A cell with no champion hovered or locked."
+    },
+    "Sin estadísticas todavía" : {
+      "comment" : "Title of the recommendations column without a stats snapshot."
+    },
+    "Sin rol asignado" : {
+      "comment" : "Title when the user has no role in this champ select (blind pick, ARAM)."
+    },
+    "Sin rol no hay contra quién comparar los campeones." : {
+      "comment" : "Explains why there are no recommendations without a role."
     },
     "Soporte" : {
       "comment" : "Spoken role name for support."
@@ -111,6 +159,9 @@
     },
     "Tirador" : {
       "comment" : "Spoken role name for the bottom lane (marksman)."
+    },
+    "Todos" : {
+      "comment" : "Candidate mode: every champion, owned or not."
     },
     "Top" : {
       "comment" : "Spoken role name for the top lane."
@@ -129,6 +180,9 @@
     },
     "sin datos" : {
       "comment" : "Next to an enemy role guessed without statistics, so it is not read as fact."
+    },
+    "Ítem %lld" : {
+      "comment" : "Fallback name for an item whose static data has not loaded. The argument is the numeric item ID."
     }
   },
   "version" : "1.0"

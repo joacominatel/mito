@@ -5,7 +5,8 @@ import MitoCore
 import MitoEngine
 import Observation
 
-/// Follows the live champ-select session and publishes its `DraftContext` (§12.4, §20.1).
+/// Follows the live champ-select session and publishes its `DraftContext` and the pick or ban
+/// recommendations for it (§12.4, §20.1).
 @Observable
 final class ChampSelectModel {
     enum Turn: Hashable {
@@ -24,11 +25,15 @@ final class ChampSelectModel {
     /// The cells whose ban or pick is in progress.
     private(set) var turns: [Int: Turn] = [:]
     private(set) var phaseInterval: ClosedRange<Date>?
+    /// Read once per champ select, with the queue and the pickable set.
+    private(set) var personal = PersonalInputs()
 
     let settings: @MainActor () -> ChampSelectSettings
     private let connection: any LCUConnection
     private let patch: @MainActor () -> Patch
     private let readGameData: @MainActor () -> GameData?
+    private let readStats: @MainActor () -> any StatsProvider
+    private let store: any PersonalStore
     private let clock: any Clock<Duration>
     private let now: () -> Date
 
@@ -42,9 +47,13 @@ final class ChampSelectModel {
         patch: @escaping @MainActor () -> Patch = { Patch(rawValue: "") },
         clock: any Clock<Duration> = ContinuousClock(),
         now: @escaping () -> Date = { .now },
-        gameData: @autoclosure @escaping @MainActor () -> GameData? = nil
+        gameData: @autoclosure @escaping @MainActor () -> GameData? = nil,
+        stats: @escaping @MainActor () -> any StatsProvider = { NoStats() },
+        store: any PersonalStore = UnavailablePersonalStore()
     ) {
         self.connection = connection
+        readStats = stats
+        self.store = store
         self.settings = settings
         self.patch = patch
         self.clock = clock
@@ -56,6 +65,19 @@ final class ChampSelectModel {
     var gameData: GameData? { readGameData() }
 
     var isInChampSelect: Bool { draft != nil }
+
+    /// Bans while anyone is banning, picks otherwise; `nil` outside champ select. Derived on
+    /// read, so the draft, the settings, and a snapshot that opens mid-draft all apply at once.
+    var recommendations: RecommendationList? {
+        guard let draft else { return nil }
+        return DraftRecommendations.list(
+            for: draft, isBanPhase: isBanPhase, settings: settings(), stats: readStats(),
+            personal: personal, now: now())
+    }
+
+    var isBanPhase: Bool {
+        draft?.isMyTurnToBan == true || turns.values.contains(.ban)
+    }
 
     func run() async {
         await withDiscardingTaskGroup { group in
@@ -82,12 +104,16 @@ final class ChampSelectModel {
     }
 
     /// Maps `session` right away; previews use it to skip the connection.
-    func show(_ session: ChampSelectSession, queue: QueueType, pickable: Set<ChampionID>) {
+    func show(
+        _ session: ChampSelectSession, queue: QueueType, pickable: Set<ChampionID>,
+        personal: PersonalInputs = PersonalInputs()
+    ) {
         guard
             let draft = session.draftContext(
                 queue: queue, patch: patch(), pickable: pickable)
         else { return clearDraft() }
         self.draft = draft
+        if self.personal != personal { self.personal = personal }
         enemyRoles = Self.inferRoles(of: draft.enemies)
         turns = Self.turns(in: session)
         phaseInterval = session.timer?.adjustedTimeLeftInPhase.map { milliseconds in
@@ -117,7 +143,8 @@ final class ChampSelectModel {
     private func apply(_ session: ChampSelectSession, generation: Int) async {
         let inputs = await sessionInputs()
         guard generation == self.generation else { return }
-        show(session, queue: inputs.queue, pickable: inputs.pickable)
+        show(
+            session, queue: inputs.queue, pickable: inputs.pickable, personal: inputs.personal)
     }
 
     /// Only the newest session write may land.
@@ -139,6 +166,7 @@ final class ChampSelectModel {
         enemyRoles = [:]
         turns = [:]
         phaseInterval = nil
+        personal = PersonalInputs()
     }
 
     // MARK: Session inputs
@@ -146,25 +174,45 @@ final class ChampSelectModel {
     private struct Inputs {
         let queue: QueueType
         let pickable: Set<ChampionID>
+        let personal: PersonalInputs
     }
 
     /// Fetched once per champ select, when its first session arrives.
     private func sessionInputs() async -> Inputs {
         if let inputs { return await inputs.value }
-        let task = Task { [connection] in
+        let task = Task { [connection, store] in
             async let session = try? connection.send(.gameflowSession)
             async let pickable = try? connection.send(.pickableChampionIDs)
+            async let mastery = try? connection.send(.championMastery)
+            async let personal = Self.readPersonal(from: store)
+            var inputs = await personal
+            inputs.masteryPoints = Dictionary(
+                (await mastery?.masteries ?? []).map { ($0.champion, $0.points) },
+                uniquingKeysWith: max)
             return Inputs(
-                queue: await session?.queueType ?? Self.unknownQueue, pickable: await pickable ?? []
-            )
+                queue: await session?.queueType ?? Self.unknownQueue,
+                pickable: await pickable ?? [], personal: inputs)
         }
         inputs = task
         return await task.value
     }
 
+    /// A failed read leaves that part empty: the recommendations run without it.
+    nonisolated private static func readPersonal(from store: any PersonalStore) async
+        -> PersonalInputs
+    {
+        var pool: [PoolEntry] = []
+        for role in Role.allCases {
+            pool += (try? await store.pool(for: role)) ?? []
+        }
+        return PersonalInputs(
+            matches: (try? await store.matches(MyMatchQuery())) ?? [], pool: pool,
+            overrides: (try? await store.overrides()) ?? [])
+    }
+
     // MARK: Derivations
 
-    private struct NoStats: StatsProvider {
+    struct NoStats: StatsProvider {
         func roleGames(for champion: ChampionID) -> [Role: Int] { [:] }
     }
 

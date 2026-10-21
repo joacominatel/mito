@@ -2717,6 +2717,14 @@ pesos no se mueven. `PickWeights(metaComfortBalance:)` en `MitoEngine/Pick/Perso
 - "Campeones que tengo": todo lo que poseés.
 - "Todos": incluye campeones que no tenés (útil para aprender o comprar).
 
+En la app (`Features/ChampSelect/DraftRecommendations`): el pool es el declarado para tu rol,
+por prioridad, más los campeones con **N = 5** partidas propias o más en ese rol (de cualquier
+cola), por partidas; un override que lo excluye del pool lo saca por las dos vías (§17). El
+mismo orden es el `myPicks` del score de ban (§18.5). "Lo que tenés" es el `pickableChampionIDs`
+del champ select: la LCU no tiene un endpoint de campeones propios que usemos, y el pickable ya
+incluye los tuyos más la rotación gratuita. Si ese pedido falla queda vacío, y "Campeones que
+tengo" y "Mi pool" no muestran candidatos.
+
 **Salida:** el top 10 con score, desglose por componente y 2–3 razones en texto.
 
 ```swift
@@ -3198,9 +3206,10 @@ Es el corazón de la v1. Se abre al entrar en champ select y se actualiza en viv
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Estado actual (Fase 3).** Durante champ select el destino "Ahora" muestra `ChampSelectView`
+**Estado actual (Fase 7).** Durante champ select el destino "Ahora" muestra `ChampSelectView`
 (el shell le pasa la vista a `NowView`, así Gameflow no depende de ChampSelect); fuera de champ
-select, "Ahora" muestra la fase. `ChampSelectView` muestra solo el draft, sin análisis:
+select, "Ahora" muestra la fase. `ChampSelectView` muestra el draft y las recomendaciones, todavía
+sin el panel de análisis:
 
 - Encabezado: cola, fase (Planificación, Bans y picks, Finalización), cuenta regresiva del timer
   y, si te toca, "Tu turno: elegir" o "Tu turno: banear". Todavía no muestra el parche de los
@@ -3212,13 +3221,36 @@ select, "Ahora" muestra la fase. `ChampSelectView` muestra solo el draft, sin an
   lleva "?" y su probabilidad ("MID? 82 %"); si la inferencia no tiene datos
   (`isUniformFallback`), muestra un ícono de pregunta, el rol en gris y "sin datos". Nunca se
   presenta como un hecho.
-- La columna central "Recomendados" es un placeholder hasta el motor (Fase 7).
+- La columna central "Recomendados para vos (MID)" lista el top 10 de `PickScoring` (§18.3),
+  cada uno con su score como `DeltaBadge` ("+3,8"), su `ConfidenceIndicator` y hasta 3
+  `ReasonRow` (§22.3). Mientras alguien banea (tu turno de ban o cualquier ban en curso) pasa a
+  "Bans recomendados (MID)" con el top 5 de `BanScoring` (§18.5), sin badge: el `ban_score` no
+  está en puntos de winrate. Son sugerencias: Mito no pickea ni banea (§5).
+- Debajo de los picks, el slider "Meta ↔ Comfort" y el selector de candidatos (Mi pool /
+  Campeones que tengo / Todos) escriben directo en `ChampSelectSettings` (§21.3), así que mueven
+  también el setting.
+- `ChampSelectModel.recommendations` se deriva al leerse del draft, los settings, el
+  `StatsProvider` del snapshot abierto (`SnapshotModel.provider`) y los datos personales: un
+  cambio de draft, de slider o de modo, o un snapshot que abre a mitad del draft, recalcula al
+  instante. El cálculo es síncrono en el main actor: con el fixture tarda 0,04 ms y con un roster
+  sintético de 170 campeones por rol, todas las relaciones y 100 partidas propias, 0,9 ms (picks)
+  y 0,2 ms (bans), optimizado; en Debug, 10 ms. No hace falta sacarlo del main actor.
+- Datos personales: con la primera sesión de cada champ select, junto con la cola y el
+  pickable, lee una vez de la base personal el historial, el pool de cada rol y los overrides, y
+  de la LCU la maestría (`championMastery`); se borran con el draft y una lectura que termina
+  después se descarta como cualquier escritura vieja (§12.4). Un pedido que falla deja esa parte
+  vacía. Con historial, `personal` es `PersonalPoints.points(PersonalScoring.score(…))` (§19.3);
+  sin historial no hay término personal.
+- Estados vacíos de la columna: "Sin estadísticas todavía" sin snapshot (§20.3), "Sin rol
+  asignado" en blind pick y ARAM, "Recomendaciones apagadas" si el setting de picks o de bans
+  está off, y "Ningún candidato" si el modo no deja pasar a nadie.
 - Abajo, los bans por nombre.
 - Solo campeones, roles y celdas: ningún nombre de jugador (§5). Cada fila es un solo elemento
   de VoiceOver con su rol, campeón, estado y turno.
 - Fuera de champ select la vista no muestra nada. En la barra de menú,
   `RecommendationMenuSection` muestra una línea de resumen ("Champ select · tu turno de
-  elegir", o "Champ select · N de M lockeados") y queda vacía fuera de champ select.
+  elegir", o "Champ select · N de M lockeados") y, debajo, la recomendación (§22.4); queda vacía
+  fuera de champ select.
 - La pestaña "Champ select" de Settings tiene "Mostrar la ventana al entrar en champ select"
   (`general.showWindowOnChampSelect`, §21.1). Con el setting on, cuando aparece el draft el shell
   abre la ventana principal en "Ahora", haya o no una ventana abierta (§9.3). Se abre una sola
@@ -3507,6 +3539,23 @@ a `connected` y se descarta al salir (§17); si el pedido falla, no hay maestrí
 - `DurationCurveChart(curve:)`: Swift Charts.
 - `DamageProfileBar(phys:magic:true:)`
 
+Implementados en `Mito/DesignSystem/` (textos en `DesignSystem.xcstrings`):
+
+- `DeltaBadge(delta:)`: el delta (fracción) en puntos de winrate con un decimal y el formato del
+  locale; `+` o `−` (U+2212) y flecha arriba o abajo, en verde o rojo. Lo que redondea a 0,0 va
+  sin signo, con `equal` y en gris. VoiceOver lee "+2,1 puntos de winrate".
+- `ConfidenceIndicator(level:)`: "conf. alta" con sello verde (`reliable`), "muestra baja" con
+  ícono gris (`usable`) y "sin muestra" (`belowMinimum`).
+- `ReasonRow(reason:names:)`: un ícono SF Symbol por caso de `Reason.Kind`, en el tono de la
+  razón, y su línea en es-AR (`ReasonText.text`, que es lo que se testea). Los deltas van en
+  puntos ("+2,1 vs Zed (8.212 partidas)", "−4,2 para tu Ahri"), los shares en porcentaje ("Tu
+  equipo es 78 % AD: aporta AP") y las partidas con separador de miles. El tono sigue al signo del
+  delta; el tier es favorable en S y A, neutro en B y desfavorable en C y D; las de comp fit son
+  favorables y las de loadout neutras. Una razón con muestra debajo de "confiable" lleva la marca
+  "muestra baja". Los nombres de campeones e ítems los pasa la feature (`ReasonNames`), con
+  "Campeón 103" mientras no cargan.
+- `WinrateBar` todavía no.
+
 ### 22.4 Barra de menú
 
 ```
@@ -3523,6 +3572,12 @@ Abrir Mito                ⌘O
 Settings…                 ⌘,
 Salir                     ⌘Q
 ```
+
+La línea "Recomendado: Ahri (+3,8)" (`RecommendationMenuSection`) va debajo del resumen del
+draft: el pick #1 de la columna "Recomendados" (§20.1) con su score en puntos de winrate, con el
+mismo formato que `DeltaBadge`. Durante la fase de bans dice "Ban recomendado: Malzahar", sin
+número. Sin snapshot, sin rol, con el setting apagado o sin candidatos no aparece. Es solo una
+sugerencia: no tiene acción (§5).
 
 La primera línea es el estado de `connection.states()` (§11.2), una sola línea sin acciones:
 

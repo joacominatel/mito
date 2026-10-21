@@ -92,6 +92,32 @@ extension ChampSelectModel {
             "Champ select · \(locked) de \(slots.count) lockeados", table: "ChampSelect")
     }
 
+    /// "Recomendado: Ahri (+3,8)" under the summary (§22.4); a ban during the ban phase.
+    var menuRecommendation: LocalizedStringResource? {
+        switch recommendations {
+        case .picks(let picks):
+            guard let top = picks.first else { return nil }
+            return LocalizedStringResource(
+                "Recomendado: \(championName(top.champion)) (\(WinratePoints.text(top.score)))",
+                table: "ChampSelect")
+        case .bans(let bans):
+            guard let top = bans.first else { return nil }
+            return LocalizedStringResource(
+                "Ban recomendado: \(championName(top.champion))", table: "ChampSelect")
+        case .unavailable, nil:
+            return nil
+        }
+    }
+
+    var reasonNames: ReasonNames {
+        ReasonNames(
+            champion: championName,
+            item: { [gameData] id in
+                if let name = gameData?.item(id)?.name, !name.isEmpty { return name }
+                return String(localized: "Ítem \(id.rawValue)", table: "ChampSelect")
+            })
+    }
+
     func championName(_ id: ChampionID) -> String {
         if let name = gameData?.champion(id)?.name, !name.isEmpty { return name }
         return String(localized: "Campeón \(id.rawValue)", table: "ChampSelect")

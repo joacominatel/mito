@@ -1,0 +1,132 @@
+{
+  "sourceLanguage" : "es",
+  "strings" : {
+    "%@ con %@ (%@ partidas)" : {
+      "comment" : "Reason: synergy with a locked ally. Arguments: signed winrate points, ally champion, game count."
+    },
+    "%@ contra %@ (%@ en el equipo rival)" : {
+      "comment" : "Reason: an item that counters an enemy trait. Arguments: item name, the trait (mucha curación), how many enemies have it."
+    },
+    "%@ contra %@ en el equipo rival (%@ partidas)" : {
+      "comment" : "Reason: the delta against a locked enemy outside the lane. Arguments: signed winrate points, enemy champion, game count."
+    },
+    "%@ para tu %@ (%@ partidas)" : {
+      "comment" : "Ban reason: how much this champion hurts one of the user's picks. Arguments: signed winrate points (negative), the user's champion, game count."
+    },
+    "%@ puntos de winrate" : {
+      "comment" : "VoiceOver label of a delta badge. The argument is the signed value (+2,1)."
+    },
+    "%@ vs %@ (%@ partidas)" : {
+      "comment" : "Reason: the delta against the lane opponent. Arguments: signed winrate points, opponent champion, game count."
+    },
+    "%@ vs %@: se compra en el %@ (%@ en general), %@" : {
+      "comment" : "Reason: a situational item. Arguments: item, enemy profile, buy rate against it, general buy rate, signed winrate points."
+    },
+    "%@: adaptado a %@ (%@ partidas)" : {
+      "comment" : "Reason: a loadout part adapted to the lane opponent. Arguments: the part (Runas), opponent champion, game count."
+    },
+    "%@: adaptado a un rival de %@ (%@ partidas)" : {
+      "comment" : "Reason: a loadout part adapted to the enemy team profile. Arguments: the part, the profile (mucho AD), game count."
+    },
+    "%@: la elige el %@, gana el %@ (%@ partidas)" : {
+      "comment" : "Reason: the general loadout choice. Arguments: the part, usage percentage, winrate percentage, game count."
+    },
+    "4.º" : {
+      "comment" : "Item build layer: the fourth item."
+    },
+    "5.º" : {
+      "comment" : "Item build layer: the fifth item."
+    },
+    "6.º" : {
+      "comment" : "Item build layer: the sixth item."
+    },
+    "Aporta el engage que no tiene nadie" : {
+      "comment" : "Reason: the candidate has engage and no ally does."
+    },
+    "Aporta la frontline que le falta al equipo (más tanque que el %@ del rol)" : {
+      "comment" : "Reason: the team lacks a frontline. The argument is the candidate's tankiness percentile in its role."
+    },
+    "CC dirigido" : {
+      "comment" : "Enemy trait: point-and-click crowd control."
+    },
+    "Campeón %lld" : {
+      "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
+    },
+    "Curva de poder: early %@, tu equipo %@" : {
+      "comment" : "Reason: early-game strength of the candidate and of the allied team, in signed winrate points."
+    },
+    "Orden de habilidades" : {
+      "comment" : "Loadout part: the ability leveling order."
+    },
+    "Pocas partidas detrás de este dato" : {
+      "comment" : "Tooltip of the low-sample mark."
+    },
+    "Runas" : {
+      "comment" : "Loadout part: the rune page."
+    },
+    "Spells" : {
+      "comment" : "Loadout part: the summoner spells."
+    },
+    "Suma el CC que le falta al equipo (más CC que el %@ del rol)" : {
+      "comment" : "Reason: the team lacks crowd control. The argument is the candidate's CC percentile in its role."
+    },
+    "Tier %@ del parche (%@ partidas)" : {
+      "comment" : "Reason: the candidate's tier this patch. Arguments: tier letter (S to D), game count."
+    },
+    "Tu equipo es %@ AD: aporta AP" : {
+      "comment" : "Reason: the allied team is mostly physical damage and the candidate adds magic. The argument is the physical share."
+    },
+    "Tu equipo es %@ AP: aporta AD" : {
+      "comment" : "Reason: the allied team is mostly magic damage and the candidate adds physical. The argument is the magic share."
+    },
+    "ataques básicos" : {
+      "comment" : "Enemy trait: champions that rely on basic attacks."
+    },
+    "botas" : {
+      "comment" : "Item build layer: boots."
+    },
+    "conf. alta" : {
+      "comment" : "Confidence indicator: the sample is reliable."
+    },
+    "core" : {
+      "comment" : "Item build layer: the core items."
+    },
+    "daño mixto" : {
+      "comment" : "Enemy team profile: mixed damage."
+    },
+    "engage" : {
+      "comment" : "Enemy trait: engage."
+    },
+    "inicio" : {
+      "comment" : "Item build layer: the starting items."
+    },
+    "mucha curación" : {
+      "comment" : "Enemy trait: heavy healing."
+    },
+    "mucho AD" : {
+      "comment" : "Enemy team profile: heavy physical damage."
+    },
+    "mucho AP" : {
+      "comment" : "Enemy team profile: heavy magic damage."
+    },
+    "mucho CC" : {
+      "comment" : "Enemy team profile: heavy crowd control."
+    },
+    "muestra baja" : {
+      "comment" : "Mark on a number backed by few games."
+    },
+    "poke" : {
+      "comment" : "Enemy trait: poke."
+    },
+    "sin muestra" : {
+      "comment" : "Confidence indicator: below the minimum sample."
+    },
+    "Ítem %lld" : {
+      "comment" : "Fallback name for an item whose static data has not loaded. The argument is the numeric item ID."
+    },
+    "Ítems (%@)" : {
+      "comment" : "Loadout part: one layer of the item set. The argument is the layer (core, botas)."
+    }
+  },
+  "version" : "1.0"
+}

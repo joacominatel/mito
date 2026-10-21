@@ -47,7 +47,8 @@ final class AppModel {
             connection: lcu, settings: { settings.value.game }, poster: poster)
         champSelect = ChampSelectModel(
             connection: lcu, settings: { settings.value.champSelect },
-            patch: { clientData.patch }, gameData: clientData.gameData)
+            patch: { clientData.patch }, gameData: clientData.gameData,
+            stats: { snapshots.provider }, store: personal)
         let onboarding = OnboardingModel(store: personal, gameData: clientData.gameData)
         self.onboarding = onboarding
         importing = ImportModel(

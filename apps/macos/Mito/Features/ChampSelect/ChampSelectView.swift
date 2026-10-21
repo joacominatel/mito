@@ -18,7 +18,10 @@ struct ChampSelectView: View {
                 HStack(alignment: .top, spacing: 16) {
                     TeamColumn(
                         title: Text("Tu equipo", tableName: "ChampSelect"), rows: model.allyRows)
-                    RecommendationsPlaceholder()
+                    if let list = model.recommendations {
+                        RecommendationsColumn(
+                            list: list, role: draft.myRole, names: model.reasonNames)
+                    }
                     TeamColumn(
                         title: Text("Equipo rival", tableName: "ChampSelect"), rows: model.enemyRows
                     )
@@ -196,26 +199,6 @@ private struct RoleTag: View {
     }
 }
 
-private struct RecommendationsPlaceholder: View {
-    var body: some View {
-        GroupBox {
-            ContentUnavailableView {
-                Label {
-                    Text("Las recomendaciones van a aparecer acá", tableName: "ChampSelect")
-                } icon: {
-                    Image(systemName: "sparkles")
-                }
-            } description: {
-                Text("Llegan con los datos del parche.", tableName: "ChampSelect")
-            }
-            .frame(maxWidth: .infinity, minHeight: 180)
-        } label: {
-            Text("Recomendados", tableName: "ChampSelect").font(.headline)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
 private struct BansRow: View {
     let names: [String]
 
@@ -304,14 +287,17 @@ enum PreviewDraft {
 #Preview("Planificación") {
     ChampSelectView(model: PreviewDraft.model(PreviewDraft.planning, queue: .rankedSolo))
         .frame(width: 900, height: 420)
+        .environment(AppModel(connection: DisconnectedLCUConnection()))
 }
 
 #Preview("Bans y picks") {
     ChampSelectView(model: PreviewDraft.model(PreviewDraft.banPick, queue: .rankedSolo))
         .frame(width: 900, height: 420)
+        .environment(AppModel(connection: DisconnectedLCUConnection()))
 }
 
 #Preview("Blind pick") {
     ChampSelectView(model: PreviewDraft.model(PreviewDraft.blind, queue: .normalBlind))
         .frame(width: 900, height: 420)
+        .environment(AppModel(connection: DisconnectedLCUConnection()))
 }
