@@ -2660,21 +2660,30 @@ struct PickRecommendation: Sendable, Identifiable {
     let score: Double
     let breakdown: [ScoreComponent: Double]
     let reasons: [Reason]          // ordenadas por impacto
-    let confidence: Confidence     // .high / .medium / .low (muestra)
+    let confidence: SampleLevel    // nivel de muestra del (champ, role) del candidato (§18.2)
 }
 
-enum Reason: Sendable {
-    case strongMatchup(opp: ChampionID, delta: Double, games: Int)
-    case weakMatchup(opp: ChampionID, delta: Double, games: Int)
-    case synergyWith(ally: ChampionID, delta: Double)
-    case fillsDamageGap(type: DamageType)
-    case addsFrontline
-    case addsEngage
-    case comfortPick(games: Int, winrate: Double)
-    case metaStrong(tier: Tier)
-    case lowSample
+struct Reason: Sendable {          // MitoCore/Recommendation/Reason.swift
+    let kind: Kind
+    let sample: SampleLevel?       // "muestra baja" va acá, no como razón aparte
+    enum Kind {
+        case matchup(opponent:delta:games:)          // el signo del delta da fuerte o débil
+        case versusEnemy(enemy:delta:games:)
+        case synergy(ally:allyRole:delta:games:)
+        case meta(tier:games:)
+        case fillsDamageGap(adds:alliedShare:), addsFrontline(tankiness:),
+             addsCrowdControl(ccScore:), addsEngage, powerCurve(early:teamEarly:)   // §18.4
+        case threatens(pick:delta:games:)                                         // §18.5
+        case generalChoice(part:usage:winrate:games:), adaptedToOpponent(part:opponent:games:),
+             adaptedToProfile(part:profile:games:)                                // §18.6–18.9
+        case countersFlag(item:flag:enemies:),
+             situationalItem(item:profile:buyRate:baselineBuyRate:winrateDelta:)  // §18.7
+    }
 }
 ```
+
+Los deltas y shares van como fracción; la UI los formatea. La razón de comodidad personal
+llega con el slider Meta ↔ Comfort (Fase 8, P8-07).
 
 ### 18.4 Comp fit
 
