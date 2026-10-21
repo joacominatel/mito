@@ -1,26 +1,11 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-    "%@, en hover" : {
-      "comment" : "VoiceOver: a champion a player is hovering but has not locked. The argument is the champion name."
-    },
-    "%@, lockeado" : {
-      "comment" : "VoiceOver: a champion a player has locked in. The argument is the champion name."
-    },
-    "(vos)" : {
-      "comment" : "Marks the local player's own cell in the team column."
-    },
-    "ADC" : {
-      "comment" : "Short role label for the bottom lane (marksman), as shown in the team columns."
-    },
     "ARAM" : {
       "comment" : "Queue name in the champ select header."
     },
     "Ban recomendado: %@" : {
       "comment" : "Menu bar line during the ban phase: the top ban suggestion. The argument is the champion name."
-    },
-    "Baneando" : {
-      "comment" : "A player whose ban is in progress."
     },
     "Bans" : {
       "comment" : "Title of the row that lists banned champions."
@@ -52,26 +37,11 @@
     "Comfort" : {
       "comment" : "Right end of the Meta to Comfort slider: weigh the user's own history more."
     },
-    "Eligiendo" : {
-      "comment" : "A player whose pick is in progress."
-    },
-    "Equipo rival" : {
-      "comment" : "Title of the enemy team column."
-    },
     "Finalización" : {
       "comment" : "Champ select phase: finalization, after every pick is locked."
     },
-    "JG" : {
-      "comment" : "Short role label for the jungle."
-    },
-    "Jungla" : {
-      "comment" : "Spoken role name for the jungle."
-    },
     "Las recomendaciones llegan con los datos del parche." : {
       "comment" : "Empty recommendations column without a stats snapshot."
-    },
-    "MID" : {
-      "comment" : "Short role label for the middle lane."
     },
     "Meta" : {
       "comment" : "Left end of the Meta to Comfort slider: weigh patch statistics more."
@@ -81,9 +51,6 @@
     },
     "Mi pool" : {
       "comment" : "Candidate mode: only the champions in the user's pool for the role."
-    },
-    "Mid" : {
-      "comment" : "Spoken role name for the middle lane."
     },
     "Mostrar la ventana al entrar en champ select" : {
       "comment" : "Settings toggle: open the main window when champ select starts."
@@ -130,20 +97,8 @@
     "Rol" : {
       "comment" : "Accessibility label of the blind-pick role picker in the recommendations column."
     },
-    "Rol incierto, quizás %@" : {
-      "comment" : "VoiceOver: an enemy role guessed without data. The argument is the role name."
-    },
-    "Rol probable: %@, %@" : {
-      "comment" : "VoiceOver: an enemy role inferred from data. The arguments are the role name and its probability as a percentage."
-    },
-    "SUP" : {
-      "comment" : "Short role label for support."
-    },
     "Se prenden en Settings, pestaña Champ select." : {
       "comment" : "Where to turn the recommendations back on."
-    },
-    "Sin campeón" : {
-      "comment" : "A cell with no champion hovered or locked."
     },
     "Sin estadísticas todavía" : {
       "comment" : "Title of the recommendations column without a stats snapshot."
@@ -157,35 +112,14 @@
     "Sin rol no hay contra quién comparar los campeones." : {
       "comment" : "Explains why there are no recommendations without a role."
     },
-    "Soporte" : {
-      "comment" : "Spoken role name for support."
-    },
-    "TOP" : {
-      "comment" : "Short role label for the top lane."
-    },
-    "Tirador" : {
-      "comment" : "Spoken role name for the bottom lane (marksman)."
-    },
     "Todos" : {
       "comment" : "Candidate mode: every champion, owned or not."
-    },
-    "Top" : {
-      "comment" : "Spoken role name for the top lane."
-    },
-    "Tu equipo" : {
-      "comment" : "Title of the user's team column."
     },
     "Tu turno: banear" : {
       "comment" : "Header badge when it is the user's turn to ban."
     },
     "Tu turno: elegir" : {
       "comment" : "Header badge when it is the user's turn to pick."
-    },
-    "Vos" : {
-      "comment" : "VoiceOver: marks the local player's own cell."
-    },
-    "sin datos" : {
-      "comment" : "Next to an enemy role guessed without statistics, so it is not read as fact."
     },
     "Ítem %@" : {
       "comment" : "Fallback name for an item whose static data has not loaded. The argument is the numeric item ID."

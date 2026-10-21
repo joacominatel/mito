@@ -90,8 +90,26 @@ struct BuildOption: Identifiable, Equatable {
     /// `nil` for a fixed choice, which has no sample behind it.
     let level: SampleLevel?
     let reasons: [Reason]
-    /// The keystone and the secondary tree, the two spells, or the items.
-    var icons: [GameAsset] = []
+    var artwork: BuildArtwork = .none
+
+    var icons: [GameAsset] { artwork.icons }
+}
+
+/// What an option shows next to its name: the rune page, the two spells, or the items.
+enum BuildArtwork: Equatable {
+    case none
+    case runes(RunePage)
+    case spells(SpellPair)
+    case items([ItemID])
+
+    var icons: [GameAsset] {
+        switch self {
+        case .none: []
+        case .runes(let page): RunePageView.assets(page)
+        case .spells(let pair): [.spell(pair.first), .spell(pair.second)]
+        case .items(let items): items.map(GameAsset.item)
+        }
+    }
 }
 
 extension BuildContent {
@@ -268,7 +286,7 @@ private struct BuildParts {
             return BuildOption(
                 id: "\(item.id.rawValue)", title: names.item(item.id), subtitle: nil,
                 level: reasons.compactMap(\.sample).min(), reasons: reasons,
-                icons: [.item(item.id)])
+                artwork: .items([item.id]))
         }
         return BuildPart(
             id: .situational, title: String(localized: "Situacionales", table: "Build"),
@@ -300,7 +318,7 @@ private struct BuildParts {
                             part: loadoutPart, usage: stats.usage, winrate: stats.winrate,
                             games: stats.games),
                         sample: nil)
-                ], icons: described.icons)
+                ], artwork: described.artwork)
         }
         return BuildPart(
             id: id, title: title, source: source, isImported: isImported,
@@ -310,7 +328,9 @@ private struct BuildParts {
 
 /// The client's names, or numbered fallbacks while its data loads.
 struct BuildNames {
-    typealias Described = (id: String, title: String, subtitle: String?, icons: [GameAsset])
+    typealias Described = (
+        id: String, title: String, subtitle: String?, artwork: BuildArtwork
+    )
 
     let gameData: GameData?
     let reasonNames: ReasonNames
@@ -356,7 +376,7 @@ struct BuildNames {
         return (
             page.perks.map { "\($0.rawValue)" }.joined(separator: "-"),
             page.perks.first.map(perk) ?? trees, runes.isEmpty ? trees : "\(trees) · \(runes)",
-            (page.perks.first.map { [.perk($0)] } ?? []) + [.perkStyle(page.subStyle)]
+            .runes(page)
         )
     }
 
@@ -364,7 +384,7 @@ struct BuildNames {
         (
             "\(pair.first.rawValue)-\(pair.second.rawValue)",
             String(localized: "\(spell(pair.first)) + \(spell(pair.second))", table: "Build"), nil,
-            [.spell(pair.first), .spell(pair.second)]
+            .spells(pair)
         )
     }
 
@@ -376,7 +396,7 @@ struct BuildNames {
         }
         return (
             items.map { "\($0.id.rawValue)x\($0.count)" }.joined(separator: "-"),
-            title.joined(separator: " · "), nil, items.map { .item($0.id) }
+            title.joined(separator: " · "), nil, .items(items.map(\.id))
         )
     }
 
@@ -386,7 +406,8 @@ struct BuildNames {
         return (
             order.maxOrder.map(\.rawValue).joined() + "-" + order.sequence.map(\.rawValue).joined(),
             maxOrder,
-            opening.isEmpty ? nil : String(localized: "Empieza \(opening)", table: "Build"), []
+            opening.isEmpty ? nil : String(localized: "Empieza \(opening)", table: "Build"),
+            .none
         )
     }
 
@@ -397,7 +418,7 @@ struct BuildNames {
     private func fixed(_ described: BuildNames.Described) -> BuildOption {
         BuildOption(
             id: described.id, title: described.title, subtitle: described.subtitle, level: nil,
-            reasons: [], icons: described.icons)
+            reasons: [], artwork: described.artwork)
     }
 }
 

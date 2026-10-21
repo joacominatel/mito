@@ -82,7 +82,7 @@ private struct MatchupReportView: View {
 
             if let curve = report.curve {
                 MatchupSection(title: Text("Curva por duración", tableName: "Matchup")) {
-                    DurationCurveChart(data: curve)
+                    DurationCurveChart(curve: curve)
                 }
             }
 
@@ -129,6 +129,7 @@ private struct WinrateBlockView: View {
                 Text(verbatim: value)
                     .font(.title2.weight(.semibold))
                     .monospacedDigit()
+                    .contentTransition(.numericText())
             }
             if let interval = block.interval {
                 Text(verbatim: interval)
@@ -179,8 +180,9 @@ private struct LaneDiffsView: View {
                     Label {
                         Text(verbatim: item.value)
                             .monospacedDigit()
+                            .contentTransition(.numericText())
                     } icon: {
-                        Image(systemName: Self.symbol(item.tone))
+                        Image(systemName: DeltaBadge.symbol(item.tone))
                     }
                     .labelStyle(.titleAndIcon)
                     .fontWeight(.semibold)
@@ -196,14 +198,6 @@ private struct LaneDiffsView: View {
             }
         }
         .accessibilityElement(children: .combine)
-    }
-
-    static func symbol(_ tone: Tone) -> String {
-        switch tone {
-        case .favorable: "arrow.up"
-        case .unfavorable: "arrow.down"
-        case .neutral: "equal"
-        }
     }
 }
 

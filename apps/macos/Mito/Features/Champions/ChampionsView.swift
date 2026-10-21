@@ -191,11 +191,11 @@ private struct TierBadge: View {
 
     private func color(for tier: Tier) -> Color {
         switch tier {
-        case .s: .green
-        case .a: .mint
+        case .s: .favorable
+        case .a: .mintReadable
         case .b: .secondary
-        case .c: .orange
-        case .d: .red
+        case .c: .caution
+        case .d: .unfavorable
         }
     }
 }

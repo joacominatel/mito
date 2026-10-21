@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -9,10 +10,60 @@ nonisolated enum Tone: Hashable {
 
     var color: Color {
         switch self {
-        case .favorable: .green
-        case .unfavorable: .red
+        case .favorable: .favorable
+        case .unfavorable: .unfavorable
         case .neutral: .secondary
         }
+    }
+}
+
+extension Color {
+    nonisolated static let favorable = Color(nsColor: .favorable)
+    nonisolated static let unfavorable = Color(nsColor: .unfavorable)
+    nonisolated static let caution = Color(nsColor: .caution)
+    nonisolated static let mintReadable = Color(nsColor: .mintReadable)
+}
+
+extension NSColor {
+    /// The system green, red, orange and mint, darker in light appearances so text and symbols
+    /// keep at least 4.5:1 on a light background. Dark appearances keep the system color.
+    nonisolated static let favorable = readable(.systemGreen, darkenedBy: 0.4)
+    nonisolated static let unfavorable = readable(.systemRed, darkenedBy: 0.25)
+    nonisolated static let caution = readable(.systemOrange, darkenedBy: 0.4)
+    nonisolated static let mintReadable = readable(.systemMint, darkenedBy: 0.45)
+
+    // AppKit resolves dynamic colors on whatever thread draws.
+    nonisolated private static func readable(_ base: NSColor, darkenedBy fraction: CGFloat)
+        -> NSColor
+    {
+        NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? base : base.blended(withFraction: fraction, of: .black) ?? base
+        }
+    }
+}
+
+/// A signed number as the UI shows it: "+4,2", "−85". Zero after rounding has no sign. The
+/// minus is U+2212.
+enum SignedNumber {
+    /// Rounded once, half to even like the formatter, so the text and the tone read one number.
+    static func rounded(_ value: Double, fractionDigits: Int) -> Double {
+        let scale = pow(10, Double(fractionDigits))
+        return (value * scale).rounded(.toNearestOrEven) / scale
+    }
+
+    static func text(_ value: Double, fractionDigits: Int, locale: Locale = .current) -> String {
+        let shown = rounded(value, fractionDigits: fractionDigits)
+        let magnitude = abs(shown).formatted(
+            .number.precision(.fractionLength(fractionDigits)).locale(locale))
+        if shown > 0 { return "+" + magnitude }
+        if shown < 0 { return "\u{2212}" + magnitude }
+        return magnitude
+    }
+
+    static func tone(_ value: Double, fractionDigits: Int) -> Tone {
+        let shown = rounded(value, fractionDigits: fractionDigits)
+        return shown > 0 ? .favorable : shown < 0 ? .unfavorable : .neutral
     }
 }
 
@@ -20,21 +71,15 @@ nonisolated enum Tone: Hashable {
 enum WinratePoints {
     /// To the one decimal the UI shows, so the sign and the text never disagree.
     static func rounded(_ delta: Double) -> Double {
-        (delta * 1000).rounded() / 10
+        SignedNumber.rounded(delta * 100, fractionDigits: 1)
     }
 
-    /// Signed, one decimal; zero after rounding has no sign. The minus is U+2212.
     static func text(_ delta: Double, locale: Locale = .current) -> String {
-        let points = rounded(delta)
-        let magnitude = abs(points).formatted(.number.precision(.fractionLength(1)).locale(locale))
-        if points > 0 { return "+" + magnitude }
-        if points < 0 { return "\u{2212}" + magnitude }
-        return magnitude
+        SignedNumber.text(delta * 100, fractionDigits: 1, locale: locale)
     }
 
     static func tone(_ delta: Double) -> Tone {
-        let points = rounded(delta)
-        return points > 0 ? .favorable : points < 0 ? .unfavorable : .neutral
+        SignedNumber.tone(delta * 100, fractionDigits: 1)
     }
 }
 

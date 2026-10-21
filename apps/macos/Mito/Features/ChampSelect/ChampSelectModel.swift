@@ -9,10 +9,7 @@ import Observation
 /// recommendations for it (§12.4, §20.1).
 @Observable
 final class ChampSelectModel {
-    enum Turn: Hashable {
-        case ban
-        case pick
-    }
+    typealias Turn = DraftTurn
 
     static let debounce: Duration = .milliseconds(150)
     /// What the draft carries when the gameflow session cannot be read.

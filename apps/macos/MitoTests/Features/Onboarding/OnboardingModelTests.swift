@@ -119,6 +119,11 @@ struct OnboardingPoolTests {
     }
 }
 
+/// The app's shared client data, which loads after the model reads it.
+private final class SharedGameData {
+    var value: GameData?
+}
+
 struct OnboardingCatalogTests {
     @Test func theSharedChampionsAreListedByNameWithoutThePlaceholder() {
         let model = OnboardingModel(store: PoolTestStore(), gameData: Fixture.gameData)
@@ -144,11 +149,11 @@ struct OnboardingCatalogTests {
     }
 
     @Test func theListFollowsTheSharedDataOnceItLoads() {
-        var shared: GameData?
-        let model = OnboardingModel(store: PoolTestStore(), gameData: shared)
+        let shared = SharedGameData()
+        let model = OnboardingModel(store: PoolTestStore(), gameData: shared.value)
         #expect(model.catalog == .unavailable)
 
-        shared = Fixture.gameData
+        shared.value = Fixture.gameData
 
         #expect(model.searchResults.map(\.name) == ["Ahri", "Annie"])
     }

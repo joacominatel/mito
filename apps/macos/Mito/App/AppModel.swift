@@ -51,23 +51,16 @@ final class AppModel {
         self.snapshots = snapshots
         gameflow = GameflowModel(
             connection: lcu, settings: { settings.value.game }, poster: poster)
-        let champSelect = ChampSelectModel(
-            connection: lcu, settings: { settings.value.champSelect },
-            patch: { clientData.patch }, gameData: clientData.gameData,
-            stats: { snapshots.provider }, store: personal)
+        let champSelect = Self.champSelectModel(
+            connection: lcu, clientData: clientData, settings: settings, snapshots: snapshots,
+            personal: personal)
         self.champSelect = champSelect
         let onboarding = OnboardingModel(store: personal, gameData: clientData.gameData)
         self.onboarding = onboarding
-        importing = ImportModel(
-            connection: lcu, catalog: clientData.catalog, settings: { settings.value.importing },
-            stats: { snapshots.provider }, store: personal,
-            detectedFlash: {
-                switch onboarding.resolvedFlashSlot(.auto) {
-                case .d: .d
-                case .f: .f
-                case nil: nil
-                }
-            }, scoringRole: { champSelect.scoringRole }, poster: poster, appIsActive: appIsActive)
+        importing = Self.importModel(
+            connection: lcu, clientData: clientData, settings: settings, snapshots: snapshots,
+            personal: personal, onboarding: onboarding, champSelect: champSelect, poster: poster,
+            appIsActive: appIsActive)
         champions = ChampionsModel(stats: { snapshots.provider }, gameData: clientData.gameData)
         analysis = AnalysisModel(
             champSelect: champSelect, stats: { snapshots.provider }, tips: { snapshots.tips })
@@ -80,6 +73,34 @@ final class AppModel {
         overrides = OverridesModel(store: personal)
         self.lifecycle = lifecycle
         settingsModel = settings
+    }
+
+    private static func champSelectModel(
+        connection: any LCUConnection, clientData: ClientDataModel, settings: SettingsModel,
+        snapshots: SnapshotModel, personal: any PersonalStore
+    ) -> ChampSelectModel {
+        ChampSelectModel(
+            connection: connection, settings: { settings.value.champSelect },
+            patch: { clientData.patch }, gameData: clientData.gameData,
+            stats: { snapshots.provider }, store: personal)
+    }
+
+    private static func importModel(
+        connection: any LCUConnection, clientData: ClientDataModel, settings: SettingsModel,
+        snapshots: SnapshotModel, personal: any PersonalStore, onboarding: OnboardingModel,
+        champSelect: ChampSelectModel, poster: any NotificationPosting,
+        appIsActive: @escaping @MainActor () -> Bool
+    ) -> ImportModel {
+        ImportModel(
+            connection: connection, catalog: clientData.catalog,
+            settings: { settings.value.importing }, stats: { snapshots.provider }, store: personal,
+            detectedFlash: {
+                switch onboarding.resolvedFlashSlot(.auto) {
+                case .d: .d
+                case .f: .f
+                case nil: nil
+                }
+            }, scoringRole: { champSelect.scoringRole }, poster: poster, appIsActive: appIsActive)
     }
 
     /// The client `MitoApp` runs. In Debug, `-MitoLCULockfilePath <path>` makes it discover only

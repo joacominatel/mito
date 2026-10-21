@@ -18,7 +18,7 @@ struct ConnectionStatusRow: View {
         } icon: {
             Image(systemName: model.menuBarSymbol)
                 .foregroundStyle(
-                    model.isConnected ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary)
+                    model.isConnected ? AnyShapeStyle(Color.favorable) : AnyShapeStyle(.secondary)
                 )
                 .symbolEffect(.pulse, isActive: model.isConnecting)
                 .accessibilityHidden(true)

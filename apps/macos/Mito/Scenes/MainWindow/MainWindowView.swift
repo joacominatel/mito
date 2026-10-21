@@ -19,6 +19,7 @@ struct MainWindowView: View {
             if let destination = window.destination {
                 detail(for: destination)
                     .navigationTitle(Text(destination.title))
+                    .navigationBarGlass()
             }
         }
         .importToast()

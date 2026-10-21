@@ -20,7 +20,7 @@ struct WinrateBar: View {
         }
         .frame(height: 6)
         .frame(minWidth: 48, idealWidth: 80, maxWidth: 120)
-        .animation(.default, value: fraction)
+        .draftAnimation(value: fraction)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             Text(

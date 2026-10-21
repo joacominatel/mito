@@ -150,7 +150,7 @@ struct FailureLabel: View {
             }
         } icon: {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.caution)
         }
     }
 }

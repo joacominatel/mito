@@ -106,33 +106,6 @@ struct LaneDiffsBlock: Equatable {
     let sample: SampleLevel
 }
 
-struct CurveChartData: Equatable {
-    struct Series: Equatable, Identifiable {
-        let id: ChampionID
-        let name: String
-        let points: [Point]
-    }
-
-    struct Point: Equatable, Identifiable {
-        let id: DurationBucket
-        /// "<20", "20–25", "40+".
-        let label: String
-        let winrate: Double
-        /// "Ahri, de 20 a 25 minutos".
-        let accessibilityLabel: String
-        /// "52,3 %".
-        let accessibilityValue: String
-    }
-
-    let series: [Series]
-    /// The buckets any series has, in game-length order: Charts orders categories as it meets them.
-    let axisLabels: [String]
-    /// "Ahri escala mejor que Zed desde el minuto 35"; `nil` when nothing stands out.
-    let summary: String?
-    /// The lowest sample of the curves drawn.
-    let sample: SampleLevel
-}
-
 /// The es-AR wording of one analysis.
 struct MatchupWording {
     let champion: AnalysisSubject.Champion
@@ -240,14 +213,16 @@ struct MatchupWording {
 
     private func laneDiffs(_ diffs: LaneDiffs) -> LaneDiffsBlock {
         let gold = diffs.goldAt15.map {
-            let (value, tone) = signed($0, fractionDigits: 0)
-            return LaneDiffsBlock.Item(
-                id: String(localized: "Oro @15", table: "Matchup"), value: value, tone: tone)
+            LaneDiffsBlock.Item(
+                id: String(localized: "Oro @15", table: "Matchup"),
+                value: SignedNumber.text($0, fractionDigits: 0, locale: locale),
+                tone: SignedNumber.tone($0, fractionDigits: 0))
         }
         let cs = diffs.csAt15.map {
-            let (value, tone) = signed($0, fractionDigits: 1)
-            return LaneDiffsBlock.Item(
-                id: String(localized: "CS @15", table: "Matchup"), value: value, tone: tone)
+            LaneDiffsBlock.Item(
+                id: String(localized: "CS @15", table: "Matchup"),
+                value: SignedNumber.text($0, fractionDigits: 1, locale: locale),
+                tone: SignedNumber.tone($0, fractionDigits: 1))
         }
         return LaneDiffsBlock(
             items: [gold, cs].compactMap(\.self),
@@ -601,17 +576,5 @@ struct MatchupWording {
     /// "7:10".
     private func time(_ seconds: Int) -> String {
         Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond).locale(locale))
-    }
-
-    /// Signed at `fractionDigits`; zero after rounding has no sign. The minus is U+2212.
-    private func signed(_ value: Double, fractionDigits: Int) -> (text: String, tone: Tone) {
-        // Rounded once, half to even like the formatter, so the text and the tone read one number.
-        let scale = pow(10, Double(fractionDigits))
-        let shown = (value * scale).rounded(.toNearestOrEven) / scale
-        let magnitude = abs(shown).formatted(
-            .number.precision(.fractionLength(fractionDigits)).locale(locale))
-        if shown > 0 { return ("+" + magnitude, .favorable) }
-        if shown < 0 { return ("\u{2212}" + magnitude, .unfavorable) }
-        return (magnitude, .neutral)
     }
 }

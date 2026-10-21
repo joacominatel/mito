@@ -2,6 +2,7 @@ import Foundation
 import LCUKit
 import MitoAssets
 import MitoCore
+import MitoEngine
 import SwiftUI
 
 /// The §20.1 draft: header, the two teams around the recommendations column, the bans, and the
@@ -18,23 +19,24 @@ struct ChampSelectView: View {
                     queue: draft.queue, phase: draft.phase, phaseInterval: model.phaseInterval,
                     isMyTurnToPick: draft.isMyTurnToPick, isMyTurnToBan: draft.isMyTurnToBan)
                 HStack(alignment: .top, spacing: 16) {
-                    TeamColumn(
-                        title: Text("Tu equipo", tableName: "ChampSelect"), rows: model.allyRows)
+                    TeamColumn(slots: model.allyRows, side: .allies)
                     if let list = model.recommendations {
+                        // Widest first: the team columns keep their minimum, the picks get the rest.
                         RecommendationsColumn(
                             list: list, role: model.scoringRole,
                             roleSelection: model.canChooseRole ? roleSelection : nil,
-                            names: model.reasonNames)
+                            names: model.reasonNames
+                        )
+                        .layoutPriority(1)
                     }
-                    TeamColumn(
-                        title: Text("Equipo rival", tableName: "ChampSelect"), rows: model.enemyRows
-                    )
+                    TeamColumn(slots: model.enemyRows, side: .enemies)
                 }
                 // The draft takes what it needs first; the panel gets the rest, down to its minimum.
                 .layoutPriority(1)
                 BansRow(bans: model.bans)
                 AnalysisPanel(model: app.analysis)
             }
+            .draftAnimation(value: draft)
             .padding()
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
@@ -63,6 +65,7 @@ private struct DraftHeader: View {
                 Label {
                     Text(timerInterval: phaseInterval, countsDown: true)
                         .monospacedDigit()
+                        .contentTransition(.numericText(countsDown: true))
                 } icon: {
                     Image(systemName: "timer")
                 }
@@ -94,123 +97,6 @@ private struct TurnBadge: View {
     }
 }
 
-private struct TeamColumn: View {
-    let title: Text
-    let rows: [DraftSlotRow]
-
-    var body: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(rows) { row in
-                    SlotRowView(row: row)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
-            title.font(.headline)
-        }
-        .frame(minWidth: 200, idealWidth: 240, maxWidth: 280)
-    }
-}
-
-private struct SlotRowView: View {
-    let row: DraftSlotRow
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ChampionIcon(id: row.champion, size: 28, state: row.iconState)
-            PickLabel(pick: row.pick, isMe: row.isMe)
-            Spacer(minLength: 4)
-            if let turn = row.turn {
-                TurnMarker(turn: turn)
-            }
-            RoleTag(role: row.role)
-        }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: row.accessibilityLabel))
-    }
-}
-
-private struct PickLabel: View {
-    let pick: DraftSlotRow.Pick
-    let isMe: Bool
-
-    var body: some View {
-        HStack(spacing: 6) {
-            switch pick {
-            case .locked(let name):
-                Image(systemName: "lock.fill")
-                    .foregroundStyle(.secondary)
-                Text(verbatim: name)
-                    .fontWeight(.semibold)
-            case .hovering(let name):
-                Image(systemName: "hand.point.up.left")
-                    .foregroundStyle(.secondary)
-                Text(verbatim: name)
-                    .italic()
-                    .foregroundStyle(.secondary)
-            case .empty:
-                Image(systemName: "circle.dotted")
-                    .foregroundStyle(.tertiary)
-                Text("Sin campeón", tableName: "ChampSelect")
-                    .foregroundStyle(.tertiary)
-            }
-            if isMe {
-                Text("(vos)", tableName: "ChampSelect")
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .lineLimit(1)
-    }
-}
-
-private struct TurnMarker: View {
-    let turn: ChampSelectModel.Turn
-
-    var body: some View {
-        Image(systemName: turn == .ban ? "nosign" : "hourglass")
-            .foregroundStyle(.orange)
-            .symbolEffect(.pulse)
-            .help(
-                turn == .ban
-                    ? Text("Baneando", tableName: "ChampSelect")
-                    : Text("Eligiendo", tableName: "ChampSelect"))
-    }
-}
-
-/// Inferred roles carry a "?" and their probability; a guess without data says so.
-private struct RoleTag: View {
-    let role: DraftSlotRow.RoleLabel
-
-    var body: some View {
-        HStack(spacing: 2) {
-            switch role {
-            case .assigned(let role):
-                Text(role.shortLabel)
-            case .inferred(let role, let confidence):
-                Text(role.shortLabel)
-                Text(verbatim: "?")
-                Text(confidence, format: .percent.precision(.fractionLength(0)))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            case .uncertain(let role):
-                Image(systemName: "questionmark.circle")
-                Text(role.shortLabel)
-                Text("sin datos", tableName: "ChampSelect")
-            case .none:
-                EmptyView()
-            }
-        }
-        .font(.caption.weight(.medium))
-        .foregroundStyle(isUncertain ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.primary))
-    }
-
-    private var isUncertain: Bool {
-        if case .uncertain = role { true } else { false }
-    }
-}
-
 private struct BansRow: View {
     let bans: [BannedChampion]
 
@@ -226,15 +112,28 @@ private struct BansRow: View {
                 Text("Ninguno todavía", tableName: "ChampSelect")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(Array(bans.enumerated()), id: \.offset) { _, ban in
-                    HStack(spacing: 4) {
-                        ChampionIcon(id: ban.id, size: 20, state: .banned)
-                            .alignmentGuide(.firstTextBaseline) { $0.height * 0.75 }
-                        Text(verbatim: ban.name)
-                            .foregroundStyle(.secondary)
+                // Ten names do not fit a narrow window: then only the icons, named on hover.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        ForEach(Array(bans.enumerated()), id: \.offset) { _, ban in
+                            HStack(spacing: 4) {
+                                ChampionIcon(id: ban.id, size: 20, state: .banned)
+                                    .alignmentGuide(.firstTextBaseline) { $0.height * 0.75 }
+                                Text(verbatim: ban.name)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        ForEach(Array(bans.enumerated()), id: \.offset) { _, ban in
+                            ChampionIcon(id: ban.id, size: 20, state: .banned, label: ban.name)
+                                .alignmentGuide(.firstTextBaseline) { $0.height * 0.75 }
+                                .help(Text(verbatim: ban.name))
+                        }
                     }
                 }
             }
+            Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
     }

@@ -42,7 +42,7 @@ private struct PendingReplacementRow: View {
                 Text(outcome.headline)
             } icon: {
                 Image(systemName: "questionmark.circle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.caution)
                     .accessibilityHidden(true)
             }
             if let runes = outcome.rows.first(where: { $0.part == .runes }) {

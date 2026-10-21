@@ -114,6 +114,7 @@ private struct BlockView: View {
                                 .foregroundStyle(.secondary)
                             Text(verbatim: row.value)
                                 .monospacedDigit()
+                                .contentTransition(.numericText())
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }

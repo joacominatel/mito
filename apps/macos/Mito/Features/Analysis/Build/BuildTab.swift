@@ -272,13 +272,9 @@ private struct OptionRow: View {
             Image(systemName: isChosen ? "checkmark.circle.fill" : "circle")
                 .foregroundStyle(isChosen ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
                 .accessibilityHidden(true)
-            if !option.icons.isEmpty {
-                HStack(spacing: 2) {
-                    ForEach(Array(option.icons.enumerated()), id: \.offset) { _, icon in
-                        GameIcon(icon, size: isChosen ? 22 : 18)
-                    }
-                }
-                .alignmentGuide(.firstTextBaseline) { $0.height * 0.75 }
+            if option.artwork != .none {
+                OptionArtwork(artwork: option.artwork, size: isChosen ? 22 : 18)
+                    .alignmentGuide(.firstTextBaseline) { $0.height * 0.75 }
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: option.title)
@@ -302,6 +298,24 @@ private struct OptionRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isChosen ? .isSelected : [])
+    }
+}
+
+private struct OptionArtwork: View {
+    let artwork: BuildArtwork
+    let size: CGFloat
+
+    var body: some View {
+        switch artwork {
+        case .none: EmptyView()
+        case .runes(let page): RunePageView(page: page, size: size)
+        case .spells(let pair):
+            HStack(spacing: 2) {
+                GameIcon(.spell(pair.first), size: size)
+                GameIcon(.spell(pair.second), size: size)
+            }
+        case .items(let items): ItemRow(items: items, size: size)
+        }
     }
 }
 
@@ -339,10 +353,11 @@ extension Role {
                             id: "a", title: "Electrocutar",
                             subtitle: "Dominación + Brujería · Impacto repentino · Globos oculares",
                             level: .usable, reasons: reason(.runes, 0.3, 0.562, 300),
-                            icons: [
-                                .perk(PerkID(rawValue: 8112)),
-                                .perkStyle(PerkStyleID(rawValue: 8200)),
-                            ])
+                            artwork: .runes(
+                                RunePage(
+                                    primaryStyle: PerkStyleID(rawValue: 8100),
+                                    subStyle: PerkStyleID(rawValue: 8200),
+                                    perks: [PerkID(rawValue: 8112)])))
                     ],
                     alternatives: [
                         BuildOption(
@@ -355,10 +370,10 @@ extension Role {
                         BuildOption(
                             id: "c", title: "Destello + Prender", subtitle: nil, level: .reliable,
                             reasons: reason(.spells, 0.9, 0.52, 18_000),
-                            icons: [
-                                .spell(SummonerSpellID(rawValue: 4)),
-                                .spell(SummonerSpellID(rawValue: 14)),
-                            ])
+                            artwork: .spells(
+                                SpellPair(
+                                    first: SummonerSpellID(rawValue: 4),
+                                    second: SummonerSpellID(rawValue: 14))))
                     ], alternatives: []),
                 BuildPart(
                     id: .items(.core), title: "Núcleo", source: .adaptedToProfiles([.heavyAD]),
@@ -367,7 +382,7 @@ extension Role {
                         BuildOption(
                             id: "d", title: "Luden · Sombrero de Rabadon", subtitle: nil,
                             level: .reliable, reasons: reason(.items(.core), 0.4, 0.53, 4_000),
-                            icons: [.item(ItemID(rawValue: 6655)), .item(ItemID(rawValue: 3089))])
+                            artwork: .items([ItemID(rawValue: 6655), ItemID(rawValue: 3089)]))
                     ], alternatives: []),
                 BuildPart(
                     id: .skillOrder, title: "Habilidades", source: .general, isImported: false,

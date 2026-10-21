@@ -16,8 +16,6 @@ enum ProfileInsights {
     /// The short-game winrate must differ from the rest by this much to be worth a line.
     static let minimumShortGameGap = 0.10
     static let minimumLossStreak = 3
-    /// Remakes end before this; they say nothing about how the user plays.
-    static let remakeSeconds = 5 * 60
 
     /// Per role, the champions the user played there, best `PersonalScoring` total first.
     static func bestChampions(
@@ -91,7 +89,7 @@ enum ProfileInsights {
     }
 
     private static func isRemake(_ match: MyMatch) -> Bool {
-        match.durationSeconds < remakeSeconds
+        match.durationSeconds < PersonalHistory.remakeSeconds
     }
 }
 

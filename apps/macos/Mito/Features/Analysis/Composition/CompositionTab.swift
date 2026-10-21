@@ -239,7 +239,7 @@ private struct LevelCell: View {
     }
 }
 
-/// Physical and magic shares as one bar, true damage in the rest; the text carries the numbers.
+/// The damage split as text and as a `DamageProfileBar`; the text carries the numbers.
 private struct DamageCell: View {
     let team: CompositionSummary.Team
     let side: TeamSide
@@ -249,8 +249,9 @@ private struct DamageCell: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: team.hasData ? CompositionText.damage(profile) : LevelCell.noData)
                 .monospacedDigit()
+                .contentTransition(.numericText())
             if team.hasData {
-                DamageBar(physical: profile.physicalShare, magic: profile.magicShare)
+                DamageProfileBar(physical: profile.physicalShare, magic: profile.magicShare)
             }
         }
         .modifier(
@@ -258,25 +259,6 @@ private struct DamageCell: View {
                 metric: .damage, side: side,
                 value: team.hasData
                     ? CompositionText.damageAccessibility(profile) : LevelCell.noData))
-    }
-}
-
-private struct DamageBar: View {
-    let physical: Double
-    let magic: Double
-
-    var body: some View {
-        GeometryReader { proxy in
-            HStack(spacing: 0) {
-                Rectangle().fill(.orange).frame(width: proxy.size.width * physical)
-                Rectangle().fill(.blue).frame(width: proxy.size.width * magic)
-                Rectangle().fill(.quaternary)
-            }
-            .clipShape(.capsule)
-        }
-        .frame(minWidth: 80, idealWidth: 140, maxWidth: 180)
-        .frame(height: 6)
-        .animation(.default, value: physical)
     }
 }
 

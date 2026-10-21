@@ -97,9 +97,6 @@
     "CS @15" : {
       "comment" : "Lane diff label: mean CS difference against the lane opponent at 15 minutes."
     },
-    "Campeón" : {
-      "comment" : "Swift Charts series name of the duration curve: which champion a line belongs to."
-    },
     "Claves" : {
       "comment" : "Section of the Matchup tab with tips for the lane."
     },
@@ -111,9 +108,6 @@
     },
     "Curva por duración" : {
       "comment" : "Section of the Matchup tab with winrate by game length."
-    },
-    "Duración de la partida (minutos)" : {
-      "comment" : "X-axis title of the duration curve chart."
     },
     "El cruce es difícil (%@ puntos de winrate): priorizá farmear seguro" : {
       "comment" : "Generated matchup tip for an unfavorable matchup; the signed winrate points."
@@ -135,9 +129,6 @@
     },
     "Llegás antes que %@ al %@ (%@): es tu momento para pelear" : {
       "comment" : "Generated matchup tip. Lane opponent, a power spike ('nivel 6', '1.er legendario'), and your time."
-    },
-    "Minutos" : {
-      "comment" : "Swift Charts x value name of the duration curve: game length bucket."
     },
     "Oro @15" : {
       "comment" : "Lane diff label: mean gold difference against the lane opponent at 15 minutes."
@@ -187,17 +178,11 @@
     "Todavía no hay campeón" : {
       "comment" : "The Matchup tab before you lock, hover, or get recommended a champion."
     },
-    "Winrate" : {
-      "comment" : "Swift Charts y value name of the duration curve."
-    },
     "Winrate contra %@" : {
       "comment" : "Title of the matchup winrate block: against the lane opponent."
     },
     "Winrate general en %@" : {
       "comment" : "Title of the general winrate block: in the role (abbreviation)."
-    },
-    "Winrate por duración de la partida" : {
-      "comment" : "VoiceOver label of the duration curve chart."
     },
     "de %lld a %lld minutos" : {
       "comment" : "VoiceOver name of a duration bucket (20-25)."

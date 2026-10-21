@@ -162,7 +162,7 @@ private struct MatchupList: View {
                     Image(
                         systemName: isFavorable ? "arrow.up.circle.fill" : "arrow.down.circle.fill"
                     )
-                    .foregroundStyle(isFavorable ? .green : .red)
+                    .foregroundStyle(isFavorable ? Color.favorable : Color.unfavorable)
                     .accessibilityHidden(true)
                     Text(
                         "\(names(record.id.champion)) vs \(names(record.id.opponent)) (\(String(localized: record.id.role.profileLabel)))",
@@ -259,7 +259,9 @@ private struct SignedPercent: View {
             )
             .monospacedDigit()
         }
-        .foregroundStyle(shown > 0 ? .green : shown < 0 ? .red : .secondary)
+        .foregroundStyle(
+            shown > 0
+                ? Tone.favorable.color : shown < 0 ? Tone.unfavorable.color : Tone.neutral.color)
     }
 
     private func symbol(_ value: Double) -> String {

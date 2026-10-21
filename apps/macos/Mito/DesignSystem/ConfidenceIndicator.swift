@@ -13,7 +13,8 @@ struct ConfidenceIndicator: View {
         }
         .labelStyle(.titleAndIcon)
         .font(.caption)
-        .foregroundStyle(level == .reliable ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+        .foregroundStyle(
+            level == .reliable ? AnyShapeStyle(Color.favorable) : AnyShapeStyle(.secondary))
     }
 
     static func title(_ level: SampleLevel) -> LocalizedStringResource {

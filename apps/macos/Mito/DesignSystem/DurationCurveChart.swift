@@ -2,35 +2,35 @@ import Charts
 import MitoCore
 import SwiftUI
 
-/// Winrate by game length for each curve (§20.2), one line per champion told apart by color and
-/// by symbol, with the summary line under it.
+/// `DurationCurveChart(curve:)` of §22.3: winrate by game length, one line per champion told
+/// apart by color and by symbol, with the summary line under it.
 struct DurationCurveChart: View {
-    let data: CurveChartData
+    let curve: CurveChartData
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Chart {
-                RuleMark(y: .value(Text("Winrate", tableName: "Matchup"), 0.5))
+                RuleMark(y: .value(Text("Winrate", tableName: "DesignSystem"), 0.5))
                     .foregroundStyle(Color.secondary)
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     .accessibilityHidden(true)
-                ForEach(data.series) { series in
+                ForEach(curve.series) { series in
                     ForEach(series.points) { point in
                         LineMark(
-                            x: .value(Text("Minutos", tableName: "Matchup"), point.label),
-                            y: .value(Text("Winrate", tableName: "Matchup"), point.winrate)
+                            x: .value(Text("Minutos", tableName: "DesignSystem"), point.label),
+                            y: .value(Text("Winrate", tableName: "DesignSystem"), point.winrate)
                         )
                         .foregroundStyle(
-                            by: .value(Text("Campeón", tableName: "Matchup"), series.name)
+                            by: .value(Text("Campeón", tableName: "DesignSystem"), series.name)
                         )
-                        .symbol(by: .value(Text("Campeón", tableName: "Matchup"), series.name))
+                        .symbol(by: .value(Text("Campeón", tableName: "DesignSystem"), series.name))
                         .interpolationMethod(.monotone)
                         .accessibilityLabel(point.accessibilityLabel)
                         .accessibilityValue(point.accessibilityValue)
                     }
                 }
             }
-            .chartXScale(domain: data.axisLabels)
+            .chartXScale(domain: curve.axisLabels)
             .chartYScale(domain: .automatic(includesZero: false))
             .chartYAxis {
                 AxisMarks { value in
@@ -43,23 +43,51 @@ struct DurationCurveChart: View {
                 }
             }
             .chartXAxisLabel {
-                Text("Duración de la partida (minutos)", tableName: "Matchup")
+                Text("Duración de la partida (minutos)", tableName: "DesignSystem")
             }
             .frame(height: 160)
-            .accessibilityLabel(Text("Winrate por duración de la partida", tableName: "Matchup"))
+            .accessibilityLabel(
+                Text("Winrate por duración de la partida", tableName: "DesignSystem"))
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if let summary = data.summary {
+                if let summary = curve.summary {
                     Text(verbatim: summary)
                         .font(.callout)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if data.sample.isLowSample {
-                    ConfidenceIndicator(level: data.sample)
+                if curve.sample.isLowSample {
+                    ConfidenceIndicator(level: curve.sample)
                 }
             }
         }
     }
+}
+
+struct CurveChartData: Equatable {
+    struct Series: Equatable, Identifiable {
+        let id: ChampionID
+        let name: String
+        let points: [Point]
+    }
+
+    struct Point: Equatable, Identifiable {
+        let id: DurationBucket
+        /// "<20", "20–25", "40+".
+        let label: String
+        let winrate: Double
+        /// "Ahri, de 20 a 25 minutos".
+        let accessibilityLabel: String
+        /// "52,3 %".
+        let accessibilityValue: String
+    }
+
+    let series: [Series]
+    /// The buckets any series has, in game-length order: Charts orders categories as it meets them.
+    let axisLabels: [String]
+    /// "Ahri escala mejor que Zed desde el minuto 35"; `nil` when nothing stands out.
+    let summary: String?
+    /// The lowest sample of the curves drawn.
+    let sample: SampleLevel
 }
 
 extension CurveChartData {
@@ -91,7 +119,7 @@ extension CurveChartData {
 }
 
 #Preview {
-    DurationCurveChart(data: .preview)
+    DurationCurveChart(curve: .preview)
         .padding()
         .frame(width: 520)
 }

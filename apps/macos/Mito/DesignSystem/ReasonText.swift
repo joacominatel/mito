@@ -211,13 +211,7 @@ enum ReasonText {
     }
 
     static func roleName(_ role: Role) -> String {
-        switch role {
-        case .top: String(localized: "TOP", table: "DesignSystem")
-        case .jungle: String(localized: "JG", table: "DesignSystem")
-        case .middle: String(localized: "MID", table: "DesignSystem")
-        case .bottom: String(localized: "ADC", table: "DesignSystem")
-        case .utility: String(localized: "SUP", table: "DesignSystem")
-        }
+        String(localized: role.shortLabel)
     }
 
     static func profileName(_ profile: EnemyProfile) -> String {

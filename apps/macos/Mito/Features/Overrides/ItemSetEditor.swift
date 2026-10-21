@@ -30,7 +30,7 @@ struct ItemSetEditor: View {
                     .accessibilityLabel(Text("Quitar bloque", tableName: "Overrides"))
                 }
                 ForEach(block.items, id: \.id) { item in
-                    ItemRow(
+                    BlockItemRow(
                         name: gameData.overridesName(of: item.id),
                         count: Binding(
                             get: { item.count },
@@ -66,7 +66,7 @@ struct ItemSetEditor: View {
     }
 }
 
-private struct ItemRow: View {
+private struct BlockItemRow: View {
     let name: String
     @Binding var count: Int
     let remove: () -> Void

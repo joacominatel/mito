@@ -82,6 +82,8 @@ private struct RankedList: View {
                         Text(verbatim: "\(index + 1). \(names.champion(row.id))")
                             .font(.body.weight(.semibold))
                             .lineLimit(1)
+                            .frame(minWidth: 72, alignment: .leading)
+                            .layoutPriority(1)
                         Spacer(minLength: 4)
                         if let score = row.score {
                             DeltaBadge(delta: score)
@@ -89,7 +91,7 @@ private struct RankedList: View {
                                 .accessibilityHidden(true)
                             // Reads the score and its confidence for the row.
                             WinrateBar(value: score, baseline: 0, confidence: row.confidence)
-                                .frame(width: 80)
+                                .frame(maxWidth: 80)
                         }
                         ConfidenceIndicator(level: row.confidence)
                             .fixedSize()
@@ -106,6 +108,8 @@ private struct RankedList: View {
                 }
             }
         }
+        // Rows slide to their new rank and fade in or out as the draft moves.
+        .draftAnimation(value: rows)
     }
 }
 

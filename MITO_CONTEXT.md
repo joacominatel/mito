@@ -3876,6 +3876,36 @@ Favorito y excluido del pool no cambian el import.
 - **Liquid Glass** en toolbar y sidebar donde el sistema lo soporte, con fallback
   `.regularMaterial` en versiones previas.
 
+**Estado actual (P9-09).**
+
+- **Animaciones.** `draftAnimation(value:)` (`DesignSystem/Motion.swift`) anima lo que cambia con
+  el draft con un `.snappy` de 0,25 s; con Reducir movimiento (`accessibilityReduceMotion`) no hay
+  animación (`Motion.draft(reduceMotion:)`, que es lo que se testea). Los números cambian con
+  `.contentTransition(.numericText())`: el score (`DeltaBadge`), el timer, el winrate y los diffs
+  de línea de Matchup, la probabilidad del rol inferido, el daño de Composición y los valores de
+  Mi historial. Las filas de recomendaciones se mueven a su nuevo puesto y entran o salen con un
+  fundido; un campeón que pasa a hover o se lockea aparece en su celda con escala y fundido (una
+  transición simple, sin `matchedGeometryEffect`). `WinrateBar`, `DamageProfileBar` y el toast
+  del import usan la misma animación, así que también respetan Reducir movimiento.
+- **Liquid Glass.** En macOS 26 o posterior la sidebar y la toolbar de la ventana principal son
+  las del sistema, sin fondos propios, y el contenido bajo la toolbar usa el borde de scroll
+  `hard`. En macOS 15 la toolbar lleva `.regularMaterial` y la sidebar el material de sidebar del
+  sistema. `navigationGlass(in:)` (`DesignSystem/NavigationGlass.swift`) da glass, o
+  `.regularMaterial` antes de macOS 26, a un panel flotante con su forma; hoy lo usa el toast del
+  import. Nunca va sobre contenido (tablas, listas, filas).
+- **Contraste.** Los colores semánticos son el verde, rojo, naranja y menta del sistema,
+  oscurecidos en modo claro para llegar a 4,5:1 sobre blanco y sin cambios en modo oscuro
+  (`Color.favorable`, `.unfavorable`, `.caution`, `.mintReadable`; el contraste se testea). Todo
+  texto o símbolo con tono los usa, siempre junto a un ícono o un signo. El texto informativo va
+  en `.secondary`; `.tertiary` queda para íconos de relleno.
+- **Accesibilidad.** Cada control interactivo tiene etiqueta; las filas de draft, de
+  recomendaciones, de bans y los bloques de análisis se leen como un solo elemento. Todo el texto
+  usa estilos de texto, así que sigue el tamaño de texto del sistema donde macOS lo aplica.
+- **Ventana principal.** Arranca en 1100×720; el mínimo lo pone el contenido (unos 1010×680 con
+  champ select). Los equipos tienen un mínimo de 200 pt y la columna de recomendaciones se queda
+  con el resto, así el nombre del campeón nunca desaparece; cuando los nombres de los bans no
+  entran en una línea, quedan solo los íconos, con el nombre en el tooltip y en VoiceOver.
+
 ### 22.2 Navegación (ventana principal)
 
 `NavigationSplitView` con sidebar:
@@ -3933,11 +3963,11 @@ a `connected` y se descarta al salir (§17); si el pedido falla, no hay maestrí
 - `DeltaBadge(delta:)`: "+2,1" / "−3,4" con color e ícono.
 - `ConfidenceIndicator(level:)`
 - `RunePageView(page:)`: visual con los árboles y las runas elegidas.
-- `ItemRow(items:title:)`
+- `ItemRow(items:)`
 - `ReasonRow(reason:)`: texto con ícono SF Symbol.
 - `TeamColumn(slots:side:)`
 - `DurationCurveChart(curve:)`: Swift Charts.
-- `DamageProfileBar(phys:magic:true:)`
+- `DamageProfileBar(physical:magic:)`: el daño verdadero es el resto.
 
 Implementados en `Mito/DesignSystem/` (textos en `DesignSystem.xcstrings`):
 
@@ -3958,6 +3988,10 @@ Implementados en `Mito/DesignSystem/` (textos en `DesignSystem.xcstrings`):
 - `DeltaBadge(delta:)`: el delta (fracción) en puntos de winrate con un decimal y el formato del
   locale; `+` o `−` (U+2212) y flecha arriba o abajo, en verde o rojo. Lo que redondea a 0,0 va
   sin signo, con `equal` y en gris. VoiceOver lee "+2,1 puntos de winrate".
+- `SignedNumber`: el formateador de números con signo que comparten los puntos de winrate
+  (`WinratePoints`) y los diffs de línea de Matchup ("−85", "+4,2"). Redondea una sola vez, mitad
+  al par como el formateador, y el texto y el tono salen de ese mismo número: lo que se muestra
+  como cero no lleva signo ni color.
 - `ConfidenceIndicator(level:)`: "conf. alta" con sello verde (`reliable`), "muestra baja" con
   ícono gris (`usable`) y "sin muestra" (`belowMinimum`).
 - `ReasonRow(reason:names:)`: un ícono SF Symbol por caso de `Reason.Kind`, en el tono de la
@@ -3983,6 +4017,20 @@ Implementados en `Mito/DesignSystem/` (textos en `DesignSystem.xcstrings`):
     campeón", "Tu 11.º campeón"), seguido de "(41 partidas, 56 %)". Fuera del pool: "41
     partidas tuyas, 56 %". El winrate va en porcentaje del locale y es favorable si redondea a
     más de 50 %; si no, neutro: la comodidad nunca es mala noticia.
+- `DurationCurveChart(curve:)`: el winrate por duración de la partida (Swift Charts), una línea
+  por campeón que se distingue por color y por símbolo, con la línea de resumen debajo y la marca
+  de muestra baja si corresponde. Lo usa Matchup (§20.2).
+- `DamageProfileBar(physical:magic:)`: los shares físico y mágico como una barra, en naranja y
+  azul, y el verdadero en el resto. Es decorativa: el texto al lado lleva los números. La usa
+  Composición.
+- `ItemRow(items:)` y `RunePageView(page:)`, compacta: los íconos de los ítems en orden de
+  compra, y la runa clave con el árbol secundario. Decorativos: el nombre va al lado. Los usa
+  Build en cada opción.
+- `TeamColumn(slots:side:)`: un equipo del draft (§20.1), "Tu equipo" o "Equipo rival", con una
+  fila por celda (`DraftSlotRow`): ícono, candado o mano, nombre, "(vos)", el turno y el rol (con
+  "?" y probabilidad si es inferido, "sin datos" si es una adivinanza). Cada fila es un solo
+  elemento de VoiceOver. Las etiquetas de rol (TOP, JG, MID, ADC, SUP; Top, Jungla, Mid, Tirador,
+  Soporte) también viven acá y las usan champ select, Matchup y Mi historial.
 - `WinrateBar(value:baseline:confidence:)`: la distancia `value − baseline` como barra que
   crece desde una línea central, a la derecha si es favorable y a la izquierda si no, así el
   lado lleva el signo y el color solo lo acompaña. Media barra son 5 puntos de winrate; más

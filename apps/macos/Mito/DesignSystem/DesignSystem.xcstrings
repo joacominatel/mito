@@ -37,6 +37,12 @@
     "%@ vs %@: se compra en el %@ (%@ en general), %@" : {
       "comment" : "Reason: a situational item. Arguments: item, enemy profile, buy rate against it, general buy rate, signed winrate points."
     },
+    "%@, en hover" : {
+      "comment" : "VoiceOver: a champion a player is hovering but has not locked. The argument is the champion name."
+    },
+    "%@, lockeado" : {
+      "comment" : "VoiceOver: a champion a player has locked in. The argument is the champion name."
+    },
     "%@: adaptado a %@ (%@ partidas)" : {
       "comment" : "Reason: a loadout part adapted to the lane opponent. Arguments: the part (Runas), opponent champion, game count."
     },
@@ -45,6 +51,9 @@
     },
     "%@: la elige el %@, gana el %@ (%@ partidas)" : {
       "comment" : "Reason: the general loadout choice. Arguments: the part, usage percentage, winrate percentage, game count."
+    },
+    "(vos)" : {
+      "comment" : "Marks the local player's own cell in the team column."
     },
     "4.º" : {
       "comment" : "Item build layer: the fourth item."
@@ -64,8 +73,14 @@
     "Aporta la frontline que le falta al equipo (más tanque que el %@ del rol)" : {
       "comment" : "Reason: the team lacks a frontline. The argument is the candidate's tankiness percentile in its role."
     },
+    "Baneando" : {
+      "comment" : "A player whose ban is in progress."
+    },
     "CC dirigido" : {
       "comment" : "Enemy trait: point-and-click crowd control."
+    },
+    "Campeón" : {
+      "comment" : "Swift Charts series name of the duration curve: which champion a line belongs to."
     },
     "Campeón %@" : {
       "comment" : "Fallback name for a champion whose static data has not loaded. The argument is the numeric champion ID."
@@ -73,11 +88,29 @@
     "Curva de poder: early %@, tu equipo %@" : {
       "comment" : "Reason: early-game strength of the candidate and of the allied team, in signed winrate points."
     },
+    "Duración de la partida (minutos)" : {
+      "comment" : "X-axis title of the duration curve chart."
+    },
+    "Eligiendo" : {
+      "comment" : "A player whose pick is in progress."
+    },
+    "Equipo rival" : {
+      "comment" : "Title of the enemy team column."
+    },
     "JG" : {
       "comment" : "Role abbreviation in a reason: jungle."
     },
+    "Jungla" : {
+      "comment" : "Spoken role name for the jungle."
+    },
     "MID" : {
       "comment" : "Role abbreviation in a reason: mid lane."
+    },
+    "Mid" : {
+      "comment" : "Spoken role name for the middle lane."
+    },
+    "Minutos" : {
+      "comment" : "Swift Charts x value name of the duration curve: game length bucket."
     },
     "Orden de habilidades" : {
       "comment" : "Loadout part: the ability leveling order."
@@ -85,11 +118,23 @@
     "Pocas partidas detrás de este dato" : {
       "comment" : "Tooltip of the low-sample mark."
     },
+    "Rol incierto, quizás %@" : {
+      "comment" : "VoiceOver: an enemy role guessed without data. The argument is the role name."
+    },
+    "Rol probable: %@, %@" : {
+      "comment" : "VoiceOver: an enemy role inferred from data. The arguments are the role name and its probability as a percentage."
+    },
     "Runas" : {
       "comment" : "Loadout part: the rune page."
     },
     "SUP" : {
       "comment" : "Role abbreviation in a reason: support."
+    },
+    "Sin campeón" : {
+      "comment" : "A cell with no champion hovered or locked."
+    },
+    "Soporte" : {
+      "comment" : "Spoken role name for support."
     },
     "Spells" : {
       "comment" : "Loadout part: the summoner spells."
@@ -103,6 +148,12 @@
     "Tier %@ del parche (%@ partidas)" : {
       "comment" : "Reason: the candidate's tier this patch. Arguments: tier letter (S to D), game count."
     },
+    "Tirador" : {
+      "comment" : "Spoken role name for the bottom lane (marksman)."
+    },
+    "Top" : {
+      "comment" : "Spoken role name for the top lane."
+    },
     "Tu %lld.er campeón (%@ partidas, %@)" : {
       "comment" : "Reason: the champion's place in the user's pool for this role, for ordinals that apocopate (3.er, 21.er). Arguments: the place, game count, the user's winrate percentage."
     },
@@ -112,11 +163,23 @@
     "Tu campeón principal (%@ partidas, %@)" : {
       "comment" : "Reason: the champion is first in the user's pool for this role. Arguments: game count, the user's winrate percentage."
     },
+    "Tu equipo" : {
+      "comment" : "Title of the user's team column."
+    },
     "Tu equipo es %@ AD: aporta AP" : {
       "comment" : "Reason: the allied team is mostly physical damage and the candidate adds magic. The argument is the physical share."
     },
     "Tu equipo es %@ AP: aporta AD" : {
       "comment" : "Reason: the allied team is mostly magic damage and the candidate adds physical. The argument is the magic share."
+    },
+    "Vos" : {
+      "comment" : "VoiceOver: marks the local player's own cell."
+    },
+    "Winrate" : {
+      "comment" : "Swift Charts y value name of the duration curve."
+    },
+    "Winrate por duración de la partida" : {
+      "comment" : "VoiceOver label of the duration curve chart."
     },
     "ataques básicos" : {
       "comment" : "Enemy trait: champions that rely on basic attacks."
@@ -168,6 +231,9 @@
     },
     "poke" : {
       "comment" : "Enemy trait: poke."
+    },
+    "sin datos" : {
+      "comment" : "Next to an enemy role guessed without statistics, so it is not read as fact."
     },
     "sin muestra" : {
       "comment" : "Confidence indicator: below the minimum sample."

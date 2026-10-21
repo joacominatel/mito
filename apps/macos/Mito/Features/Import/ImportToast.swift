@@ -37,7 +37,7 @@ struct ImportToastHost: ViewModifier {
                     }
                 }
             }
-            .animation(.snappy, value: model.outcome?.id)
+            .draftAnimation(value: model.outcome?.id)
             .onAppear { model.windowAppeared() }
             .onDisappear { model.windowDisappeared() }
     }
@@ -89,7 +89,7 @@ struct ImportToast: View {
         }
         .padding(14)
         .frame(width: 340, alignment: .leading)
-        .floatingSurface(in: .rect(cornerRadius: 14))
+        .navigationGlass(in: .rect(cornerRadius: 14))
         .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
         .accessibilityElement(children: .contain)
     }
@@ -110,15 +110,15 @@ struct ImportToastRow: View {
                 .foregroundStyle(.secondary)
             if row.isLowSample {
                 Text("· muestra baja", tableName: "Import")
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
             if let origin = row.origin {
                 Text(origin.marker)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
             if let marker = row.adaptationMarker {
                 Text(verbatim: marker)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .help(marker)
             }
@@ -132,22 +132,10 @@ extension ImportOutcome.Tone {
     /// Always next to its symbol, never alone.
     var color: Color {
         switch self {
-        case .done: .green
+        case .done: .favorable
         case .neutral: .secondary
-        case .attention: .orange
-        case .failure: .red
-        }
-    }
-}
-
-extension View {
-    /// Liquid Glass on macOS 26, a material in the same shape before it.
-    @ViewBuilder
-    fileprivate func floatingSurface(in shape: some Shape) -> some View {
-        if #available(macOS 26, *) {
-            glassEffect(.regular, in: shape)
-        } else {
-            background(.regularMaterial, in: shape)
+        case .attention: .caution
+        case .failure: .unfavorable
         }
     }
 }
