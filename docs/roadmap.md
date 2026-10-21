@@ -218,6 +218,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 | P5-01 | Bring in the snapshot fixture from `mito-data` | store (serial, snapshot contract) | `fixtures/snapshot/**` | §17 | MD-FX | merged |
 | P5-02 | Refresh the contract fixture to mito-data `74df9cf` (Udyr 4-letter max order, §14.12 loadout rules, current rune trees), add Inspiration to the recorded-shape styles case, and expose the `champ_role_stats` kills/deaths/assists/cs/minutes sums in `ChampionRoleStats` and the reader (§19.2) | store + core (serial, snapshot contract) | `fixtures/snapshot/**`, `fixtures/lcu/cases/runes/**`, `MitoKit/Sources/MitoCore/Stats/ChampionRoleStats.swift`, `MitoKit/Sources/MitoStore/Snapshot/**`, `MitoKit/Tests/**`, `MitoTests/**` | §17, §19.2 | P6-06 | merged |
 | P5-03 | Refresh the contract fixture to mito-data `fb793ac` (vs_team orientations consistent, no later layer repeats the core, final-item rate ≥ timeline core share, tier-3 boots fold) and update fixture-based tests | store (serial, snapshot contract) + tests | `fixtures/snapshot/**`, fixture-based tests | §17 | P7-04, P7-06 | merged |
+| P5-04 | Refresh the contract fixture to mito-data `8ded78e` (duration curves sum to `champ_role_stats`) and update fixture-based tests | store (serial, snapshot contract) + tests | `fixtures/snapshot/**`, fixture-based tests | §17 | P7-13 | todo |
 
 ## P6 — The app consumes the snapshot
 
