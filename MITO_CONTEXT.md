@@ -569,53 +569,74 @@ toda forma textual.
 
 La LCU usa HTTPS con un certificado self-signed emitido por la CA de Riot.
 
-- **Opción correcta:** embeber el certificado raíz de Riot (`riotgames.pem`, conocido en la
-  comunidad) y validar contra él solo para `127.0.0.1`.
-- **Opción mínima:** aceptar el certificado del servidor **solo si el host es 127.0.0.1**.
+- **Opción correcta (pendiente):** embeber el certificado raíz de Riot (`riotgames.pem`,
+  conocido en la comunidad) y validar contra él solo para `127.0.0.1`.
+- **Opción implementada (mínima):** aceptar el certificado del servidor **solo si el host es
+  exactamente `127.0.0.1`** y el challenge es de server trust. Cualquier otro host
+  (`localhost`, `::1`, `127.0.0.2`, dominios) u otro tipo de challenge recibe el manejo por
+  defecto del sistema.
+
+La decisión es una función pura (`LCUTrust.acceptsServerTrust`, `LCUKit/Client/LCUTrust.swift`)
+testeada directamente; el delegate de la sesión solo la aplica:
 
 ```swift
-final class LCUTrustDelegate: NSObject, URLSessionDelegate {
-    func urlSession(_ session: URLSession,
-                    didReceive challenge: URLAuthenticationChallenge) async
-        -> (URLSession.AuthChallengeDisposition, URLCredential?) {
-        guard challenge.protectionSpace.host == "127.0.0.1",
-              let trust = challenge.protectionSpace.serverTrust
+enum LCUTrust {
+    static func acceptsServerTrust(host: String, authenticationMethod: String) -> Bool {
+        host == "127.0.0.1" && authenticationMethod == NSURLAuthenticationMethodServerTrust
+    }
+}
+
+final class LCUTrustDelegate: NSObject, URLSessionDelegate, Sendable {
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge) async
+        -> (URLSession.AuthChallengeDisposition, URLCredential?)
+    {
+        let space = challenge.protectionSpace
+        guard LCUTrust.acceptsServerTrust(
+                host: space.host, authenticationMethod: space.authenticationMethod),
+            let trust = space.serverTrust
         else { return (.performDefaultHandling, nil) }
-        // TODO: validar contra el root de Riot embebido (SecTrustSetAnchorCertificates)
         return (.useCredential, URLCredential(trust: trust))
     }
 }
 ```
 
-**Nunca** desactivar la validación TLS de forma global.
+**Nunca** desactivar la validación TLS de forma global. El fitness test
+`ArchitectureTests/NetworkSentinelTests` falla si una fuente de LCUKit arma una URL hacia un
+host que no sea `127.0.0.1`, usa `URLSession.shared` (que saltea este delegate), toca
+excepciones de validación TLS o sockets crudos, o acepta un server trust fuera de
+`LCUTrust.swift`.
 
 ### 10.4 REST
 
+`LCURESTClient` (`LCUKit/Client/`, interno al módulo) envía un `LCUEndpoint<Response>` a un
+cliente en ejecución y devuelve la respuesta decodificada o un `LCUError`. Se crea con las
+`LCUCredentials` de esa instancia del cliente; el `LCUClient` de P1-05 lo compone y crea uno
+nuevo cuando cambian las credenciales (por eso no tiene estado mutable ni lanza
+`.notConnected`). Recibe un `URLSessionConfiguration` para que los tests inyecten un
+`URLProtocol` stub; nunca se testea contra un cliente real ni contra la red.
+
+- **URL:** `https://127.0.0.1:<port><path>`. El `path` debe empezar con `/` (si no, podría
+  mover el host, p. ej. `@example.com/…`); si no, o si no forma una URL válida, falla con
+  `.encoding` sin enviar nada. El query string del path se conserva.
+- **Headers:** `Authorization: Basic base64("riot:<token>")` y `Accept: application/json`;
+  `Content-Type: application/json` solo cuando el endpoint lleva body.
+- **Errores:** fallo de transporte (conexión rechazada, TLS, cancelación) → `.transport` con
+  la descripción localizada del error; status fuera de 2xx → `.http(status:body:)` con el body
+  crudo; body que no decodifica → `.decoding`. Los endpoints `LCUNoContent` aceptan un 204
+  vacío.
+- **Secretos:** el token y el header `Authorization` nunca se loguean ni aparecen en la
+  descripción de un `LCUError` (hay un test por cada tipo de error).
+
 ```swift
-actor LCUClient {
-    private var credentials: LCUCredentials?
-    private let session: URLSession
-
-    func request<T: Decodable>(_ endpoint: LCUEndpoint<T>) async throws -> T {
-        guard let c = credentials else { throw LCUError.notConnected }
-        var req = URLRequest(url: URL(string: "https://127.0.0.1:\(c.port)\(endpoint.path)")!)
-        req.httpMethod = endpoint.method.rawValue
-        req.setValue(c.authHeader, forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = endpoint.body
-        let (data, resp) = try await session.data(for: req)
-        try LCUError.check(resp, data)
-        return try endpoint.decode(data)
-    }
-}
-
-struct LCUEndpoint<Response: Decodable> {
-    let method: HTTPMethod
-    let path: String
-    var body: Data? = nil
-    var decode: (Data) throws -> Response = { try JSONDecoder().decode(Response.self, from: $0) }
+final class LCURESTClient: Sendable {
+    init(credentials: LCUCredentials, configuration: URLSessionConfiguration = .ephemeral)
+    func send<R: Decodable & Sendable>(_ endpoint: LCUEndpoint<R>) async throws(LCUError) -> R
 }
 ```
+
+Los endpoints se declaran con el contrato `LCUEndpoint` de `LCUKit/Contracts/` (método, path,
+body y decoder; `init(method:path:json:)` codifica el body), nunca como paths sueltos en el
+llamador.
 
 ### 10.5 WebSocket (WAMP)
 
