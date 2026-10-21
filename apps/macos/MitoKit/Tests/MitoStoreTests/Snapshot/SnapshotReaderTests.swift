@@ -113,6 +113,131 @@ struct SnapshotReaderTests {
         }
     }
 
+    // MARK: profile_rules
+
+    @Test func aFileWithoutProfileRulesOpensWithNoRules() throws {
+        try SnapshotCopy.with("DELETE FROM meta WHERE key = 'profile_rules'") { file in
+            let meta = try #require(try SnapshotReader(fileURL: file).meta)
+            #expect(meta.profileRules == nil)
+            #expect(meta.matches == 20000)
+        }
+    }
+
+    @Test(arguments: [
+        "not json",
+        "{\"min_champions\": 3}",
+        """
+        {"min_champions": 3, "heavy_ad": {"phys_share_weighted": 0.65},
+         "heavy_ap": {"magic_share_weighted": 0.6}, "heavy_cc": {"cc_score_mean": 0.6},
+         "mixed": {"not": "heavy_ad"}}
+        """,
+        """
+        {"min_champions": "three", "heavy_ad": {"phys_share_weighted": 0.65},
+         "heavy_ap": {"magic_share_weighted": 0.6}, "heavy_cc": {"cc_score_mean": 0.6},
+         "mixed": {"not": ["heavy_ad", "heavy_ap"]}}
+        """,
+    ])
+    func malformedProfileRulesAreRejected(_ value: String) throws {
+        try SnapshotCopy.with(
+            "UPDATE meta SET value = '\(value)' WHERE key = 'profile_rules'"
+        ) { file in
+            #expect(throws: SnapshotReadError.invalidMetaValue("profile_rules")) {
+                try SnapshotReader(fileURL: file)
+            }
+        }
+    }
+
+    @Test func anUnknownProfileInMixedNotIsKeptAsUnknown() throws {
+        try SnapshotCopy.with(
+            """
+            UPDATE meta SET value = '{"min_champions": 3,
+                "heavy_ad": {"phys_share_weighted": 0.65},
+                "heavy_ap": {"magic_share_weighted": 0.6}, "heavy_cc": {"cc_score_mean": 0.6},
+                "mixed": {"not": ["heavy_ad", "heavy_tank"]}}'
+            WHERE key = 'profile_rules'
+            """
+        ) { file in
+            let rules = try #require(try SnapshotReader(fileURL: file).meta?.profileRules)
+            #expect(rules.mixedExcludes == [.heavyAD, .unknown("heavy_tank")])
+        }
+    }
+
+    // MARK: Tolerance
+
+    @Test func anUnknownFlagIsKeptAsUnknown() throws {
+        try SnapshotCopy.with("INSERT INTO champion_flags VALUES (103, 'split_push')") { file in
+            let reader = try SnapshotReader(fileURL: file)
+            #expect(reader.flags(of: ChampionID(rawValue: 103)) == [.unknown("split_push")])
+        }
+    }
+
+    @Test func anUnknownEnemyProfileIsServedUnderItsRawValue() throws {
+        try SnapshotCopy.with(
+            """
+            UPDATE champ_vs_profile SET enemy_profile = 'heavy_tank'
+            WHERE champion_id = 103 AND enemy_profile = 'heavy_cc';
+            UPDATE rune_page_vs_profile SET enemy_profile = 'heavy_tank'
+            WHERE champion_id = 103 AND enemy_profile = 'heavy_cc';
+            UPDATE item_vs_profile SET enemy_profile = 'heavy_tank'
+            WHERE champion_id = 103 AND enemy_profile = 'heavy_cc';
+            """
+        ) { file in
+            let reader = try SnapshotReader(fileURL: file)
+            let ahri = ChampionID(rawValue: 103)
+            let tank = EnemyProfile.unknown("heavy_tank")
+            #expect(
+                reader.profileStats(for: ahri, role: .middle, against: tank)
+                    == RelationStats(games: 698, wins: 349))
+            #expect(
+                reader.runePages(for: ahri, role: .middle, against: tank).map(\.games)
+                    == [478, 212])
+            #expect(reader.finalItems(for: ahri, role: .middle, against: tank).count == 6)
+            #expect(reader.profileStats(for: ahri, role: .middle, against: .heavyCC) == nil)
+            #expect(
+                reader.profileStats(for: ahri, role: .middle, against: .heavyAD)
+                    == RelationStats(games: 614, wins: 306))
+        }
+    }
+
+    /// §17: the diffs are NULL when a matchup has no timelines.
+    @Test func aMatchupWithoutTimelinesHasNoDiffs() throws {
+        try SnapshotCopy.with(
+            """
+            UPDATE matchup_stats SET tl_games = 0, gold_diff_15 = NULL, cs_diff_15 = NULL
+            WHERE champion_id = 238 AND role = 'JUNGLE' AND opp_id = 64
+            """
+        ) { file in
+            let reader = try SnapshotReader(fileURL: file)
+            #expect(
+                reader.matchup(for: Self.zed, role: .jungle, against: ChampionID(rawValue: 64))
+                    == MatchupStats(
+                        games: 518, wins: 254, timelineGames: 0, goldDiffAt15: nil,
+                        csDiffAt15: nil))
+        }
+    }
+
+    @Test func anAllyRoleOutsideTheContractIsAMalformedTable() throws {
+        try SnapshotCopy.with(
+            "UPDATE synergy_stats SET ally_role = 'SUPPORT' WHERE champion_id = 103 AND ally_id = 238"
+        ) { file in
+            #expect(throws: SnapshotReadError.malformedTable("synergy_stats")) {
+                try SnapshotReader(fileURL: file)
+            }
+        }
+    }
+
+    @Test(arguments: [
+        "matchup_stats", "synergy_stats", "vs_team_stats", "champion_profiles", "champ_vs_profile",
+        "rune_page_vs_profile", "item_vs_profile", "champ_ban_stats", "champion_flags",
+    ])
+    func aMissingPhase7TableIsAMalformedTable(_ table: String) throws {
+        try SnapshotCopy.with("DROP TABLE \(table)") { file in
+            #expect(throws: SnapshotReadError.malformedTable(table)) {
+                try SnapshotReader(fileURL: file)
+            }
+        }
+    }
+
     // MARK: Lookups
 
     @Test func aChampionWithoutATimelineProfileHasZeroTimelineGames() throws {
@@ -136,6 +261,17 @@ struct SnapshotReaderTests {
         #expect(reader.spellPairs(for: unknown, role: .middle).isEmpty)
         #expect(reader.itemBuilds(for: unknown, role: .middle).isEmpty)
         #expect(reader.skillOrders(for: unknown, role: .middle).isEmpty)
+        #expect(reader.matchup(for: unknown, role: .middle, against: Self.zed) == nil)
+        #expect(
+            reader.synergy(for: unknown, role: .middle, with: Self.zed, allyRole: .jungle) == nil)
+        #expect(reader.versusTeam(for: unknown, role: .middle, against: Self.zed) == nil)
+        #expect(reader.championProfile(for: unknown, role: .middle) == nil)
+        #expect(reader.profileStats(for: unknown, role: .middle, against: .mixed) == nil)
+        #expect(reader.runePages(for: unknown, role: .middle, against: .mixed).isEmpty)
+        #expect(reader.finalItems(for: unknown, role: .middle).isEmpty)
+        #expect(reader.finalItems(for: unknown, role: .middle, against: .mixed).isEmpty)
+        #expect(reader.bans(of: unknown) == nil)
+        #expect(reader.flags(of: unknown).isEmpty)
     }
 
     @Test func aRoleTheChampionDoesNotPlayHasNoLoadouts() throws {

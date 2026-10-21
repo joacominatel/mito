@@ -3467,10 +3467,18 @@ y nunca se guarda.
   `schema_version`, la identidad de `meta`, las claves JSON de `meta` y cada consulta de
   `StatsProvider` contra valores leídos del archivo, incluido el fallback de ítems finales
   (Zed JUNGLE, `tl_games` 40), la fila única que queda bajo el mínimo y el `max_order` de 4
-  letras (Udyr JUNGLE). `SnapshotReaderTests` cubre los errores (archivo ausente o
-  corrupto, `schema_version` no soportado, clave de `meta` faltante o mal formada) sobre
-  copias temporales. `ContractPinTests` (ArchitectureTests) fija las tablas y columnas de
-  `schema.sql` que lee el reader: un cambio de schema sin cambio de reader falla.
+  letras (Udyr JUNGLE). `SnapshotRelationContractTests` hace lo mismo con las tablas de
+  Fase 7: matchups y sinergias servidos desde la fila de cada lado (A vs B y B vs A),
+  `vs_team_stats`, `champion_profiles` con todas sus columnas (Zed JUNGLE sin `item3_s`),
+  `champ_vs_profile`, páginas e ítems finales por perfil con `'any'` como línea base y no
+  como perfil, loadouts por rival sin cruzarse con los generales (ni en un sentido ni en el
+  otro), bans, flags y `meta.profile_rules`. `SnapshotReaderTests` cubre los errores
+  (archivo ausente o corrupto, `schema_version` no soportado, clave de `meta` faltante o mal
+  formada, `profile_rules` mal formado, tabla de Fase 7 faltante) y la tolerancia (sin
+  `profile_rules` abre con `profileRules == nil`; flags y perfiles desconocidos quedan como
+  `.unknown`) sobre copias temporales. `ContractPinTests` (ArchitectureTests) fija las tablas
+  y columnas de `schema.sql` que lee el reader, y que toda tabla del schema esté leída o
+  listada como no leída: un cambio de schema sin cambio de reader falla.
 - **Cómo se corren:** `swift test --package-path apps/macos/MitoKit --enable-code-coverage`.
   Los tests de la app (`MitoTests`) corren con
   `xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' test`.

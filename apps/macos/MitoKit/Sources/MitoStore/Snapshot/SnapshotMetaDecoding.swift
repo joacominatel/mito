@@ -2,8 +2,8 @@ import Foundation
 import MitoCore
 
 extension SnapshotMeta {
-    /// The `meta` keys Phase 6 reads; the others (`regions`, `blend_k`, `profile_rules`, …) are
-    /// not checked until something uses them.
+    /// The `meta` keys a file must carry. `profile_rules` is optional because Phase 6 files did
+    /// not carry it meaningfully; the others (`regions`, `blend_k`, …) are not read.
     static let requiredKeys = [
         "schema_version", "patch", "queue", "bracket", "matches", "blend_patches", "thresholds",
         "priors", "tier_cutoffs",
@@ -20,6 +20,9 @@ extension SnapshotMeta {
         let blendPatches = try Self.json([String].self, values, "blend_patches")
         let priors = try Self.json(Priors.self, values, "priors")
         let cutoffs = try Self.json([String: Double].self, values, "tier_cutoffs")
+        let rules =
+            values["profile_rules"] == nil
+            ? nil : try Self.json(Rules.self, values, "profile_rules")
 
         var thresholds: [SampleKind: SampleThreshold] = [:]
         for (key, pair) in try Self.json([String: [Int]].self, values, "thresholds") {
@@ -44,7 +47,8 @@ extension SnapshotMeta {
             tierCutoffs: Dictionary(
                 uniqueKeysWithValues: cutoffs.compactMap { key, value in
                     Tier(rawValue: key).map { ($0, value) }
-                }))
+                }),
+            profileRules: rules?.profileRules)
     }
 
     static func integer(_ values: [String: String], _ key: String) throws(SnapshotReadError)
@@ -61,6 +65,50 @@ extension SnapshotMeta {
             return try JSONDecoder().decode(type, from: Data((values[key] ?? "").utf8))
         } catch {
             throw .invalidMetaValue(key)
+        }
+    }
+
+    private struct Rules: Decodable {
+        struct HeavyAD: Decodable {
+            let share: Double
+            enum CodingKeys: String, CodingKey { case share = "phys_share_weighted" }
+        }
+
+        struct HeavyAP: Decodable {
+            let share: Double
+            enum CodingKeys: String, CodingKey { case share = "magic_share_weighted" }
+        }
+
+        struct HeavyCC: Decodable {
+            let mean: Double
+            enum CodingKeys: String, CodingKey { case mean = "cc_score_mean" }
+        }
+
+        struct Mixed: Decodable {
+            let not: [String]
+        }
+
+        let minChampions: Int
+        let heavyAD: HeavyAD
+        let heavyAP: HeavyAP
+        let heavyCC: HeavyCC
+        let mixed: Mixed
+
+        enum CodingKeys: String, CodingKey {
+            case minChampions = "min_champions"
+            case heavyAD = "heavy_ad"
+            case heavyAP = "heavy_ap"
+            case heavyCC = "heavy_cc"
+            case mixed
+        }
+
+        var profileRules: ProfileRules {
+            ProfileRules(
+                minimumChampions: minChampions,
+                heavyADPhysicalShare: heavyAD.share,
+                heavyAPMagicShare: heavyAP.share,
+                heavyCCScore: heavyCC.mean,
+                mixedExcludes: Set(mixed.not.map(EnemyProfile.init(rawValue:))))
         }
     }
 

@@ -233,7 +233,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | P7-00 | CONTRACT: `Reason`, recommendations, `Loadout.explanation`, `StatsProvider` Phase 7, fixture bump to mito-data `927a3b3` | core + store fixture (serial, snapshot contract) | `MitoKit/Sources/MitoCore/**`, `MitoKit/Tests/MitoTestSupport/**`, `MitoKit/Tests/MitoCoreTests/**`, `fixtures/snapshot/**`, fixture-based tests | §13.5, §17, §18 | MD7, P6-06 | merged |
-| P7-02 | Reader for the Phase 7 tables | store | `MitoKit/Sources/MitoStore/Snapshot/**` | — | P7-00 | in progress |
+| P7-02 | Reader for the Phase 7 tables | store | `MitoKit/Sources/MitoStore/Snapshot/**` | — | P7-00 | merged |
 | P7-03 | Comp fit and enemy profile | engine | `MitoKit/Sources/MitoEngine/Composition/**` | §18.4 | P7-00 | merged |
 | P7-04 | Pick score | engine | `MitoKit/Sources/MitoEngine/Pick/**` | §18.3 | P7-03, P3-03 | in progress |
 | P7-05 | Ban score | engine | `MitoKit/Sources/MitoEngine/Ban/**` | §18.5 | P7-00 | merged |
