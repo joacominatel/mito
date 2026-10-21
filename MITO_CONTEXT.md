@@ -4354,6 +4354,15 @@ Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10
   Un chequeo pedido por el usuario se muestra siempre en el momento. No es automatizar nada
   dentro de la partida: Mito solo calla su propio aviso.
 - Instalación por DMG. Opcional: cask de Homebrew.
+- **Pipeline de release** (`scripts/release/release.sh`, ADR 0010): preflight (árbol limpio,
+  versión de `Version.xcconfig`, feed y clave de Sparkle reales en Release, identidad
+  Developer ID y perfil de `notarytool` presentes), archive Release firmado con Developer ID,
+  export `developer-id`, chequeo de firma de la app y de los helpers de Sparkle,
+  notarización y staple de la app, DMG con `hdiutil` (APFS, symlink a Applications) firmado,
+  notarizado y stapleado, y appcast con `generate_appcast` (`--beta` lo publica en el canal
+  `beta`). Todo queda en `build/release/<versión>/`; no sube nada, imprime qué subir y adónde.
+  Los secretos se leen del Llavero del CEO en el momento y nunca se escriben ni se loguean.
+  `--dry-run` corre sin credenciales: archive ad-hoc, DMG y un reporte de los pasos salteados.
 - Permisos de macOS: notificaciones. No hace falta Accesibilidad ni Grabación de pantalla
   en la v1.
 
