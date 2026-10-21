@@ -240,6 +240,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 | P7-06 | Matchup-adapted runes, items, and spells | engine | `MitoKit/Sources/MitoEngine/Loadout/**` | §18.6–§18.8 | P7-03, P6-04 | in progress |
 | P7-07 | Recommendations UI, `ReasonRow`, recommended pick in the menu | champ-select + design | `Mito/Features/ChampSelect/**`, `Mito/DesignSystem/**` | §20.1, §22.3 | P7-00, P7-04 | todo |
 | P7-08 | Contract gaps: `duration_curves` and `item_classes` (class, antiheal) accessors in `StatsProvider` + reader; power curve (`team_early`, `powerCurve` reason) in comp fit; antiheal rule wired to `item_classes` | core + store + engine (serial, contract) | `MitoKit/Sources/MitoCore/**`, `MitoKit/Sources/MitoStore/Snapshot/**`, `MitoKit/Sources/MitoEngine/Composition/**`, tests | §17, §18.4 | P7-02, P7-03 | todo |
+| P7-09 | Engine refinements: `CompFit` exposes a bonus per reason (drop the duplicated constants in `PickScoring`); matchup falls back to the enemy profile when the lane matchup is missing (§18.1, §12.3 point 6) | engine | `MitoKit/Sources/MitoEngine/Composition/**`, `MitoKit/Sources/MitoEngine/Pick/**`, tests | §18.3, §18.4 | P7-04 | todo |
 
 ## P8 — Personal layer
 
@@ -254,7 +255,7 @@ Can overlap Stage 6.
 | P8-04 | History sync: `PersonalDatabase` slot in `AppModel`, sync on connect and after `EndOfGame` (list + per-game detail), into `PersonalStore` | profile + shell (serial) | `Mito/Features/Profile/**`, `MitoTests/Features/Profile/**`, `Mito/App/**`, `Mito/MitoApp.swift`, `MitoTests/App/**` | §19.1, §9.3 | P8-01, P8-02 | merged |
 | P8-05 | Onboarding: pool by role, Flash position, Diamond+ layer | onboarding | `Mito/Features/Onboarding/**` | — | P8-01 | merged |
 | P8-06 | "Mi perfil" and insights | profile | `Mito/Features/Profile/**` | §19.4 | P8-04, P8-03 | merged |
-| P8-07 | Meta ↔ Comfort slider; decide whether the §19.3 points scaling applies to the whole personal total or only to comfort/pool/performance (the winrate edge is already in points) | engine | `MitoKit/Sources/MitoEngine/Pick/**` | §18.3 | P7-04, P8-03 | todo |
+| P8-07 | Meta ↔ Comfort slider; decide whether the §19.3 points scaling applies to the whole personal total or only to comfort/pool/performance (the winrate edge is already in points) | engine | `MitoKit/Sources/MitoEngine/Pick/**` | §18.3 | P7-04, P8-03 | in progress |
 | P8-08 | Per-champion overrides (§21.5) | overrides | `Mito/Features/Overrides/**` | §21.5 | P8-01 | merged |
 | P8-09 | Import honors per-champion overrides (fixed page, spells, set, skip) and the history-detected Flash slot; Onboarding reads the shared `GameData.allChampions` | import-ui + onboarding + shell (serial) | `Mito/Features/Import/**`, `Mito/Features/Onboarding/**`, `Mito/App/**`, their tests | §13.1, §13.3, §21.4, §21.5 | P8-05, P8-08 | merged |
 
