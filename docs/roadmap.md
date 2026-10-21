@@ -167,7 +167,7 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 
 | ID | Title | Lane | Writes | Docs § | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P4-00 | CONTRACT: static game-data types | core (serial) | `MitoKit/Sources/MitoCore/GameData/**` | §16.2 | P0-C | ready |
+| P4-00 | CONTRACT: static game-data types | core (serial) | `MitoKit/Sources/MitoCore/GameData/**` | §16.2 | P0-C | in progress |
 | P4-01 | Static data catalog from `/lol-game-data` | assets | `MitoKit/Sources/MitoAssets/GameData/**` | §16.1, §16.3, lcu-endpoints: Assets | P4-00 | todo |
 | P4-02 | Icon loading and disk cache | assets | `MitoKit/Sources/MitoAssets/Icons/**` | — | P0-C | merged |
 | P4-03 | Rune page importer | import | `MitoKit/Sources/MitoImport/Runes/**` | §13.2, lcu-endpoints: Runes | P4-00 | todo |
