@@ -802,6 +802,14 @@ None → Lobby → Matchmaking → ReadyCheck → ChampSelect → GameStart → 
 
 Otros: `Reconnect`, `CheckedIntoTournament`.
 
+`LCUKit/Gameflow/GameflowPhase` modela estos doce valores, con `.unknown(String)` para
+cualquier otro (la comparación distingue mayúsculas). Se decodifica del body de
+`GET /lol-gameflow/v1/gameflow-phase` (`LCUEndpoint.gameflowPhase`), que es un string JSON
+pelado (`"ChampSelect"`), y del `data` de un evento `LCUTopic.gameflowPhase`
+(`GameflowPhase(event)`), que trae el mismo string. Un valor desconocido nunca falla; un body
+que no es string (`null`, número, objeto) es `LCUError.decoding`. Valores sin verificar todavía
+contra una grabación.
+
 ### 11.2 Máquina de estados de Mito
 
 ```
@@ -821,6 +829,31 @@ Otros: `Reconnect`, `CheckedIntoTournament`.
                                          auto-accept│     draft engine +
                                                     ▼     importers
 ```
+
+`LCUKit/Gameflow/MitoStateMachine` es un reducer puro (struct, sin I/O, timers ni
+suscripciones): recibe cada `ConnectionState` y cada `GameflowPhase` con `apply(_:)` y expone
+`state: MitoState`. Solo describe el estado; no dispara acciones (el auto-accept es §11.3).
+
+- Sin conexión manda: `searching` y `connecting` se muestran tal cual, sea cual sea la fase.
+- Perder la conexión (`searching` o `connecting`) olvida la fase, así que al reconectar no
+  se muestra una vieja: se queda en `idle` hasta que llegue la fase nueva.
+- Una fase que llega sin estar `connected` se ignora.
+- `connected` sin fase todavía es `idle`.
+
+| `GameflowPhase` | `MitoState` |
+|---|---|
+| `None` | `idle` |
+| `Lobby`, `CheckedIntoTournament` | `lobby` |
+| `Matchmaking` | `matchmaking` |
+| `ReadyCheck` | `readyCheck` |
+| `ChampSelect` | `champSelect` |
+| `GameStart`, `InProgress`, `Reconnect` | `inGame` |
+| `WaitingForStats`, `PreEndOfGame`, `EndOfGame` | `idle` |
+| desconocida | `idle` |
+
+`Reconnect` cuenta como partida: hay una en curso a la que volver. El post-game es `idle`
+porque la partida terminó y Mito no tiene nada que hacer ahí. `CheckedIntoTournament` (Clash)
+es esperar en un lobby. Una fase desconocida cae en `idle`, el estado que no hace nada.
 
 ### 11.3 Auto-accept
 
