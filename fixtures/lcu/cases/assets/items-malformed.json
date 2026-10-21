@@ -1,0 +1,6 @@
+[
+  { "id": 3157, "name": "Zhonya's Hourglass", "priceTotal": 3250, "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3157_Mage_T3_ZhonyasHourglass.png", "futureField": [1, 2] },
+  { "id": null, "name": "Null ID" },
+  "not an item",
+  { "id": 1001, "priceTotal": "300" }
+]

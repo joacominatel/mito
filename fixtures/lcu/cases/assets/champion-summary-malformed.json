@@ -1,0 +1,7 @@
+[
+  { "id": 103, "name": "Ahri", "alias": "Ahri", "squarePortraitPath": "/lol-game-data/assets/v1/champion-icons/103.png", "futureField": { "nested": true } },
+  { "id": "103", "name": "String ID", "alias": "Broken" },
+  { "name": "No ID", "alias": "Broken" },
+  null,
+  { "id": 1, "name": 42 }
+]

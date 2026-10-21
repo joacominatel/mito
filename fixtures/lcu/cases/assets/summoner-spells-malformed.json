@@ -1,0 +1,5 @@
+[
+  { "id": 4, "name": "Flash", "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_flash.png", "gameModes": ["CLASSIC", 7, "ARAM"], "futureField": {} },
+  { "id": [4], "name": "Array ID" },
+  { "id": 14, "name": "Ignite" }
+]

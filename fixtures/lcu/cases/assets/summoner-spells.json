@@ -1,0 +1,40 @@
+[
+  {
+    "id": 4,
+    "name": "Flash",
+    "description": "",
+    "summonerLevel": 7,
+    "cooldown": 300,
+    "gameModes": [
+      "ARAM",
+      "CLASSIC",
+      "URF"
+    ],
+    "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_flash.png"
+  },
+  {
+    "id": 11,
+    "name": "Smite",
+    "description": "",
+    "summonerLevel": 3,
+    "cooldown": 15,
+    "gameModes": [
+      "CLASSIC",
+      "URF"
+    ],
+    "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_smite.png"
+  },
+  {
+    "id": 14,
+    "name": "Ignite",
+    "description": "",
+    "summonerLevel": 9,
+    "cooldown": 180,
+    "gameModes": [
+      "ARAM",
+      "CLASSIC",
+      "URF"
+    ],
+    "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/SummonerIgnite.png"
+  }
+]

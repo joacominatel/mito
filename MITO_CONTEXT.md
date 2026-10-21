@@ -1735,6 +1735,30 @@ Base: `https://{routing}.api.riotgames.com`, con el header `X-Riot-Token: <key>`
 | **Data Dragon** (`ddragon.leagueoflegends.com`) | JSON y assets oficiales por versión, con locales (incluye `es_AR`) | Pipeline y fallback en la app (lo pide `DataDragonClient` en MitoStore, el único módulo de la app con salida a internet; GET HTTPS solo a este host, sin seguir redirects a otro) |
 | **CommunityDragon** (`raw.communitydragon.org`) | Mismos datos del cliente, más completos y con IDs crudos | Pipeline, cuando a Data Dragon le falta algo |
 
+Archivos del cliente que lee la app (`GET /lol-game-data/assets/v1/<archivo>`, endpoints
+tipados en `LCUEndpoint+GameData.swift` de LCUKit, que decodifican directo a los tipos de
+§16.2): `champion-summary.json`, `items.json`, `perkstyles.json`, `perks.json` y
+`summoner-spells.json`.
+
+- `GameDataCatalog` (actor en MitoAssets) los pide los cinco en paralelo la primera vez que
+  se llama `load()` y guarda el resultado en memoria, sin disco: el cliente es local.
+  `load()` siguiente no hace requests; llamadas concurrentes comparten la misma carga.
+  `reload()` vuelve a pedir todo (reconexión o parche nuevo). Una carga fallida no se
+  guarda: el próximo `load()` reintenta. Los errores salen como `LCUError`.
+- El resultado es `GameData`, un valor inmutable con búsqueda por ID (`champion`, `item`,
+  `perk`, `perkStyle`, `spell`) y la lista `perkStyles` en orden del cliente. Si un ID se
+  repite, gana el primero.
+- Decodificación tolerante: solo `id` es obligatorio (entero). Una entrada sin `id` válido se
+  saltea sin tirar el archivo; un campo faltante o con otro tipo queda vacío (`""`, `0`,
+  `[]`); las claves desconocidas se ignoran. En `perkstyles.json`, `slots[].type` mapea
+  `kKeyStone` → `keystone`, `kMixedRegularSplashable` → `regular`, `kStatMod` → `statMod`
+  y cualquier otro valor a `unknown(String)`; una fila sin `type` se saltea. El archivo
+  entero falla (`LCUError.decoding`) solo si no es un array (o, en `perkstyles.json`, si no
+  trae `styles`).
+- `champion-summary.json` incluye el placeholder `-1` ("None"); el catálogo no lo filtra.
+- Formas verificadas contra el `rcp-be-lol-game-data` de CommunityDragon (16.20), no contra
+  un cliente real.
+
 Archivos de Data Dragon:
 
 - `https://ddragon.leagueoflegends.com/api/versions.json`
@@ -1790,6 +1814,10 @@ Fuente: `item.json` (`into`, `from`, `depth`, `gold.total`, `tags`, `maps`) más
 manual chica de excepciones en `data/static/item_overrides.yaml` de `mito-data`, que también
 marca los ítems antiheal. La clasificación se publica en el snapshot como `item_classes`
 (§17), así la app arma bloques y reglas con la misma clasificación que el pipeline.
+
+El cliente no clasifica ítems: el `Item` que arma `GameDataCatalog` desde `items.json` trae
+`itemClass` en `nil`, y la clase se cruza desde `item_classes` del snapshot cuando está
+disponible (§16.2).
 
 ---
 

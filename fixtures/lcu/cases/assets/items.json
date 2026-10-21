@@ -1,0 +1,90 @@
+[
+  {
+    "id": 1001,
+    "name": "Boots",
+    "description": "<mainText></mainText>",
+    "active": false,
+    "inStore": true,
+    "from": [],
+    "to": [
+      3117,
+      3158,
+      3047,
+      3009,
+      3111,
+      3006,
+      3005,
+      3008,
+      3010,
+      3020
+    ],
+    "categories": [
+      "Boots"
+    ],
+    "maxStacks": 1,
+    "requiredChampion": "",
+    "requiredAlly": "",
+    "requiredBuffCurrencyName": "",
+    "requiredBuffCurrencyCost": 0,
+    "specialRecipe": 0,
+    "isEnchantment": false,
+    "price": 300,
+    "priceTotal": 300,
+    "displayInItemSets": true,
+    "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/1001_Class_T1_BootsofSpeed.png"
+  },
+  {
+    "id": 2003,
+    "name": "Health Potion",
+    "description": "<mainText></mainText>",
+    "active": true,
+    "inStore": true,
+    "from": [],
+    "to": [],
+    "categories": [
+      "HealthRegen",
+      "Consumable",
+      "Lane",
+      "Jungle"
+    ],
+    "maxStacks": 5,
+    "requiredChampion": "",
+    "requiredAlly": "",
+    "requiredBuffCurrencyName": "",
+    "requiredBuffCurrencyCost": 0,
+    "specialRecipe": 0,
+    "isEnchantment": false,
+    "price": 50,
+    "priceTotal": 50,
+    "displayInItemSets": true,
+    "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/2003_Class_T1_HealthPotion.png"
+  },
+  {
+    "id": 3157,
+    "name": "Zhonya's Hourglass",
+    "description": "<mainText></mainText>",
+    "active": true,
+    "inStore": true,
+    "from": [
+      1058,
+      2420
+    ],
+    "to": [],
+    "categories": [
+      "Armor",
+      "SpellDamage",
+      "Active"
+    ],
+    "maxStacks": 1,
+    "requiredChampion": "",
+    "requiredAlly": "",
+    "requiredBuffCurrencyName": "",
+    "requiredBuffCurrencyCost": 0,
+    "specialRecipe": 0,
+    "isEnchantment": false,
+    "price": 450,
+    "priceTotal": 3250,
+    "displayInItemSets": true,
+    "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3157_Mage_T3_ZhonyasHourglass.png"
+  }
+]
