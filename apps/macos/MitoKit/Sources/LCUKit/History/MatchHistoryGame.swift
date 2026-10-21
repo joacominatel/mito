@@ -151,8 +151,11 @@ extension MatchHistoryGame {
         let cs: Int
         /// `perk0` to `perk5`, zeros dropped.
         let perks: [PerkID]
-        /// `item0` to `item6`, empty slots dropped.
+        /// `item0` to `item6`, then `roleBoundItem`, empty slots and quest ids dropped.
         let items: [ItemID]
+
+        // Role-quest progress and rewards sit in `roleBoundItem` but are not purchasable items.
+        private static let roleQuestItems: Set<Int> = Set(1200...1209).union(1220...1222)
 
         private struct Key: CodingKey {
             let stringValue: String
@@ -166,11 +169,12 @@ extension MatchHistoryGame {
             func int(_ name: String) throws -> Int {
                 try container.decode(Int.self, forKey: Key(stringValue: name))
             }
+            func slot(_ name: String) -> Int? {
+                (try? container.decodeIfPresent(Int.self, forKey: Key(stringValue: name)))
+                    .flatMap { $0 == 0 ? nil : $0 }
+            }
             func slots(_ prefix: String, _ range: ClosedRange<Int>) -> [Int] {
-                range.compactMap { slot in
-                    try? container.decodeIfPresent(
-                        Int.self, forKey: Key(stringValue: "\(prefix)\(slot)"))
-                }.filter { $0 != 0 }
+                range.compactMap { slot("\(prefix)\($0)") }
             }
             win = try container.decode(Bool.self, forKey: Key(stringValue: "win"))
             kills = try int("kills")
@@ -178,7 +182,11 @@ extension MatchHistoryGame {
             assists = try int("assists")
             cs = try int("totalMinionsKilled") + int("neutralMinionsKilled")
             perks = slots("perk", 0...5).map(PerkID.init(rawValue:))
-            items = slots("item", 0...6).map(ItemID.init(rawValue:))
+            let roleBound = slot("roleBoundItem").flatMap {
+                Self.roleQuestItems.contains($0) ? nil : $0
+            }
+            items = (slots("item", 0...6) + [roleBound].compactMap(\.self))
+                .map(ItemID.init(rawValue:))
         }
     }
 

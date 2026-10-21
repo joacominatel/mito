@@ -970,7 +970,13 @@ todavía contra el cliente real:
   primero es la D), `stats.win`, `kills`, `deaths`, `assists`, y CS =
   `totalMinionsKilled + neutralMinionsKilled`, todos obligatorios. Runas: `stats.perk0…perk5`
   sin ceros (el payload no trae los fragmentos de stats). Ítems: `stats.item0…item6` en
-  orden, sin slots vacíos.
+  orden y después `stats.roleBoundItem` (el slot de la misión de rol, donde casi todo BOTTOM
+  tiene las botas), sin slots vacíos; `item6` sigue siendo el trinket. Si `roleBoundItem`
+  falta o no es un entero, no suma nada. De ese slot se descartan los ids de misión, que no
+  se compran (`1200…1209` y `1220…1222`); todo lo demás se conserva, incluidos `2055`,
+  `2422` y `1001`: `items` es el inventario final y los consumidores clasifican después. La
+  lista de misiones crece con los parches; filtrar por comprabilidad según `item.json` queda
+  para una unidad posterior con datos estáticos.
 - **Rol.** De `timeline.lane` y `timeline.role`: `TOP`, `JUNGLE`, `MIDDLE`/`MID`;
   `BOTTOM`/`BOT` con `DUO_CARRY`/`CARRY` es `BOTTOM` y con `DUO_SUPPORT`/`SUPPORT` es
   `UTILITY`; cualquier otro valor es `nil`. Fuera de la Grieta (`mapId` distinto de 11, como
