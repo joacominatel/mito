@@ -2353,6 +2353,10 @@ Así un campeón con winrate general alto no domina todas las listas solo por es
 inferior de Wilson al 90 %. Las recomendaciones con poca muestra se marcan con un ícono de
 "muestra baja".
 
+El intervalo de Wilson es bilateral al 90 % (`z ≈ 1,645`, cuantil 0,95 de la normal) y se
+calcula sobre los conteos crudos (`wins`, `games`), no sobre el winrate suavizado. Sin
+partidas el intervalo es `[0, 1]`.
+
 **Backoff jerárquico.** Cada consulta busca del contexto más específico al más general y se
 queda con el primero que supera la muestra mínima. Si hay varios, los mezcla ponderando por
 muestra:
@@ -2382,6 +2386,10 @@ El parche anterior no es un nivel del backoff: la mezcla ya viene en el archivo 
 | orden de habilidades | `skill_order` | 100 | 600 |
 
 El exporter filtra con estos valores y los escribe en `meta.thresholds`; la app lee los mismos.
+
+Ambos mínimos son inclusivos: debajo del mínimo para usar el dato no se usa; desde ese mínimo
+y hasta antes del de "confiable" se usa con la marca de "muestra baja"; desde el de "confiable"
+va sin marca. Un (champ, role) debajo del mínimo de `champ_role` no tiene tier.
 
 ### 18.3 Score de pick
 
