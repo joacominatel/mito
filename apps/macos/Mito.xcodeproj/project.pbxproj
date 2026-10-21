@@ -16,6 +16,10 @@
 
 /* Begin PBXFileReference section */
 		A10000000000000000000001 /* Mito.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mito.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000001 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		C10000000000000000000002 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		C10000000000000000000003 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		C10000000000000000000004 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -46,6 +50,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000001 /* Mito */,
+				A40000000000000000000003 /* Config */,
 				A40000000000000000000002 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -56,6 +61,17 @@
 				A10000000000000000000001 /* Mito.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000003 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				C10000000000000000000001 /* Base.xcconfig */,
+				C10000000000000000000002 /* Debug.xcconfig */,
+				C10000000000000000000003 /* Release.xcconfig */,
+				C10000000000000000000004 /* Version.xcconfig */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -114,11 +130,7 @@
 			mainGroup = A40000000000000000000001;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				E10000000000000000000001 /* XCLocalSwiftPackageReference "Packages/MitoCore" */,
-				E10000000000000000000002 /* XCLocalSwiftPackageReference "Packages/LCUKit" */,
-				E10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/MitoStore" */,
-				E10000000000000000000004 /* XCLocalSwiftPackageReference "Packages/MitoEngine" */,
-				E10000000000000000000005 /* XCLocalSwiftPackageReference "Packages/MitoAssets" */,
+				E10000000000000000000001 /* XCLocalSwiftPackageReference "MitoKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A40000000000000000000002 /* Products */;
@@ -154,86 +166,26 @@
 		A90000000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ENABLE_MODULES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
 		A90000000000000000000002 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ENABLE_MODULES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				SDKROOT = macosx;
-				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
 		A90000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C10000000000000000000002 /* Debug.xcconfig */;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Mito;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.joacominatel.mito;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
 		};
 		A90000000000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C10000000000000000000003 /* Release.xcconfig */;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Mito;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.joacominatel.mito;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -261,25 +213,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		E10000000000000000000001 /* XCLocalSwiftPackageReference "Packages/MitoCore" */ = {
+		E10000000000000000000001 /* XCLocalSwiftPackageReference "MitoKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/MitoCore;
-		};
-		E10000000000000000000002 /* XCLocalSwiftPackageReference "Packages/LCUKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/LCUKit;
-		};
-		E10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/MitoStore" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/MitoStore;
-		};
-		E10000000000000000000004 /* XCLocalSwiftPackageReference "Packages/MitoEngine" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/MitoEngine;
-		};
-		E10000000000000000000005 /* XCLocalSwiftPackageReference "Packages/MitoAssets" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/MitoAssets;
+			relativePath = MitoKit;
 		};
 /* End XCLocalSwiftPackageReference section */
 

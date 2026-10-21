@@ -1,0 +1,7 @@
+#include "Base.xcconfig"
+
+ENABLE_HARDENED_RUNTIME = YES
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+SWIFT_COMPILATION_MODE = wholemodule
+
+#include? "Local.xcconfig"
