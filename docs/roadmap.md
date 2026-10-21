@@ -288,7 +288,7 @@ Can overlap Stage 6.
 | P9-08 | Unknown lane rival: "safe" pick recommendations, the expected matchup over the role's likeliest opponents weighted by pick rate (§20.3), with its own reason | engine + design-system | `MitoEngine/Pick/**`, `MitoCore` reason kind (contract), `Mito/DesignSystem/ReasonText.swift`, their tests | §18.3, §20.2 (Matchup and Build drift), §20.3, §22.3 | P9-06 | merged |
 | T9-audit | Test audit of the Phase 9 analysis (app tabs and `MitoEngine/Analysis`) | tests | `MitoTests/Features/Analysis/**`, `MitoEngineTests/Analysis/**` | — | P9-08 | merged |
 | P9-07 | Icons: one app-wide icon source over `IconLoader` (client first, Data Dragon fallback), `ChampionIcon(id:size:state:)` and item, rune and spell icons, used in champ select, the menu bar section and the analysis tabs | design-system + shell (serial) | `Mito/DesignSystem/**`, `Mito/App/**`, the views that show champions, items, runes, spells, their tests | §11, §22.3 | P9-08, FX-14 | merged |
-| P9-09 | Polish: promote `DurationCurveChart`, `DamageProfileBar`, `ItemRow`, `RunePageView` and `TeamColumn` to the design system; subtle draft animations; Liquid Glass with fallback; an accessibility and contrast pass; rendered light/dark review of every main screen | cross-lane (serial) | per card | §22.1, §22.3 | P9-07 | todo |
+| P9-09 | Polish: promote `DurationCurveChart`, `DamageProfileBar`, `ItemRow`, `RunePageView` and `TeamColumn` to the design system; subtle draft animations; Liquid Glass with fallback; an accessibility and contrast pass; rendered light/dark review of every main screen | cross-lane (serial) | per card | §22.1, §22.3 | P9-07 | in progress |
 
 ## P10 — Beta release
 
