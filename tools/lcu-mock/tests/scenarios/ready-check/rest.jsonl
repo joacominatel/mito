@@ -1,0 +1,7 @@
+{"method":"GET","path":"/lol-patch/v1/game-version","status":200,"body":"16.21.123.4567"}
+{"method":"GET","path":"/lol-summoner/v1/current-summoner","status":200,"body":{"puuid":"00000000-0000-4000-8000-000000000001","summonerId":1,"gameName":"anon-1","tagLine":"anon-2","summonerLevel":30}}
+{"method":"GET","path":"/lol-gameflow/v1/gameflow-phase","status":200,"body":"Lobby"}
+{"method":"GET","path":"/lol-gameflow/v1/session","status":200,"body":{"phase":"Lobby","gameData":{"queue":{"id":420}}}}
+{"method":"GET","path":"/lol-lobby/v2/lobby","status":200,"body":{"gameConfig":{"queueId":420},"localMember":{"firstPositionPreference":"MIDDLE","secondPositionPreference":"TOP","puuid":"00000000-0000-4000-8000-000000000001"}}}
+{"method":"GET","path":"/lol-matchmaking/v1/ready-check","status":404,"body":{"errorCode":"RPC_ERROR","httpStatus":404,"message":"Resource not found: /lol-matchmaking/v1/ready-check"}}
+{"method":"GET","path":"/lol-champ-select/v1/session","status":404,"body":{"errorCode":"RPC_ERROR","httpStatus":404,"message":"Resource not found: /lol-champ-select/v1/session"}}

@@ -1,0 +1,46 @@
+# lcu-mock
+
+A fake League client (LCU) on `127.0.0.1` for developing and testing Mito without the game
+(`MITO_CONTEXT.md` §23.1). It serves a scenario in recorder format v0 (`fixtures/lcu/README.md`),
+so real recordings and the synthetic ones in `tests/scenarios/` are interchangeable.
+
+## Run
+
+From `tools/lcu-mock/`:
+
+```sh
+uv run lcu-mock --scenario tests/scenarios/ready-check --speed 4x
+uv run lcu-mock --scenario ../../fixtures/lcu/<scenario> --lockfile /tmp/lcu/lockfile --port 54321
+```
+
+- Writes `LeagueClient:<pid>:<port>:<password>:https` to `--lockfile` (default `.run/lockfile`,
+  git-ignored) and deletes it on exit, like the client. The password is random per run.
+- HTTPS and WAMP (`wss://127.0.0.1:<port>/`) with a self-signed certificate generated at
+  startup and never written to disk past loading. HTTP Basic `riot:<password>`; anything else is 401.
+- **REST:** each path starts with its first `rest.jsonl` line; a replayed event then sets its
+  `uri` to the event's `data` (`Delete` makes it 404). Unknown paths are 404.
+- **Events:** replay starts at the first WAMP subscribe (`[5, topic]`), follows `events.jsonl`
+  order with `t_ms` gaps divided by `--speed`, and reaches only sockets subscribed to that
+  topic (`[6, topic]` stops it).
+- **Writes:** ready-check accept/decline, `PATCH …/session/my-selection`, perk pages
+  (`POST`, `PUT`/`DELETE …/pages/{id}`), and `PUT /lol-item-sets/v1/item-sets/{id}/sets`.
+  Each checks the payload shape (400 if wrong), updates the state, and publishes an `Update`.
+  Every non-GET request is kept in `MockLCU.writes` for in-process tests.
+
+Try it: `curl -k -u riot:$(cut -d: -f4 .run/lockfile) https://127.0.0.1:$(cut -d: -f3 .run/lockfile)/lol-gameflow/v1/gameflow-phase`.
+
+## Pointing the app at it
+
+Once P2-06 lands, a Debug-only flag makes Mito's discovery read this lockfile instead of the
+client's. The app already accepts any certificate on `127.0.0.1` (§10.3), so nothing else changes.
+
+## Limits
+
+v0 REST lines carry no time: later lines for a path are ignored, and a path changes only
+through events or writes. Error bodies only approximate the client's.
+
+## Develop
+
+```sh
+uv run pytest && uv run ruff check && uv run ruff format --check
+```
