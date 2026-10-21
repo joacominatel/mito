@@ -209,14 +209,14 @@ siempre del lado seguro. Estado conocido a octubre de 2026:
   Data Dragon / CDragon▶│  static loader ──────────────┤           │
                         │                              ▼           │
                         │                     exporter: snapshot   │
-                        │                     mito-<patch>.sqlite  │
+                        │                     .sqlite.xz + tips    │
                         │                     + manifest.json      │
                         └──────────────────────────┬───────────────┘
                                                    │ publish
                                                    ▼
                                    ┌───────────────────────────────┐
-                                   │ hosting estático (R2/S3/GH    │
-                                   │ Releases)  manifest + .sqlite │
+                                   │ hosting estático (Cloudflare  │
+                                   │ R2)    manifest + .sqlite.xz  │
                                    └───────────────┬───────────────┘
                                                    │ HTTPS (descarga
                                                    │ al abrir / por parche)
@@ -246,7 +246,8 @@ siempre del lado seguro. Estado conocido a octubre de 2026:
 ### Decisiones clave
 
 - **Snapshot, no backend online (v1).** El pipeline precomputa todo por parche y lo exporta
-  a un **archivo SQLite**. La app lo descarga y consulta localmente. Ventajas:
+  a un **archivo SQLite** comprimido por bracket (§14.12). La app lo descarga y consulta
+  localmente. Ventajas:
   - Respuesta instantánea en champ select (los timers son de 30 segundos).
   - Funciona offline una vez descargado.
   - No hay servidor que mantener, escalar ni pagar por request.
@@ -299,17 +300,18 @@ siempre del lado seguro. Estado conocido a octubre de 2026:
 | Estado del crawl | SQLite (o Postgres si crece) | Colas de puuids y matchIds ya vistos |
 | Raw store | Parquet (pyarrow) | Particionado por región y parche |
 | Agregación | DuckDB + Polars | SQL sobre parquet, rápido y sin servidor |
-| Export | sqlite3 | Genera `mito-<patch>-<bracket>.sqlite` |
+| Export | sqlite3 + xz | Un `.sqlite.xz` por (schema, parche, cola, bracket) y los tips por locale |
 | Validación | pydantic | Modelos de match-v5 |
 | CLI | typer | `mito-data crawl`, `aggregate`, `export`, `publish` |
 | Scheduling | cron / GitHub Actions / Jenkins | Joaco ya usa Jenkins |
-| Publicación | Cloudflare R2 o S3 o GitHub Releases | Hosting estático |
+| Publicación | Cloudflare R2 | Hosting estático sin costo de egress (ADR 0005) |
 
 ---
 
 ## 8. Estructura del repositorio
 
-Monorepo:
+Este repo contiene la app y sus herramientas. El pipeline de datos vive en un repo privado
+aparte, `mito-data` (ADR 0005); los dos se comunican solo a través del snapshot publicado.
 
 ```
 mito/
@@ -344,23 +346,9 @@ mito/
 │           │   ├── MitoEngine/  ← recomendador (puro, testeable)
 │           │   └── MitoAssets/  ← carga y caché de íconos
 │           └── Tests/           ← <Módulo>Tests por cada módulo
-├── data/
-│   ├── pyproject.toml
-│   ├── uv.lock
-│   ├── src/mito_data/
-│   │   ├── cli.py
-│   │   ├── config.py
-│   │   ├── riot/                ← cliente Riot API + rate limiter
-│   │   ├── crawl/               ← seeds, cola, workers
-│   │   ├── models/              ← pydantic match-v5 / timeline
-│   │   ├── raw/                 ← escritura a parquet
-│   │   ├── static/              ← Data Dragon / CDragon loader
-│   │   ├── aggregate/           ← SQL DuckDB + lógica en Polars
-│   │   ├── export/              ← generación del snapshot SQLite
-│   │   └── publish/             ← subida + manifest
-│   ├── sql/                     ← queries de agregación versionadas
-│   └── tests/
 ├── .github/workflows/          ← CI: tests de MitoKit en main/dev
+├── fixtures/
+│   └── snapshot/                ← snapshot chico de ejemplo + schema, para el contract test
 ├── tools/
 │   ├── lcu-mock/                ← servidor fake de LCU (Python) para testear la app
 │   └── lcu-recorder/            ← graba eventos WAMP reales a fixtures
@@ -826,13 +814,17 @@ struct DraftSlot: Sendable {
 
 Los rivales no traen rol. Se infieren con las distribuciones de rol del snapshot:
 
-1. Para cada campeón rival lockeado se tiene `P(role | champion)` desde `champion_roles`.
+1. Para cada campeón rival lockeado se tiene `P(role | champion)` desde `champion_roles`
+   (`games` del rol / suma de `games` del campeón).
 2. Se busca la **asignación 1 a 1** de campeones a roles que maximiza el producto de
    probabilidades (con 5 campeones son 120 permutaciones, trivial por fuerza bruta).
 3. Con menos de 5 lockeados se hace lo mismo con los roles disponibles.
 4. Se guarda `roleConfidence` = probabilidad de la asignación / suma de las alternativas.
 5. Si la confianza del oponente de lane es baja, el motor mezcla matchups ponderando por
    probabilidad (por ejemplo, 70 % vs Zed mid y 30 % vs Zed top).
+6. Campeón sin filas en `champion_roles` (nuevo o sin datos en el parche): distribución
+   uniforme sobre los roles libres, con confianza baja. Sin datos de matchup contra él, el
+   motor cae al perfil rival, y si tampoco tiene `champion_profiles` no cuenta para el perfil.
 
 ### 12.4 Cuándo recalcular
 
@@ -979,6 +971,9 @@ ventana no está visible.
 
 ## 14. Pipeline de datos (mito-data)
 
+> Vive en el repo privado `mito-data`, no en este. Esta sección es su especificación; el
+> contrato con la app es el schema de §17 (ADR 0005).
+
 ### 14.1 Objetivo
 
 Producir, **por parche y por bracket de elo**, un snapshot SQLite con todas las
@@ -996,7 +991,7 @@ seed ──▶ discover players ──▶ discover matches ──▶ fetch match
                                        aggregate (DuckDB) ──▶ tablas agregadas
                                                                 │
                                                                 ▼
-                                       export ──▶ mito-<patch>-<bracket>.sqlite
+                                       export ──▶ <bracket>.sqlite.xz + tips
                                                                 │
                                                                 ▼
                                        publish ──▶ hosting + manifest.json
@@ -1017,7 +1012,8 @@ seed ──▶ discover players ──▶ discover matches ──▶ fetch match
 
 - `GET /lol/match/v5/matches/by-puuid/{puuid}/ids?queue=420&type=ranked&startTime=<inicio
   del parche>&count=100`
-- Cola 420 (Solo/Duo) es la principal. 440 (Flex) en una segunda etapa.
+- Solo cola 420 (Solo/Duo) en la v1. Flex (440) y Normal Draft (400) usan el snapshot de 420
+  (§20.3).
 - Se deduplica por `matchId` (`matches_seen`).
 - Se priorizan jugadores de más alto elo y los menos recientemente crawleados.
 
@@ -1025,9 +1021,11 @@ seed ──▶ discover players ──▶ discover matches ──▶ fetch match
 
 - `GET /lol/match/v5/matches/{matchId}`: participantes, ítems finales, runas, spells, bans
   y estadísticas.
-- `GET /lol/match/v5/matches/{matchId}/timeline`: orden de compra de ítems y orden de
-  habilidades. Pedirla para una **muestra** (por ejemplo, 30–50 %) si el rate limit aprieta:
-  el orden de build converge con menos datos que los winrates.
+- `GET /lol/match/v5/matches/{matchId}/timeline`: orden de compra de ítems, orden de
+  habilidades, power spikes y diffs @15. Se pide para una **muestra estratificada**: siempre
+  que la partida tenga algún (campeón, rol) con menos de ~150 timelines en el parche, y si no,
+  a una tasa base (por ejemplo, 30 %). El orden de build converge con menos datos que los
+  winrates, y así ningún (campeón, rol) se queda sin loadout general (§14.12).
 - Filtros al normalizar:
   - Descartar remakes (`gameDuration < 300` s o `gameEndedInEarlySurrender`).
   - Descartar partidas de un parche distinto al objetivo.
@@ -1106,8 +1104,10 @@ match-v5 no trae el elo. Se estima:
 
 - Para cada participante se conoce su tier si fue descubierto vía league-v4 (cacheado).
 - Bracket de la partida = mediana de los tiers conocidos de sus participantes.
-- Brackets que exporta Mito: `emerald_plus`, `diamond_plus` y `master_plus`. Un campeón
-  puede no tener muestra en `master_plus`, así que se cae al bracket más amplio.
+- Brackets que publica Mito: `emerald_plus` (base, siempre se descarga) y `diamond_plus`
+  (capa opcional que el usuario activa). `master_plus` no se publica hasta que el volumen
+  medido lo justifique. Cada bracket incluye a los de más arriba, así que el backoff a un
+  bracket más amplio es consultar el archivo base.
 
 ### 14.9 Normalización de parche
 
@@ -1119,35 +1119,30 @@ match-v5 no trae el elo. Se estima:
 
 ### 14.10 Agregación (DuckDB)
 
-Ejemplo de stats por campeón y rol:
+Cada agregación corre una vez por bracket exportado, filtrando las partidas de ese bracket o
+más alto. Ejemplo de stats por campeón y rol:
 
 ```sql
 CREATE OR REPLACE TABLE champ_role_stats AS
-WITH base AS (
-  SELECT champion_id, team_position AS role, tier_bracket, win
-  FROM read_parquet('raw/participants/*/patch=16.21/*.parquet')
-),
-totals AS (
-  SELECT tier_bracket, COUNT(*) / 10.0 AS matches FROM base GROUP BY 1
-)
-SELECT b.champion_id, b.role, b.tier_bracket,
-       COUNT(*)                      AS games,
-       SUM(CASE WHEN win THEN 1 END) AS wins,
-       COUNT(*) / t.matches          AS pick_rate
-FROM base b JOIN totals t USING (tier_bracket)
+SELECT p.champion_id, p.team_position AS role,
+       COUNT(*)                     AS games,
+       COUNT(*) FILTER (WHERE p.win) AS wins,
+       SUM(p.kills) AS kills, SUM(p.deaths) AS deaths, SUM(p.assists) AS assists,
+       SUM(p.cs_total)              AS cs,
+       ROUND(SUM(m.duration_s) / 60) AS minutes
+FROM participants p JOIN matches m USING (match_id)
+WHERE p.tier_bracket IN $bracket_tiers
 GROUP BY ALL;
 ```
 
-Ejemplo de matchups (mismo rol, equipos opuestos):
+Ejemplo de matchups (mismo rol, equipos opuestos; el join ya produce las dos orientaciones):
 
 ```sql
 CREATE OR REPLACE TABLE matchup_stats AS
-SELECT a.champion_id  AS champ,
-       a.team_position AS role,
-       b.champion_id  AS opp,
-       a.tier_bracket,
+SELECT a.champion_id, a.team_position AS role, b.champion_id AS opp_id,
        COUNT(*)                         AS games,
-       SUM(CASE WHEN a.win THEN 1 END)  AS wins,
+       COUNT(*) FILTER (WHERE a.win)    AS wins,
+       COUNT(a.gold_at_15)              AS tl_games,
        AVG(a.gold_at_15 - b.gold_at_15) AS gold_diff_15,
        AVG(a.cs_at_15   - b.cs_at_15)   AS cs_diff_15
 FROM participants a
@@ -1155,75 +1150,149 @@ JOIN participants b
   ON a.match_id = b.match_id
  AND a.team_position = b.team_position
  AND a.team_id <> b.team_id
+WHERE a.tier_bracket IN $bracket_tiers
 GROUP BY ALL
 HAVING COUNT(*) >= 30;
 ```
 
-Sinergias (mismo equipo, pares de roles relevantes):
+Sinergias (mismo equipo):
 
 ```sql
 CREATE OR REPLACE TABLE synergy_stats AS
-SELECT a.champion_id AS champ, a.team_position AS role,
-       b.champion_id AS ally,  b.team_position AS ally_role,
-       a.tier_bracket,
-       COUNT(*) AS games, SUM(CASE WHEN a.win THEN 1 END) AS wins
+SELECT a.champion_id, a.team_position AS role,
+       b.champion_id AS ally_id, b.team_position AS ally_role,
+       COUNT(*) AS games, COUNT(*) FILTER (WHERE a.win) AS wins
 FROM participants a
 JOIN participants b
   ON a.match_id = b.match_id AND a.team_id = b.team_id AND a.puuid <> b.puuid
+WHERE a.tier_bracket IN $bracket_tiers
 GROUP BY ALL
 HAVING COUNT(*) >= 50;
 ```
 
-Tablas a producir (detalle en la sección 17):
+**Perfil rival por partida.** Después de calcular `champion_profiles`, cada equipo de cada
+partida se clasifica con las mismas `profile_rules` que van en `meta` (§18.4), aplicadas a los
+perfiles de sus campeones y no al daño real de esa partida. Es lo mismo que puede hacer la app
+en champ select, así que los dos hablan del mismo perfil. Un equipo cuenta en todos los
+perfiles que cumple.
 
-- `champion_roles`, `champ_role_stats`, `champ_ban_stats`
+Tablas a producir (contrato en la sección 17):
+
+- `champion_roles`, `champ_role_stats`, `champ_ban_stats`, `champ_vs_profile`
 - `matchup_stats`, `synergy_stats`, `vs_team_stats` (contra campeones en cualquier rol)
-- `rune_pages`, `rune_pages_vs`
-- `item_builds` (start, core de 3, boots, situacionales), `item_builds_vs_profile`
+- `rune_page_defs`, `rune_pages`, `rune_page_vs_profile`
+- `item_builds` (start, core de 3, boots, 4.º a 6.º), `item_vs_profile` (con la línea base
+  `'any'`, desde ítems finales)
 - `spell_pairs`, `skill_orders`
 - `duration_curves` (winrate por bucket de duración)
-- `champion_profiles` (perfil de daño, tanqueo, CC y alcance, derivados de datos)
+- `champion_profiles` (daño, tanqueo, CC y power spikes)
+- Estáticos y curados: `champions`, `champion_flags`, `item_classes`
 
 ### 14.11 Perfiles de campeón (derivados de datos)
 
-En vez de etiquetar a mano, se calculan desde match-v5:
+Se calculan desde match-v5 y la timeline:
 
 | Métrica | Fuente | Uso |
 |---|---|---|
-| `phys_share` | phys_dmg_to_champs / dmg_to_champs | Perfil AD/AP del equipo |
-| `magic_share` | magic_dmg_to_champs / dmg_to_champs | |
-| `true_share` | true_dmg_to_champs / dmg_to_champs | |
-| `tankiness` | (dmg_taken + dmg_self_mitigated) normalizado por rol | Frontline |
-| `cc_score` | time_ccing_others normalizado | CC del equipo |
-| `early_strength` | winrate en partidas < 25 min vs promedio | Power spikes |
-| `late_strength` | winrate en partidas > 35 min vs promedio | Scaling |
-| `gold_diff_15` medio | timeline | Fuerza de lane |
+| `phys_share`, `magic_share`, `true_share` | daño a campeones de cada tipo / total | Perfil AD/AP |
+| `dmg_per_min` | dmg_to_champs / minutos | Peso de cada campeón en el perfil de daño del equipo |
+| `tankiness` | (dmg_taken + dmg_self_mitigated) por minuto, percentil en el rol | Frontline |
+| `cc_score` | time_ccing_others por minuto, percentil en el rol | CC del equipo |
+| `gold_diff_15` | timeline, vs el rival de lane | Fuerza de lane |
+| `lvl6_s` | timeline: primer `SKILL_LEVEL_UP` de la R, mediana | Power spikes |
+| `item1_s`..`item3_s` | timeline: compra del 1.º, 2.º y 3.º legendario, mediana | Power spikes |
 
-Se complementan con los `tags` de Data Dragon (Mage, Assassin, Tank...) solo para la UI.
+La fuerza early y late no se guarda: sale de `duration_curves` (§18.4).
+
+Lo que los datos no capturan bien se cura a mano por parche en `mito-data`
+(`curated/champion_flags.yaml`) y se exporta como `champion_flags`: `high_heal`,
+`point_click_cc`, `auto_attacker`, `poke` y `engage`. Reemplaza a los `tags` de Data Dragon
+y a las listas estáticas.
 
 ### 14.12 Export
 
-- Un archivo por (parche, bracket): `mito-16.21-emerald_plus.sqlite`.
-- Se exportan solo filas con muestra mínima (umbrales en la sección 18.2).
-- `VACUUM` y luego compresión (`.sqlite.zst`) para la descarga.
-- Tamaño objetivo: menor a 50 MB comprimido por bracket.
-- `manifest.json`:
+- Un archivo por (schema_version, parche, cola, bracket):
+  `schema-1/16.21/420/emerald_plus.sqlite.xz`. `emerald_plus` es la base y se publica
+  siempre; `diamond_plus` es una capa opcional con el mismo schema; `master_plus` no se
+  publica hasta que el volumen medido lo justifique.
+- Se exportan solo filas que pasan el mínimo de §18.2. Los mínimos salen de la misma config
+  que se escribe en `meta.thresholds`. Excepciones: `champion_roles` va completa (la
+  inferencia de roles necesita los roles raros) y las filas que exige la regla de completitud.
+- **Regla de completitud** (archivo base): cada fila de `champ_role_stats` tiene, en general
+  (`opp_id = 0`), al menos una página de runas, un par de spells, un inicio, un core, unas
+  botas y un orden de habilidades. Se logra con el muestreo estratificado de timelines (§14.5)
+  y, para core y botas, con un fallback desde ítems finales cuando `champion_profiles.tl_games` no
+  llega al mínimo de `build_layer`: core = la combinación de 3 legendarios finales más frecuente (ordenada por
+  frecuencia de cada ítem), botas = las tier 2 finales más frecuentes. Si ninguna opción pasa
+  el mínimo se exporta la más frecuente (la app la marca "muestra baja"). Si aun así falta
+  algo, el export falla.
+- `VACUUM` y compresión **xz** (`.sqlite.xz`): el framework Compression de Apple decodifica
+  LZMA/xz de forma nativa; zstd no.
+- **Presupuesto de tamaño**, que controla el exporter por archivo: aviso a 4 MB comprimido;
+  límite duro de 8 MB comprimido y 32 MB sin comprimir. Si se pasa, poda en este orden,
+  midiendo después de cada paso, y falla si sigue pasado:
+  1. `item_builds` por rival, salvo `start`.
+  2. Páginas de runas y pares de spells por rival con menos de 300 partidas.
+  3. Mínimo de `synergy_stats` a 100.
+  4. Mínimo de `vs_team_stats` a 100.
+  5. `item_vs_profile` limitado a los 10 primeros por (champ, role, perfil).
+
+  Nunca se podan: `meta`, `champions`, `champion_roles`, `champ_role_stats`,
+  `champion_profiles`, `duration_curves`, los loadouts generales, `matchup_stats` ≥ 30,
+  `champ_vs_profile`, `item_classes` y `champion_flags`.
+- Estimación medida: ~1,2–1,9 MB comprimido por archivo `emerald_plus` (3,6–5,7 MB sin
+  comprimir).
+- **Tips de matchup curados** (no van en el snapshot): se escriben a mano en `mito-data`
+  (`curated/tips/<locale>.yaml`, por par de campeones y rol) y se exportan como archivo propio
+  por locale, listado en el manifest. es-AR primero. Van a su ritmo, no al del parche: cada
+  tip lleva el último parche en que se revisó.
 
 ```json
 {
-  "schema_version": 1,
+  "format_version": 1,
+  "locale": "es-AR",
+  "tips": [
+    { "champion_id": 103, "role": "MIDDLE", "opp_id": 238, "reviewed_patch": "16.20",
+      "text": "Guardá la E para cuando entra la R de Zed." }
+  ]
+}
+```
+
+`opp_id = 0` es un tip general del campeón en ese rol.
+
+- **Fixture:** `mito-data fixture` genera un snapshot chico y su schema en
+  `fixtures/snapshot/` de este repo. Se regenera con cada cambio de `schema_version`.
+- `manifest.json`. `sha256` y `bytes` son del archivo comprimido; `raw_bytes`, del SQLite
+  descomprimido. La app ignora entradas con un `schema_version` que no soporta; durante una
+  transición se publican las dos versiones.
+
+```json
+{
   "generated_at": "2026-10-20T12:00:00Z",
   "current_patch": "16.21",
   "ddragon_version": "16.21.1",
   "snapshots": [
     {
+      "schema_version": 1,
       "patch": "16.21",
+      "queue": 420,
       "bracket": "emerald_plus",
-      "url": "https://cdn.example.com/mito/16.21/emerald_plus.sqlite.zst",
+      "url": "https://data.example/schema-1/16.21/420/emerald_plus.sqlite.xz",
       "sha256": "…",
-      "bytes": 38122110,
+      "bytes": 1650000,
+      "raw_bytes": 4900000,
       "matches": 412339,
       "regions": ["la2", "la1", "na1", "br1"]
+    }
+  ],
+  "tips": [
+    {
+      "format_version": 1,
+      "locale": "es-AR",
+      "url": "https://data.example/tips/1/es-AR.json",
+      "sha256": "…",
+      "bytes": 48211,
+      "updated_at": "2026-10-18T09:00:00Z"
     }
   ]
 }
@@ -1231,13 +1300,17 @@ Se complementan con los `tags` de Data Dragon (Mage, Assassin, Tank...) solo par
 
 ### 14.13 Inicio de parche (cold start)
 
-Los primeros 2–3 días de un parche hay pocos datos. Estrategia:
+Los primeros 2–3 días de un parche hay pocos datos. La mezcla la hace el **exporter**:
 
-- Mezclar el parche nuevo con el anterior, ponderado por muestra:
-  `peso_nuevo = n_nuevo / (n_nuevo + k)` con `k ≈ 20.000` partidas.
-- Si un campeón recibió cambios en las notas del parche (marca manual o heurística por la
-  diferencia de winrate), reducir el peso del parche viejo para ese campeón.
-- La UI muestra "Datos del parche 16.21 + 16.20 (inicio de parche)".
+- A cada tabla de conteos se le suman los conteos del parche anterior escalados por
+  `w_viejo = k / (n_nuevo + k)`, con `k = meta.blend_k` (≈ 20.000) y `n_nuevo` = partidas del
+  parche nuevo en el bracket. Se redondea a enteros; las medias se ponderan por `tl_games`.
+- Los campeones con `champions.changed = 1` (cambiados en las notas del parche: lista manual en
+  `mito-data` o heurística por la diferencia de winrate) no reciben datos del parche anterior.
+- Con `w_viejo < 0,05` se deja de mezclar.
+- `meta.blend_patches` lista los parches mezclados y `meta.matches` ya incluye la mezcla.
+- La app guarda solo el archivo actual, nunca el del parche anterior, y muestra "Datos
+  16.21 + 16.20" desde `meta.blend_patches` cuando hay más de uno.
 
 ### 14.14 Scheduling
 
@@ -1253,7 +1326,9 @@ Los primeros 2–3 días de un parche hay pocos datos. Estrategia:
 uv run mito-data seed      --region la2 --tiers MASTER,GRANDMASTER,CHALLENGER,DIAMOND,EMERALD
 uv run mito-data crawl     --regions la2,la1,na1,br1 --patch current --workers 4
 uv run mito-data aggregate --patch 16.21
-uv run mito-data export    --patch 16.21 --brackets emerald_plus,diamond_plus,master_plus
+uv run mito-data export    --patch 16.21 --brackets emerald_plus,diamond_plus
+uv run mito-data tips      --locale es-AR         # exporta los tips curados
+uv run mito-data fixture   --out ../mito/fixtures/snapshot
 uv run mito-data publish   --patch 16.21
 uv run mito-data static    --version latest       # descarga Data Dragon / CDragon
 uv run mito-data stats     --patch 16.21          # resumen de volumen y calidad
@@ -1302,13 +1377,17 @@ Base: `https://{routing}.api.riotgames.com`, con el header `X-Riot-Token: <key>`
 - Eventos útiles: `ITEM_PURCHASED`, `ITEM_SOLD`, `ITEM_UNDO`, `SKILL_LEVEL_UP`,
   `CHAMPION_KILL`, `BUILDING_KILL`, `ELITE_MONSTER_KILL`.
 - Orden de build: secuencia de `ITEM_PURCHASED` neta de undo, filtrando consumibles y
-  componentes. Se arman tres capas:
+  componentes con `item_classes` (§16.3). Capas:
   - **Inicio:** compras con `timestamp < 60s`.
-  - **Core:** primeros 3 ítems legendarios terminados.
+  - **Core:** primeros 3 ítems legendarios terminados, en orden.
   - **Botas:** primeras botas de tier 2.
-- Orden de habilidades: los primeros 15 `SKILL_LEVEL_UP` con `levelUpType == NORMAL`. Se
-  resume como prioridad de maxeo (por ejemplo, Q > W > E) más la secuencia de los primeros
-  3–4 niveles.
+  - **4.º a 6.º:** el legendario terminado en esa posición.
+- Power spikes: segundo del primer `SKILL_LEVEL_UP` de la R y de la compra del 1.º, 2.º y 3.º
+  legendario. Se exportan las medianas (`champion_profiles`).
+- Orden de habilidades: todos los `SKILL_LEVEL_UP` con `levelUpType == NORMAL` (hasta 18). Se
+  resume como `max_order`, la prioridad de maxeo (Q > W > E; incluye la R en kits que la suben
+  como básica), más la secuencia completa. La UI y el item set muestran la prioridad y los
+  primeros 6 niveles; la pestaña Build, la secuencia completa.
 
 ---
 
@@ -1352,133 +1431,288 @@ En el pipeline se clasifica cada ítem como:
 - `support_upgrade`
 
 Fuente: `item.json` (`into`, `from`, `depth`, `gold.total`, `tags`, `maps`) más una lista
-manual chica de excepciones en `data/static/item_overrides.yaml`.
+manual chica de excepciones en `data/static/item_overrides.yaml` de `mito-data`, que también
+marca los ítems antiheal. La clasificación se publica en el snapshot como `item_classes`
+(§17), así la app arma bloques y reglas con la misma clasificación que el pipeline.
 
 ---
 
 ## 17. Modelo de datos del snapshot
 
-Archivo SQLite de solo lectura. Todas las tablas tienen `patch` y `bracket` implícitos por
-archivo. Las tablas multi-parche (cold start) usan columnas propias.
+Esta sección es el **contrato** entre `mito-data` y la app (ADR 0005). Si el pipeline o la
+app no coinciden con ella, manda ella.
+
+Un archivo SQLite de solo lectura por **(schema_version, parche, cola, bracket)**. Esa
+identidad está en `meta` y en cada entrada del manifest (§14.12); las filas no la repiten.
+
+Reglas:
+
+- Toda columna de clave primaria es `NOT NULL`. "General" (sin rival) es `opp_id = 0`, nunca
+  `NULL`.
+- Todas las tablas son `WITHOUT ROWID`, salvo `rune_page_defs` (su `page_id` es el rowid).
+- Nada de JSON en claves ni en columnas que se consultan en champ select. Solo algunos valores
+  de `meta` son JSON, y se leen una vez al abrir el archivo.
+- Se publican **conteos crudos** (`games`, `wins`, sumas). Winrates suavizados, pick rates, ban
+  rates, shares y tiers los calcula la app con los parámetros de `meta`, que son los mismos con
+  los que filtra el exporter. Así no pueden divergir.
+- Las relaciones se escriben en las dos orientaciones (A vs B y B vs A, A con B y B con A):
+  no hacen falta índices por rival ni por aliado.
+- Sin nombres localizados ni `tags`: los nombres salen del cliente en su locale (§16, §22.6) y
+  lo que antes salía de los tags lo cubre `champion_flags`.
+- Cualquier cambio (tabla, columna, semántica o clave de `meta`) sube `schema_version`.
+- `mito-data` genera un snapshot chico de ejemplo en `fixtures/snapshot/` para el contract
+  test de la app (§23.3).
 
 ```sql
--- Metadatos
-CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
--- schema_version, patch, bracket, generated_at, matches, regions, ddragon_version
+-- Metadatos (claves abajo)
+CREATE TABLE meta (
+  key   TEXT NOT NULL PRIMARY KEY,
+  value TEXT NOT NULL
+) WITHOUT ROWID;
 
--- Campeones y roles
+-- Estáticos y curados del parche
 CREATE TABLE champions (
-  champion_id INTEGER PRIMARY KEY,
-  key TEXT NOT NULL,             -- "Ahri"
-  name TEXT NOT NULL,            -- localizado
-  tags TEXT NOT NULL             -- JSON array
-);
+  champion_id INTEGER NOT NULL PRIMARY KEY,
+  key         TEXT NOT NULL,               -- "Ahri", solo para depurar
+  changed     INTEGER NOT NULL DEFAULT 0   -- 1 = cambiado en las notas del parche (§14.13)
+) WITHOUT ROWID;
 
-CREATE TABLE champion_roles (
-  champion_id INTEGER, role TEXT,  -- TOP|JUNGLE|MIDDLE|BOTTOM|UTILITY
-  games INTEGER, share REAL,       -- P(role | champion)
+CREATE TABLE champion_flags (              -- curado a mano por parche (§14.11)
+  champion_id INTEGER NOT NULL,
+  flag        TEXT NOT NULL,               -- high_heal | point_click_cc | auto_attacker | poke | engage
+  PRIMARY KEY (champion_id, flag)
+) WITHOUT ROWID;
+
+CREATE TABLE item_classes (                -- §16.3, ~250 filas
+  item_id  INTEGER NOT NULL PRIMARY KEY,
+  class    TEXT NOT NULL,                  -- starter | consumable | component | boots_t1 | boots_t2 | legendary | support_upgrade
+  antiheal INTEGER NOT NULL DEFAULT 0
+) WITHOUT ROWID;
+
+-- Campeón y rol
+CREATE TABLE champion_roles (              -- P(rol | campeón) = games / Σ games del campeón
+  champion_id INTEGER NOT NULL,
+  role        TEXT NOT NULL,               -- TOP | JUNGLE | MIDDLE | BOTTOM | UTILITY
+  games       INTEGER NOT NULL,
   PRIMARY KEY (champion_id, role)
-);
+) WITHOUT ROWID;
 
 CREATE TABLE champ_role_stats (
-  champion_id INTEGER, role TEXT,
-  games INTEGER, wins INTEGER,
-  pick_rate REAL, ban_rate REAL,
-  wr_smoothed REAL,               -- ver 18.1
-  tier TEXT,                      -- S/A/B/C/D calculado
+  champion_id INTEGER NOT NULL,
+  role        TEXT NOT NULL,
+  games       INTEGER NOT NULL,            -- pick_rate = games / meta.matches
+  wins        INTEGER NOT NULL,
+  kills       INTEGER NOT NULL,            -- sumas, para los promedios de §19.2
+  deaths      INTEGER NOT NULL,
+  assists     INTEGER NOT NULL,
+  cs          INTEGER NOT NULL,
+  minutes     INTEGER NOT NULL,
   PRIMARY KEY (champion_id, role)
-);
+) WITHOUT ROWID;
 
--- Perfiles derivados
-CREATE TABLE champion_profiles (
-  champion_id INTEGER, role TEXT,
-  phys_share REAL, magic_share REAL, true_share REAL,
-  tankiness REAL, cc_score REAL,
-  early_strength REAL, late_strength REAL,
-  gold_diff_15 REAL,
+CREATE TABLE champ_ban_stats (             -- ban_rate = bans / meta.matches
+  champion_id INTEGER NOT NULL PRIMARY KEY,
+  bans        INTEGER NOT NULL             -- partidas en las que fue baneado
+) WITHOUT ROWID;
+
+CREATE TABLE champion_profiles (           -- §14.11
+  champion_id  INTEGER NOT NULL,
+  role         TEXT NOT NULL,
+  phys_share   REAL NOT NULL,
+  magic_share  REAL NOT NULL,
+  true_share   REAL NOT NULL,
+  dmg_per_min  REAL NOT NULL,
+  tankiness    REAL NOT NULL,              -- 0–1, percentil dentro del rol
+  cc_score     REAL NOT NULL,              -- 0–1, percentil dentro del rol
+  tl_games     INTEGER NOT NULL,           -- partidas con timeline: denominador de lo que sigue
+  gold_diff_15 REAL,                       -- media vs el rival de lane
+  lvl6_s       INTEGER,                    -- medianas en segundos: R y 1.º–3.º legendario
+  item1_s      INTEGER,
+  item2_s      INTEGER,
+  item3_s      INTEGER,                    -- NULL si no hay muestra de timeline
   PRIMARY KEY (champion_id, role)
-);
+) WITHOUT ROWID;
 
 CREATE TABLE duration_curves (
-  champion_id INTEGER, role TEXT, bucket TEXT,  -- '<20','20-25','25-30','30-35','35-40','40+'
-  games INTEGER, wins INTEGER,
+  champion_id INTEGER NOT NULL,
+  role        TEXT NOT NULL,
+  bucket      TEXT NOT NULL,               -- '<20' | '20-25' | '25-30' | '30-35' | '35-40' | '40+'
+  games       INTEGER NOT NULL,
+  wins        INTEGER NOT NULL,
   PRIMARY KEY (champion_id, role, bucket)
-);
+) WITHOUT ROWID;
+
+CREATE TABLE champ_vs_profile (            -- por perfil del equipo rival (multi-label, §18.4)
+  champion_id   INTEGER NOT NULL,
+  role          TEXT NOT NULL,
+  enemy_profile TEXT NOT NULL,             -- heavy_ad | heavy_ap | mixed | heavy_cc
+  games         INTEGER NOT NULL,
+  wins          INTEGER NOT NULL,
+  PRIMARY KEY (champion_id, role, enemy_profile)
+) WITHOUT ROWID;
 
 -- Relaciones
 CREATE TABLE matchup_stats (
-  champion_id INTEGER, role TEXT, opp_id INTEGER,
-  games INTEGER, wins INTEGER,
-  gold_diff_15 REAL, cs_diff_15 REAL,
+  champion_id  INTEGER NOT NULL,
+  role         TEXT NOT NULL,
+  opp_id       INTEGER NOT NULL,
+  games        INTEGER NOT NULL,
+  wins         INTEGER NOT NULL,
+  tl_games     INTEGER NOT NULL,           -- denominador de los diffs y de las capas por rival
+  gold_diff_15 REAL,                       -- medias sobre tl_games; NULL si tl_games = 0
+  cs_diff_15   REAL,
   PRIMARY KEY (champion_id, role, opp_id)
-);
+) WITHOUT ROWID;
 
 CREATE TABLE synergy_stats (
-  champion_id INTEGER, role TEXT, ally_id INTEGER, ally_role TEXT,
-  games INTEGER, wins INTEGER,
+  champion_id INTEGER NOT NULL,
+  role        TEXT NOT NULL,
+  ally_id     INTEGER NOT NULL,
+  ally_role   TEXT NOT NULL,
+  games       INTEGER NOT NULL,
+  wins        INTEGER NOT NULL,
   PRIMARY KEY (champion_id, role, ally_id, ally_role)
-);
+) WITHOUT ROWID;
 
-CREATE TABLE vs_team_stats (       -- contra un campeón rival en cualquier rol
-  champion_id INTEGER, role TEXT, enemy_id INTEGER,
-  games INTEGER, wins INTEGER,
+CREATE TABLE vs_team_stats (               -- contra un campeón rival en cualquier rol
+  champion_id INTEGER NOT NULL,
+  role        TEXT NOT NULL,
+  enemy_id    INTEGER NOT NULL,
+  games       INTEGER NOT NULL,
+  wins        INTEGER NOT NULL,
   PRIMARY KEY (champion_id, role, enemy_id)
-);
+) WITHOUT ROWID;
 
 -- Loadouts
-CREATE TABLE rune_pages (
-  champion_id INTEGER, role TEXT,
-  opp_id INTEGER,                  -- NULL = general
-  page_hash TEXT,                  -- hash de la página normalizada
-  primary_style INTEGER, sub_style INTEGER,
-  perks TEXT,                      -- JSON [6 perks]
-  shards TEXT,                     -- JSON [3]
-  games INTEGER, wins INTEGER,
-  PRIMARY KEY (champion_id, role, opp_id, page_hash)
+CREATE TABLE rune_page_defs (              -- una fila por página normalizada distinta (§18.6)
+  page_id       INTEGER NOT NULL PRIMARY KEY,
+  primary_style INTEGER NOT NULL,
+  sub_style     INTEGER NOT NULL,
+  perk1         INTEGER NOT NULL,          -- keystone; perk1..perk4 de la primaria, en orden
+  perk2         INTEGER NOT NULL,
+  perk3         INTEGER NOT NULL,
+  perk4         INTEGER NOT NULL,
+  perk5         INTEGER NOT NULL,          -- secundarias, perk5 < perk6
+  perk6         INTEGER NOT NULL,
+  shard_offense INTEGER NOT NULL,          -- shards por posición, nunca reordenados
+  shard_flex    INTEGER NOT NULL,
+  shard_defense INTEGER NOT NULL
 );
 
-CREATE TABLE rune_page_vs_profile (  -- página según el perfil del equipo rival
-  champion_id INTEGER, role TEXT,
-  enemy_profile TEXT,              -- 'heavy_ad' | 'heavy_ap' | 'mixed' | 'heavy_cc' | 'poke'
-  page_hash TEXT, games INTEGER, wins INTEGER,
-  PRIMARY KEY (champion_id, role, enemy_profile, page_hash)
-);
+CREATE TABLE rune_pages (
+  champion_id INTEGER NOT NULL,
+  role        TEXT NOT NULL,
+  opp_id      INTEGER NOT NULL,            -- 0 = general
+  page_id     INTEGER NOT NULL,            -- rune_page_defs
+  games       INTEGER NOT NULL,
+  wins        INTEGER NOT NULL,
+  PRIMARY KEY (champion_id, role, opp_id, page_id)
+) WITHOUT ROWID;
+
+CREATE TABLE rune_page_vs_profile (        -- página según el perfil del equipo rival
+  champion_id   INTEGER NOT NULL,
+  role          TEXT NOT NULL,
+  enemy_profile TEXT NOT NULL,             -- valores de champ_vs_profile
+  page_id       INTEGER NOT NULL,
+  games         INTEGER NOT NULL,
+  wins          INTEGER NOT NULL,
+  PRIMARY KEY (champion_id, role, enemy_profile, page_id)
+) WITHOUT ROWID;
 
 CREATE TABLE item_builds (
-  champion_id INTEGER, role TEXT,
-  opp_id INTEGER,                  -- NULL = general
-  layer TEXT,                      -- 'start' | 'core' | 'boots' | 'fourth' | 'fifth' | 'sixth'
-  items TEXT,                      -- JSON ordenado
-  games INTEGER, wins INTEGER,
-  PRIMARY KEY (champion_id, role, opp_id, layer, items)
-);
+  champion_id INTEGER NOT NULL,
+  role        TEXT NOT NULL,
+  opp_id      INTEGER NOT NULL,            -- 0 = general
+  layer       TEXT NOT NULL,               -- start | core | boots | fourth | fifth | sixth
+  item1       INTEGER NOT NULL,            -- 0 = vacío. start: ordenados por id, con repetidos;
+  item2       INTEGER NOT NULL,            -- core: en orden de compra; el resto usa solo item1
+  item3       INTEGER NOT NULL,
+  games       INTEGER NOT NULL,
+  wins        INTEGER NOT NULL,
+  PRIMARY KEY (champion_id, role, opp_id, layer, item1, item2, item3)
+) WITHOUT ROWID;
 
-CREATE TABLE item_vs_profile (       -- ítem situacional según el perfil rival
-  champion_id INTEGER, role TEXT, enemy_profile TEXT, item_id INTEGER,
-  games INTEGER, wins INTEGER,
-  buy_rate REAL,
+CREATE TABLE item_vs_profile (             -- ítems finales según el perfil rival
+  champion_id   INTEGER NOT NULL,
+  role          TEXT NOT NULL,
+  enemy_profile TEXT NOT NULL,             -- valores de champ_vs_profile + 'any' (línea base)
+  item_id       INTEGER NOT NULL,
+  games         INTEGER NOT NULL,          -- partidas que lo terminó en el inventario final
+  wins          INTEGER NOT NULL,
   PRIMARY KEY (champion_id, role, enemy_profile, item_id)
-);
+) WITHOUT ROWID;
 
 CREATE TABLE spell_pairs (
-  champion_id INTEGER, role TEXT, opp_id INTEGER,
-  spell_a INTEGER, spell_b INTEGER,  -- normalizado (a < b)
-  games INTEGER, wins INTEGER,
+  champion_id INTEGER NOT NULL,
+  role        TEXT NOT NULL,
+  opp_id      INTEGER NOT NULL,            -- 0 = general
+  spell_a     INTEGER NOT NULL,            -- normalizado (a < b)
+  spell_b     INTEGER NOT NULL,
+  games       INTEGER NOT NULL,
+  wins        INTEGER NOT NULL,
   PRIMARY KEY (champion_id, role, opp_id, spell_a, spell_b)
-);
+) WITHOUT ROWID;
 
 CREATE TABLE skill_orders (
-  champion_id INTEGER, role TEXT,
-  max_order TEXT,                  -- 'QWE'
-  first_levels TEXT,               -- 'QWEQ'
-  games INTEGER, wins INTEGER,
-  PRIMARY KEY (champion_id, role, max_order, first_levels)
-);
-
--- Índices para consultas en champ select
-CREATE INDEX idx_matchup_opp ON matchup_stats(opp_id, role);
-CREATE INDEX idx_synergy_ally ON synergy_stats(ally_id, ally_role);
+  champion_id INTEGER NOT NULL,
+  role        TEXT NOT NULL,
+  max_order   TEXT NOT NULL,               -- 'QWE'; 4 letras si el kit sube la R como básica ('RQWE')
+  sequence    TEXT NOT NULL,               -- secuencia más común de ese max_order, hasta 18 niveles
+  games       INTEGER NOT NULL,
+  wins        INTEGER NOT NULL,
+  PRIMARY KEY (champion_id, role, max_order)
+) WITHOUT ROWID;
 ```
+
+**Claves de `meta`:**
+
+| Clave | Valor |
+|---|---|
+| `schema_version` | Entero |
+| `patch`, `queue`, `bracket` | `16.21`, `420`, `emerald_plus` / `diamond_plus` |
+| `generated_at`, `ddragon_version` | ISO 8601, `16.21.1` |
+| `matches` | Partidas del archivo, ya con la mezcla de §14.13. Denominador de pick y ban rate |
+| `regions` | JSON. Las regiones siempre van mezcladas |
+| `blend_patches`, `blend_k` | JSON con los parches mezclados (`["16.21","16.20"]`) y el `k` de §14.13 (0 sin mezcla) |
+| `thresholds` | JSON. `[mínimo, confiable]` por tipo de dato (§18.2) |
+| `priors` | JSON. Fuerza `m` del prior por tipo de dato y `p0` de (champ, role) (§18.1) |
+| `tier_cutoffs` | JSON. Corte mínimo de `wr_smoothed(champ, role)` por tier; debajo de C es D |
+| `profile_rules` | JSON. Reglas de perfil rival (§18.4) |
+
+```json
+{
+  "thresholds": { "champ_role": [200, 1000], "matchup": [30, 300], "synergy": [50, 400],
+                  "vs_team": [30, 300], "profile": [100, 500], "rune_page": [100, 800],
+                  "build_layer": [100, 600], "item_vs_profile": [50, 300],
+                  "spells": [100, 500], "skill_order": [100, 600] },
+  "priors": { "champ_role": { "m": 100, "p0": 0.5 }, "relation": 200, "loadout": 500 },
+  "tier_cutoffs": { "S": 0.53, "A": 0.515, "B": 0.50, "C": 0.485 },
+  "profile_rules": { "min_champions": 3,
+                     "heavy_ad": { "phys_share_weighted": 0.65 },
+                     "heavy_ap": { "magic_share_weighted": 0.60 },
+                     "heavy_cc": { "cc_score_mean": 0.60 },
+                     "mixed":    { "not": ["heavy_ad", "heavy_ap"] } }
+}
+```
+
+**Capas y denominadores.** Cada dato viene de una de dos fuentes:
+
+- **Partida** (match-v5, todas las partidas): `champion_roles`, `champ_role_stats`,
+  `champ_ban_stats`, `duration_curves`, `champ_vs_profile`, `matchup_stats.games`,
+  `synergy_stats`, `vs_team_stats`, `rune_pages`, `rune_page_vs_profile`, `spell_pairs`,
+  `item_vs_profile` y `champion_profiles` hasta `cc_score`.
+- **Timeline** (muestra estratificada, §14.5): `item_builds`, `skill_orders`,
+  `matchup_stats.gold_diff_15` y `cs_diff_15`, y `champion_profiles` desde `tl_games`.
+  Excepción: si un (champ, role) tiene `tl_games` por debajo del mínimo de `build_layer`, su
+  core y sus botas generales salen de ítems finales (§14.12) y usan el denominador de partida.
+
+Denominador de cada regla "uso ≥ X %" dentro de un contexto:
+
+| Contexto | Datos de partida | Datos de timeline |
+|---|---|---|
+| General | `champ_role_stats.games` | `champion_profiles.tl_games` |
+| vs rival de lane | `matchup_stats.games` | `matchup_stats.tl_games` |
+| vs perfil rival | `champ_vs_profile.games` (`'any'`: `champ_role_stats.games`) | — (no hay capas por perfil) |
 
 ### Base personal (local, read-write, en la app)
 
@@ -1489,6 +1723,12 @@ CREATE TABLE my_matches (
   kills INTEGER, deaths INTEGER, assists INTEGER, cs INTEGER, duration_s INTEGER,
   opp_champion_id INTEGER,
   spell1 INTEGER, spell2 INTEGER, perks TEXT, items TEXT
+);
+
+CREATE TABLE my_match_participants (    -- los otros 9, para insights por perfil o sinergia
+  game_id INTEGER NOT NULL, champion_id INTEGER NOT NULL,
+  is_enemy INTEGER NOT NULL, role TEXT,
+  PRIMARY KEY (game_id, champion_id)
 );
 
 CREATE TABLE champion_overrides (       -- preferencias manuales del usuario
@@ -1522,9 +1762,13 @@ CREATE TABLE import_log (
 wr_smoothed = (wins + α) / (games + α + β)
 con prior centrado en el winrate base del contexto:
 α = m · p0,  β = m · (1 − p0)
-p0 = winrate base (por ejemplo, el del campeón en ese rol)
-m  = fuerza del prior (en partidas): 200 para matchups, 500 para runas e ítems
+p0 = winrate base: 0,5 para (champ, role); wr_smoothed(champ, role) para todo lo demás
+m  = fuerza del prior (en partidas): 100 para (champ, role); 200 para relaciones (matchup,
+     sinergia, vs_team, perfil rival); 500 para loadouts (runas, ítems, spells, habilidades)
 ```
+
+Los valores viven en `meta.priors`. El tier (S–D) de la tier list sale de
+`wr_smoothed(champ, role)` con los cortes de `meta.tier_cutoffs`.
 
 **Delta contra la línea base.** Para matchups y sinergias se usa la **diferencia** respecto
 del winrate general del campeón, no el valor absoluto:
@@ -1544,23 +1788,30 @@ queda con el primero que supera la muestra mínima. Si hay varios, los mezcla po
 muestra:
 
 ```
-(champ, role, opp, bracket estrecho)
-  → (champ, role, opp, bracket amplio)
-  → (champ, role, perfil rival, bracket)
-  → (champ, role, bracket)
-  → (champ, role, parche anterior)
+(champ, role, opp)          en la capa diamond_plus, si está activada
+  → (champ, role, opp)      en el archivo base emerald_plus
+  → (champ, role, perfil rival)
+  → (champ, role)
 ```
+
+El parche anterior no es un nivel del backoff: la mezcla ya viene en el archivo (§14.13).
 
 ### 18.2 Umbrales de muestra mínima (iniciales, ajustables)
 
-| Dato | Mínimo para usar | Mínimo para "confiable" |
-|---|---|---|
-| champ+role | 200 | 1.000 |
-| matchup | 30 | 300 |
-| sinergia | 50 | 400 |
-| página de runas | 100 | 800 |
-| capa de build | 100 | 600 |
-| spells | 100 | 500 |
+| Dato | Clave en `meta.thresholds` | Mínimo para usar | Mínimo para "confiable" |
+|---|---|---|---|
+| champ+role | `champ_role` | 200 | 1.000 |
+| matchup | `matchup` | 30 | 300 |
+| sinergia | `synergy` | 50 | 400 |
+| vs_team | `vs_team` | 30 | 300 |
+| perfil rival | `profile` | 100 | 500 |
+| página de runas | `rune_page` | 100 | 800 |
+| capa de build | `build_layer` | 100 | 600 |
+| ítem vs perfil | `item_vs_profile` | 50 | 300 |
+| spells | `spells` | 100 | 500 |
+| orden de habilidades | `skill_order` | 100 | 600 |
+
+El exporter filtra con estos valores y los escribe en `meta.thresholds`; la app lee los mismos.
 
 ### 18.3 Score de pick
 
@@ -1633,15 +1884,24 @@ enum Reason: Sendable {
 
 ### 18.4 Comp fit
 
-Perfil del equipo aliado a partir de `champion_profiles` de los lockeados:
+Perfil de cada equipo a partir de `champion_profiles` de los lockeados, con el daño
+ponderado por volumen:
 
 ```
-team_phys  = media de phys_share
-team_magic = media de magic_share
+team_phys  = Σ(phys_share · dmg_per_min) / Σ dmg_per_min
+team_magic = Σ(magic_share · dmg_per_min) / Σ dmg_per_min
 team_tank  = suma de tankiness
 team_cc    = suma de cc_score
 team_early = media de early_strength
+early_strength(c, r) = winrate en buckets < 25 min − winrate general   (duration_curves)
+late_strength(c, r)  = winrate en buckets ≥ 35 min − winrate general
 ```
+
+**Perfil rival.** Con 3 o más lockeados, el equipo rival se clasifica con `meta.profile_rules`
+(§17): `heavy_ad` y `heavy_ap` por el share ponderado, `heavy_cc` por la media de `cc_score` y
+`mixed` cuando no es ni `heavy_ad` ni `heavy_ap`. Es multi-label: un equipo puede ser
+`heavy_ad` y `heavy_cc` a la vez, y el pipeline clasifica cada partida con las mismas reglas
+(§14.10). `poke` no es un perfil sino un flag de `champion_flags`.
 
 Reglas (cada una da un bonus o penalidad en puntos de winrate):
 
@@ -1649,7 +1909,8 @@ Reglas (cada una da un bonus o penalidad en puntos de winrate):
   `magic_share` alto, y viceversa.
 - **Frontline:** si el equipo no tiene a nadie con `tankiness` en el top 30 %, bonus a
   candidatos tanqueros (sobre todo en top, jungla y support).
-- **CC / engage:** bonus si `team_cc` es bajo.
+- **CC / engage:** bonus a candidatos con CC o con el flag `engage` si `team_cc` es bajo y
+  nadie del equipo tiene `engage`.
 - **Curva de poder:** leve bonus a la coherencia (equipo early con campeón early) o una
   advertencia si la mezcla es mala.
 
@@ -1664,7 +1925,10 @@ Para el jugador en su rol:
 ```
 ban_score(e) =  presencia(e) · amenaza(e)
 presencia(e) = probabilidad de que e termine en tu lane o en el equipo rival
-             ≈ pick_rate(e, tu_rol) · (1 − ban_rate) + λ · pick_rate_global(e)
+             ≈ pick_rate(e, tu_rol) · (1 − ban_rate(e)) + λ · pick_rate_global(e)
+pick_rate(e, r)     = champ_role_stats.games(e, r) / meta.matches
+pick_rate_global(e) = Σ_r champ_role_stats.games(e, r) / meta.matches
+ban_rate(e)         = champ_ban_stats.bans(e) / meta.matches
 amenaza(e)   = media ponderada de −matchup_delta(c, tu_rol, e) sobre tus campeones
                probables c (top 3 de tu pool), más wr_meta(e) − 0,5
 ```
@@ -1677,45 +1941,57 @@ Reglas:
 
 ### 18.6 Runas
 
-1. Candidatas: `rune_pages` del (champ, role), con backoff.
+1. Candidatas: `rune_pages` del (champ, role) con `opp_id = 0`, con backoff. El contenido de
+   cada página sale de `rune_page_defs` por `page_id`.
 2. Si el rival de lane es conocido y `rune_pages` con ese `opp_id` tiene muestra, se mezcla:
    `score(page) = wr_s(page | opp) · w_opp + wr_s(page | general) · (1 − w_opp)`, con
    `w_opp = n_opp / (n_opp + 300)`.
 3. Perfil rival (por ejemplo, `heavy_ap`): ajuste con `rune_page_vs_profile`, sobre todo en
-   shards y runas defensivas de la rama Valor.
-4. Se elige la página con mayor score **entre las que tienen pick rate ≥ 5 %** dentro del
-   contexto. Así se evitan páginas raras que ganan por ruido.
+   shards y runas defensivas de la rama Valor. Con varios perfiles activos se promedian sus
+   ajustes.
+4. Se elige la página con mayor score **entre las que tienen uso ≥ 5 %** dentro del
+   contexto. Así se evitan páginas raras que ganan por ruido. Denominador: general,
+   `champ_role_stats.games`; vs rival, `matchup_stats.games`; vs perfil,
+   `champ_vs_profile.games`.
 5. Explicación: "Electrocutar (58 % de uso, 53,9 % WR). vs Zed: Segunda Piel en vez de
    Cosecha".
 
-**Normalización de página:** el orden de los perks secundarios y de los shards se normaliza
-antes de hashear para agrupar páginas equivalentes.
+**Normalización de página:** solo se normaliza el orden de los perks secundarios (ascendente)
+para agrupar páginas equivalentes. Los shards son posicionales (ofensa, flex, defensa) y nunca
+se reordenan. Cada página distinta es una fila de `rune_page_defs`.
 
 ### 18.7 Items
 
-- **Inicio:** el más ganador con pick rate ≥ 10 % para (champ, role, opp). Backoff a general.
+- Las capas salen de `item_builds` (timeline): el "uso ≥ X %" se mide contra
+  `champion_profiles.tl_games` en general y `matchup_stats.tl_games` vs rival (§17).
+- **Inicio:** el más ganador con uso ≥ 10 % para (champ, role, opp). Backoff a general.
 - **Core (3 ítems):** el combo ordenado más frecuente con buen winrate. Mostrar 1 principal
   y 1–2 alternativos.
-- **Botas:** mezcla del general y del perfil rival (por ejemplo, Tabis vs `heavy_ad` con
-  muchos autoataques, Mercurio vs `heavy_cc` o `heavy_ap`).
+- **Botas:** mezcla del general y de las botas tier 2 de `item_vs_profile` para el perfil
+  rival (por ejemplo, Tabis vs `heavy_ad` con 2 o más `auto_attacker`, Mercurio vs
+  `heavy_cc` o `heavy_ap`).
 - **Situacionales:** desde `item_vs_profile`, los ítems cuyo `buy_rate` y winrate suben
-  claramente contra ese perfil frente al general. Por ejemplo: antiheal si el rival tiene
-  2 o más campeones con curación alta (lista estática), Zhonya vs asesinos AD, Banshee vs
-  CC de punto y clic.
+  claramente contra ese perfil frente a la línea base `'any'`, con
+  `buy_rate(perfil) = games / champ_vs_profile.games` y
+  `buy_rate('any') = games / champ_role_stats.games`. Reglas con flags: antiheal
+  (`item_classes.antiheal`) si el rival tiene 2 o más `high_heal`; Banshee vs 2 o más
+  `point_click_cc`; Zhonya vs `heavy_ad`.
 - Cada bloque del item set lleva el motivo en el título.
 
 ### 18.8 Spells
 
-- Par más ganador con pick rate ≥ 10 % para (champ, role, opp), con backoff.
+- Par más ganador con uso ≥ 10 % para (champ, role, opp), con backoff. Denominador:
+  `champ_role_stats.games` en general, `matchup_stats.games` vs rival.
 - Reglas de seguridad: Smite obligatorio en jungla. Nunca sacar Flash salvo que el campeón
   tenga un par alternativo dominante (≥ 60 % de uso).
 - Respetar la posición de Flash del usuario (D/F).
 
 ### 18.9 Orden de habilidades
 
-- `skill_orders` más jugado con buen winrate. Mostrar la prioridad de maxeo y los primeros
-  4 niveles.
-- Se muestra en la UI y como bloque de texto en el item set.
+- El `max_order` de `skill_orders` más jugado con buen winrate (uso medido contra
+  `champion_profiles.tl_games`), con su `sequence`.
+- La UI y el bloque de texto del item set muestran la prioridad de maxeo y los primeros 6
+  niveles; la pestaña Build muestra la secuencia completa.
 
 ### 18.10 Rendimiento
 
@@ -1745,8 +2021,8 @@ my_games(c, r)
 my_wr_smoothed(c, r)   = (wins + m·p_global) / (games + m)   con m = 15 y p_global = wr_s(c, r)
 recency(c, r)          = Σ exp(−días_desde_partida / 30)
 mastery_norm(c)        = log(1 + puntos) / log(1 + max_puntos)
-kda_vs_avg(c, r)       = mi KDA / KDA promedio del snapshot
-cs_vs_avg(c, r)        = mi CS/min / CS/min promedio
+kda_vs_avg(c, r)       = mi KDA / ((kills + assists) / max(1, deaths))   -- sumas de champ_role_stats
+cs_vs_avg(c, r)        = mi CS/min / (cs / minutes)                       -- ídem
 ```
 
 ### 19.3 Score personal
@@ -1755,7 +2031,7 @@ cs_vs_avg(c, r)        = mi CS/min / CS/min promedio
 personal(c, r) =  0,4 · (my_wr_smoothed − wr_s(c, r))      -- ¿lo juego mejor que el promedio?
                 + 0,3 · comfort(c, r)                      -- familiaridad
                 + 0,2 · in_pool(c, r)                      -- pool declarado
-                + 0,1 · rendimiento relativo (kda, cs)
+                + 0,1 · rendimiento relativo (kda_vs_avg, cs_vs_avg de 19.2)
 
 comfort(c, r) = 0,6 · min(1, my_games / 30) + 0,4 · min(1, recency / 5)
                 + 0,2 · mastery_norm   (con techo en 1)
@@ -1766,7 +2042,9 @@ consistente con la evidencia de que jugar campeones con experiencia mejora el wi
 
 ### 19.4 Insights personales (para la UI)
 
-- "Tu Ahri vs asesinos AD: 7 partidas, 2 victorias. Considerá Zhonya antes".
+- "Tu Ahri vs equipos de mucho AD: 7 partidas, 2 victorias. Considerá Zhonya antes". El
+  equipo rival de cada partida sale de `my_match_participants` y se clasifica con
+  `meta.profile_rules` del snapshot actual.
 - "Ganás 61 % en partidas de menos de 25 minutos con Syndra: jugá agresivo early".
 - "Tus 3 mejores matchups y tus 3 peores".
 - Detección de tilt (opcional y suave): "Perdiste 4 seguidas". Sin moralina, como dato.
@@ -1781,7 +2059,7 @@ Es el corazón de la v1. Se abre al entrar en champ select y se actualiza en viv
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  Ranked Solo/Duo · Parche 16.21 · Esmeralda+          ⏱ 24s · Tu turno: PICK │
+│  Ranked Solo/Duo · Datos 16.21 · Esmeralda+           ⏱ 24s · Tu turno: PICK │
 ├───────────────┬───────────────────────────────────────────┬──────────────────┤
 │ TU EQUIPO     │  RECOMENDADOS PARA VOS (MID)              │ EQUIPO RIVAL     │
 │               │                                           │                  │
@@ -1814,19 +2092,28 @@ Es el corazón de la v1. Se abre al entrar en champ select y se actualiza en viv
 ### 20.2 Pestañas del análisis
 
 1. **Matchup:** winrate suavizado con intervalo, diffs @15, curva por duración (Swift
-   Charts), power spikes por nivel e ítem (si hay datos) y "claves" (v1: plantillas
-   generadas por datos; v1.5: tips curados opcionales).
-2. **Composición:** perfil de daño de ambos equipos, frontline, CC, early vs late,
-   "condiciones de victoria" textuales derivadas (por ejemplo, "Ustedes: early fuerte,
-   buscar cerrar antes del minuto 30").
+   Charts), power spikes comparados (nivel 6 y 1.º–3.º legendario de `champion_profiles`:
+   "Zed llega a 6 a los 7:10, vos a los 7:40") y **claves**. Las claves son los tips curados
+   del archivo de tips del locale (§14.12) para (campeón, rol, rival); si el tip se revisó en
+   un parche anterior se muestra "revisado en 16.20". Sin tip curado, plantillas generadas por
+   datos.
+2. **Composición:** perfil de daño de ambos equipos (ponderado por `dmg_per_min`), perfiles
+   del rival (`heavy_ad`, `heavy_cc`…), frontline, CC, early vs late (de `duration_curves`),
+   power spikes de cada equipo y "condiciones de victoria" textuales derivadas (por ejemplo,
+   "Ustedes: early fuerte, buscar cerrar antes del minuto 30").
 3. **Build:** runas, ítems por capas con alternativas, spells y habilidades, cada uno con su
    winrate, muestra y motivo.
 4. **Mi historial:** tu rendimiento con ese campeón, vs ese rival y en ese rol.
 
+En inicio de parche, el encabezado muestra "Datos 16.21 + 16.20" desde `meta.blend_patches`
+(§14.13).
+
 ### 20.3 Estados especiales
 
 - **Blind pick / sin roles:** el rol se infiere de tus preferencias o se elige manualmente.
-- **ARAM:** solo meta, runas, ítems y sinergias generales (sin matchup de lane).
+- **Flex (440) y Normal Draft (400):** usan el snapshot de la cola 420, sin aviso especial.
+- **ARAM (modo degradado en la v1):** solo datos personales y las páginas fijas del usuario.
+  Sin estadísticas de ARAM; llegan después, en un archivo aparte.
 - **Rival de lane desconocido:** se muestran recomendaciones "seguras" (mejor promedio
   contra los rivales más probables del rol, ponderado por pick rate).
 - **Sin snapshot descargado:** modo degradado. Funcionan el auto-accept, las páginas fijas
@@ -1849,8 +2136,7 @@ overrides en la base personal.
 | Ícono en el Dock | bool | off |
 | Idioma | es-AR / en | sistema |
 | Ruta de instalación de LoL | path | auto |
-| Bracket de datos | auto (según tu elo) / emerald_plus / diamond_plus / master_plus | auto |
-| Regiones de datos preferidas | multiselect | auto |
+| Datos Diamante+ (capa sobre la base Esmeralda+) | auto (según tu elo) / on / off | auto |
 
 ### 21.2 Partida
 
@@ -1968,7 +2254,7 @@ Salir                     ⌘Q
 
 - `String Catalogs` (`.xcstrings`) desde el día 1.
 - Nombres de campeones, ítems y runas: desde los datos estáticos en el locale del cliente o
-  `es_AR`.
+  `es_AR`. El snapshot no trae nombres.
 - Números con el formateador del locale (coma decimal en es-AR).
 
 ---
@@ -2006,15 +2292,17 @@ aceptada solo en builds de debug.
 
 - **MitoEngine:** unit tests con un `StatsProvider` en memoria. Casos: matchup conocido,
   backoff por muestra baja, comp sin frontline, rival de lane inferido con baja confianza,
-  modo ARAM.
+  campeón sin `champion_roles`, ARAM en modo degradado (sin estadísticas, solo capa personal
+  y páginas fijas).
 - **LCUKit:** parsing de lockfile y de args de proceso, decodificación tolerante de
   sesiones reales grabadas, reconexión.
 - **Importer:** contra el mock, verificando el payload exacto de runas e item sets, que no
   pise los sets del usuario y el manejo del cupo de páginas.
 - **mito-data:** pytest para normalización, filtros de remake, clasificación de ítems,
   agregaciones sobre un dataset chico fijo y validación del schema exportado.
-- **Contrato snapshot ↔ app:** test que abre un snapshot generado por el pipeline con el
-  código Swift y verifica `schema_version` y las consultas principales.
+- **Contrato snapshot ↔ app:** test que abre el snapshot de ejemplo de `fixtures/snapshot/`
+  (generado por `mito-data`) con el código Swift y verifica `schema_version`, la identidad
+  de `meta`, las claves JSON de `meta` y las consultas principales.
 - **Cómo se corren:** `swift test --package-path apps/macos/MitoKit --enable-code-coverage`.
   La CI (GitHub Actions, runner `xcode-27`) corre solo esos tests, con warnings como errores,
   en cada push a `main`/`dev` y en PRs hacia ellas. Antes de la beta se suma un test plan con
@@ -2061,8 +2349,9 @@ Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10
 - La app no tiene telemetría en la v1. Si se agrega, será opt-in, anónima y documentada.
 - Los datos personales quedan en el Mac (Application Support). Hay un botón "Borrar mis
   datos".
-- El snapshot se verifica por `sha256` contra el manifest antes de abrirse. El manifest se
-  sirve por HTTPS (opcional: firmarlo).
+- El snapshot y los tips se verifican por `sha256` (del archivo comprimido) contra el
+  manifest antes de descomprimirse, y el SQLite descomprimido contra `raw_bytes`. El manifest
+  se sirve por HTTPS (opcional: firmarlo).
 - Las conexiones a la LCU aceptan el certificado **solo** para `127.0.0.1`.
 
 ---
@@ -2073,10 +2362,10 @@ Cada fase termina con algo usable.
 
 ### Fase 0 — Setup (½ semana)
 
-- [ ] Monorepo, `README`, este documento y ADR-001 (snapshot vs backend).
+- [ ] Repo, `README`, este documento y ADR 0005 (pipeline y snapshot).
 - [ ] Proyecto de Xcode con los paquetes locales vacíos (`MitoCore`, `LCUKit`, `MitoStore`,
       `MitoEngine`, `MitoAssets`).
-- [ ] Proyecto Python con uv, CLI con typer vacío y CI básico (lint + tests).
+- [ ] `mito-data`: proyecto Python con uv, CLI con typer vacío y CI básico (lint + tests).
 - [ ] Pedir la personal API key en el Riot Developer Portal.
 
 ### Fase 1 — Conexión (1 semana)
@@ -2120,19 +2409,23 @@ notificación.
 - [ ] Cliente de la Riot API + rate limiter + cola de crawl en SQLite.
 - [ ] Seed de LAS alto elo. Crawl de un parche.
 - [ ] Normalización a parquet.
-- [ ] Agregaciones: `champ_role_stats`, `champion_roles`, `rune_pages`, `item_builds`,
-      `spell_pairs`, `skill_orders`.
-- [ ] Export del snapshot y manifest. Publicación en R2/S3/GH Releases.
+- [ ] Agregaciones: `champ_role_stats`, `champion_roles`, `champ_ban_stats`, `rune_page_defs`,
+      `rune_pages`, `item_builds`, `spell_pairs`, `skill_orders`, más `champions` e
+      `item_classes`.
+- [ ] Export `.sqlite.xz` con regla de completitud y presupuesto de tamaño, manifest y
+      fixture en `fixtures/snapshot/`. Publicación en R2.
 
 ### Fase 6 — La app consume el snapshot (1 semana)
 
-- [ ] Descarga y verificación del snapshot. `MitoStore` read-only.
+- [ ] Descarga y verificación del snapshot (base y capa Diamante+). `MitoStore` read-only.
 - [ ] El importador usa datos reales (general, sin matchup).
 - [ ] Ficha de campeón y tier list por rol.
 
 ### Fase 7 — Motor de recomendaciones v1 (2 semanas)
 
-- [ ] Agregaciones de matchups, sinergias, `vs_team`, perfiles y curvas de duración.
+- [ ] Agregaciones de `matchup_stats`, `synergy_stats`, `vs_team_stats`,
+      `champion_profiles` (con power spikes), `champ_vs_profile`, `rune_page_vs_profile`,
+      `item_vs_profile` y `duration_curves`; `champion_flags` curados y `meta.profile_rules`.
 - [ ] Score de pick (meta + matchup + counter + sinergia + comp).
 - [ ] Score de ban.
 - [ ] Runas, ítems y spells adaptados al matchup y al perfil rival.
@@ -2141,14 +2434,16 @@ notificación.
 ### Fase 8 — Capa personal (1 semana)
 
 - [ ] Sincronización del historial vía LCU a la base personal.
-- [ ] Onboarding: pool por rol, posición de Flash y bracket.
+- [ ] Onboarding: pool por rol, posición de Flash y capa Diamante+.
 - [ ] Score personal y slider Meta ↔ Comfort.
 - [ ] Pestaña "Mi historial" e insights.
 
 ### Fase 9 — Análisis pre-partida completo (1–2 semanas)
 
 - [ ] Pestañas Matchup, Composición, Build y Mi historial con Swift Charts.
-- [ ] Estados especiales (blind, ARAM, sin snapshot, rival desconocido).
+- [ ] Tips curados es-AR: archivo de tips en `mito-data` y "Claves" en la pestaña Matchup.
+- [ ] Estados especiales (blind, Flex/Normal con el snapshot de 420, ARAM degradado, sin
+      snapshot, rival desconocido).
 - [ ] Pulido visual, animaciones y accesibilidad.
 
 ### Fase 10 — Release beta (1 semana)
@@ -2163,7 +2458,8 @@ notificación.
 - Backtest y ajuste de pesos con regresión logística.
 - Cold start de parche refinado.
 - Historial personal profundo vía pipeline.
-- Flex, ARAM con datos propios.
+- Flex con datos propios; archivo aparte de estadísticas de ARAM.
+- Capa `master_plus`, cuando el volumen lo justifique.
 - **Overlay y Live Client Data (v2).**
 - Post-game.
 
@@ -2201,7 +2497,7 @@ Queda fuera de la v1 a propósito. Notas para cuando se retome:
 |---|---|---|
 | Riot restringe la LCU o algún endpoint | Alto | Decodificación tolerante, recorder para detectar cambios rápido, features degradables |
 | Cambios de política de terceros | Alto | Solo APIs oficiales, nada in-game en la v1, seguir el portal de desarrolladores |
-| Rate limits que no alcanzan para matchups | Medio | Production key, foco en un bracket amplio, timelines muestreadas, mezcla de parches |
+| Rate limits que no alcanzan para matchups | Medio | Production key, foco en un bracket amplio, timelines con muestreo estratificado, mezcla de parches |
 | Pocos datos al inicio de parche | Medio | Cold start con el parche anterior, aviso visible |
 | Calidad de la recomendación "a ojo" | Medio | Backtest, calibración y razones visibles para que el usuario juzgue |
 | Cambio de estructura de runas o shards | Bajo | Validar siempre contra `perkstyles.json` del cliente |
@@ -2209,14 +2505,18 @@ Queda fuera de la v1 a propósito. Notas para cuando se retome:
 
 ### Preguntas abiertas
 
-1. ¿Bracket por defecto: el del usuario o siempre un poco más alto (aprender del mejor)?
+1. ¿La capa Diamante+ en "auto" se activa solo para usuarios Diamante+ o para todos
+   (aprender del mejor)?
 2. ¿Se hace pública Mito o es uso personal y amigos? Define si hace falta production key y
    registro formal.
-3. ¿Hosting del snapshot: R2, S3 o GitHub Releases?
-4. ¿Tips de matchup curados a mano (calidad) o solo generados por datos (escala)?
+3. ~~¿Hosting del snapshot?~~ Resuelto: Cloudflare R2 (ADR 0005).
+4. ~~¿Tips de matchup curados a mano o solo generados por datos?~~ Resuelto: curados a mano
+   en la v1, como archivo aparte por locale (es-AR primero) con plantillas por datos de
+   fallback (§14.12, ADR 0005).
 5. ¿Auto-pick existe en la v1 o se deja directamente afuera?
 6. ¿Regiones: solo Américas al principio o desde el día 1 se suma KR/EUW para alto elo?
-7. ¿Hace falta un backend online antes de la v2? Hipótesis actual: no.
+7. ~~¿Hace falta un backend online antes de la v2?~~ Resuelto: no; snapshot estático por
+   parche y bracket (ADR 0005).
 
 ---
 
@@ -2231,8 +2531,10 @@ Queda fuera de la v1 a propósito. Notas para cuando se retome:
 | **Champ select** | Selección de campeones (bans, picks, runas, spells) |
 | **Hover / intent** | Campeón marcado pero no lockeado |
 | **Lock** | Confirmar el pick o ban |
-| **Snapshot** | Archivo SQLite con estadísticas agregadas por parche y bracket |
-| **Bracket** | Rango de elo de los datos (emerald_plus, diamond_plus, master_plus) |
+| **Snapshot** | Archivo SQLite (`.sqlite.xz`) con estadísticas agregadas por parche, cola y bracket |
+| **Bracket** | Rango de elo de los datos: `emerald_plus` (base) y `diamond_plus` (capa opcional) |
+| **Perfil rival** | Clasificación multi-label del equipo rival (`heavy_ad`, `heavy_ap`, `mixed`, `heavy_cc`) |
+| **Flag de campeón** | Rasgo curado por parche (`high_heal`, `engage`, `poke`…) en `champion_flags` |
 | **Backoff** | Caer a un contexto más general cuando falta muestra |
 | **Delta** | Diferencia de winrate contra la línea base del campeón |
 | **Comfort** | Familiaridad del usuario con un campeón (partidas, recencia, maestría) |
