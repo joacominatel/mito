@@ -111,14 +111,11 @@ struct MatchupPresentationTests {
         #expect(report.spikes.map(\.tone) == [.unfavorable])
     }
 
-    @Test func generatedClavesAreWordedFromTheData() throws {
-        let report = try #require(report(present()))
+    @Test(arguments: [AnalysisSubject.Champion.Source.locked, .hovered])
+    func generatedClavesAreWordedFromTheData(source: AnalysisSubject.Champion.Source) throws {
+        let report = try #require(report(present(source: source)))
 
-        let points = WinratePoints.text(
-            try #require(
-                MatchupAnalysis(
-                    champion: Self.ahri, role: .middle, opponent: Self.zed,
-                    stats: MatchupTestStats())?.matchup?.estimate?.delta), locale: Self.locale)
+        let points = try Self.points(MatchupTestStats())
         #expect(
             report.claves.map(\.text) == [
                 "El cruce te favorece (\(points) puntos de winrate): podés tomar la iniciativa en la línea",
@@ -205,6 +202,25 @@ struct MatchupPresentationTests {
 
         #expect(report.title == "Si elegís Ahri, contra Zed")
         #expect(report.spikes.map(\.text) == ["Zed llega a 6 a los 7:10, Ahri a los 7:40"])
+        let points = try Self.points(MatchupTestStats())
+        #expect(
+            report.claves.map(\.text) == [
+                "Con Ahri, el cruce te favorecería (\(points) puntos de winrate): podrías tomar la iniciativa en la línea",
+                "Zed llega antes que Ahri al nivel 6 (7:10): convendría jugar seguro hasta entonces",
+                "Ahri escala mejor que Zed desde el minuto 35: no haría falta forzar temprano",
+            ])
+        #expect(report.claves.map(\.symbol) == ["arrow.up", "bolt", "chart.line.uptrend.xyaxis"])
+        #expect(report.claves.map(\.tone) == [.favorable, .unfavorable, .favorable])
+    }
+
+    @Test func aRecommendationShowsItsCuratedTipsAsWritten() throws {
+        let tips = CuratedTips(records: [
+            Self.tip("Guardá la E para la R de Zed.", against: Self.zed)
+        ])
+
+        let report = try #require(report(present(source: .recommended, tips: tips)))
+
+        #expect(report.claves.map(\.text) == ["Guardá la E para la R de Zed."])
     }
 
     // MARK: Without a lane opponent
@@ -364,36 +380,50 @@ struct MatchupPresentationTests {
             MatchupTestStats.strongEarlyCurve, MatchupTestStats.flatCurve,
             "Ahri es más fuerte que Zed hasta el minuto 25",
             "Sos más fuerte que Zed hasta el minuto 25: aprovechá el arranque",
+            "Ahri es más fuerte que Zed hasta el minuto 25: podrías aprovechar el arranque",
             "chart.line.uptrend.xyaxis", Tone.favorable
         ),
         (
             MatchupTestStats.flatCurve, MatchupTestStats.strongEarlyCurve,
             "Zed es más fuerte que Ahri hasta el minuto 25",
             "Zed es más fuerte hasta el minuto 25: aguantá y escalá",
+            "Zed es más fuerte que Ahri hasta el minuto 25: convendría aguantar y escalar",
             "chart.line.downtrend.xyaxis", .unfavorable
         ),
         (
             MatchupTestStats.fadingCurve, MatchupTestStats.lateCurve,
             "Zed escala mejor que Ahri desde el minuto 35",
             "Zed escala mejor desde el minuto 35: buscá cerrar antes",
+            "Zed escala mejor que Ahri desde el minuto 35: convendría cerrar antes",
             "chart.line.downtrend.xyaxis", .unfavorable
+        ),
+        (
+            MatchupTestStats.lateCurve, MatchupTestStats.fadingCurve,
+            "Ahri escala mejor que Zed desde el minuto 35",
+            "Escalás mejor que Zed desde el minuto 35: no hace falta forzar temprano",
+            "Ahri escala mejor que Zed desde el minuto 35: no haría falta forzar temprano",
+            "chart.line.uptrend.xyaxis", .favorable
         ),
     ])
     func theStrongerCurveIsSummarizedAndBecomesAClave(
         mine: [DurationBucket: RelationStats], theirs: [DurationBucket: RelationStats],
-        summary: String, clave: String, symbol: String, tone: Tone
+        summary: String, clave: String, recommended: String, symbol: String, tone: Tone
     ) throws {
         var stats = MatchupTestStats(matchup: nil)
         stats.championCurve = mine
         stats.opponentCurve = theirs
         stats.levelSix = [:]
 
-        let report = try #require(report(present(stats: stats)))
+        let locked = try #require(report(present(stats: stats)))
+        let named = try #require(report(present(source: .recommended, stats: stats)))
 
-        #expect(report.curve?.summary == summary)
-        #expect(report.claves.map(\.text) == [clave])
-        #expect(report.claves.map(\.symbol) == [symbol])
-        #expect(report.claves.map(\.tone) == [tone])
+        #expect(locked.curve?.summary == summary)
+        #expect(locked.claves.map(\.text) == [clave])
+        #expect(named.claves.map(\.text) == [recommended])
+        for report in [locked, named] {
+            #expect(report.claves.map(\.symbol) == [symbol])
+            #expect(report.claves.map(\.tone) == [tone])
+        }
     }
 
     @Test func aloneAnEarlyCurveIsReadUpToMinuteTwentyFive() throws {
@@ -407,20 +437,19 @@ struct MatchupPresentationTests {
 
     // MARK: Generated claves
 
-    @Test func eachDataClaveHasItsIconAndToneEitherWay() throws {
+    static let otherWayStats: MatchupTestStats = {
         var stats = MatchupTestStats(
             matchup: MatchupStats(
                 games: 1_000, wins: 400, timelineGames: 400, goldDiffAt15: 250, csDiffAt15: 0))
         stats.levelSix = [103: 400, 238: 430]
         stats.opponentCurve = MatchupTestStats.lateCurve
+        return stats
+    }()
 
-        let report = try #require(report(present(stats: stats)))
+    @Test func eachDataClaveHasItsIconAndToneEitherWay() throws {
+        let report = try #require(report(present(stats: Self.otherWayStats)))
 
-        let delta = try #require(
-            MatchupAnalysis(
-                champion: Self.ahri, role: .middle, opponent: Self.zed, stats: stats)?.matchup?
-                .estimate?.delta)
-        let points = WinratePoints.text(delta, locale: Self.locale)
+        let points = try Self.points(Self.otherWayStats)
         #expect(
             report.claves.map(\.text) == [
                 "El cruce es difícil (\(points) puntos de winrate): priorizá farmear seguro",
@@ -431,18 +460,41 @@ struct MatchupPresentationTests {
         #expect(report.claves.map(\.tone) == [.unfavorable, .favorable, .favorable])
     }
 
-    @Test func goldBehindAtFifteenNamesTheOpponent() throws {
+    @Test func eachDataClaveForARecommendationNamesItWithTheSameIconAndTone() throws {
+        let report = try #require(report(present(source: .recommended, stats: Self.otherWayStats)))
+
+        let points = try Self.points(Self.otherWayStats)
+        #expect(
+            report.claves.map(\.text) == [
+                "Con Ahri, el cruce sería difícil (\(points) puntos de winrate): convendría farmear seguro",
+                "Ahri suele llegar al minuto 15 con 250 de oro a favor: podrías hacer valer la ventaja",
+                "Ahri llega antes que Zed al nivel 6 (6:40): sería tu momento para pelear",
+            ])
+        #expect(report.claves.map(\.symbol) == ["arrow.down", "plus.circle", "bolt.fill"])
+        #expect(report.claves.map(\.tone) == [.unfavorable, .favorable, .favorable])
+    }
+
+    @Test(arguments: [
+        (
+            AnalysisSubject.Champion.Source.locked,
+            "Zed suele sacar 250 de oro de ventaja al minuto 15: evitá los intercambios largos temprano"
+        ),
+        (
+            .recommended,
+            "Zed le suele sacar 250 de oro de ventaja a Ahri al minuto 15: convendría evitar los intercambios largos temprano"
+        ),
+    ])
+    func goldBehindAtFifteenNamesTheOpponent(
+        source: AnalysisSubject.Champion.Source, text: String
+    ) throws {
         let stats = MatchupTestStats(
             matchup: MatchupStats(
                 games: 1_000, wins: 519, timelineGames: 400, goldDiffAt15: -250, csDiffAt15: nil))
 
-        let report = try #require(report(present(stats: stats)))
+        let report = try #require(report(present(source: source, stats: stats)))
 
         let gold = try #require(report.claves.first { $0.symbol == "minus.circle" })
-        #expect(
-            gold.text
-                == "Zed suele sacar 250 de oro de ventaja al minuto 15: evitá los intercambios largos temprano"
-        )
+        #expect(gold.text == text)
         #expect(gold.tone == .unfavorable)
     }
 
@@ -466,11 +518,9 @@ struct MatchupPresentationTests {
         #expect(item.tone == tone)
     }
 
-    /// Bug: the tone rounds half away from zero and the text half to even, so a diff at .5 of
-    /// its last digit shows a signed zero ("+0", "−0,0") in a colored tone.
     @Test(
         arguments: [
-            (0.5, nil), (-0.5, nil), (nil, -0.05),
+            (0.5, nil), (-0.5, nil), (nil, -0.05), (nil, 0.05),
         ] as [(Double?, Double?)])
     func aLaneDiffThatShowsAsZeroHasNoSignAtTheHalf(gold: Double?, cs: Double?) throws {
         let stats = MatchupTestStats(
@@ -479,13 +529,38 @@ struct MatchupPresentationTests {
 
         let item = try #require(report(present(stats: stats))?.laneDiffs?.items.only)
 
-        withKnownIssue("MatchupWording.signed formats the unrounded value") {
-            #expect(item.value == (gold == nil ? "0,0" : "0"))
-            #expect(item.tone == .neutral)
-        }
+        #expect(item.value == (gold == nil ? "0,0" : "0"))
+        #expect(item.tone == .neutral)
+    }
+
+    @Test(
+        arguments: [
+            (2.5, nil, "+2", Tone.favorable), (-2.5, nil, "\u{2212}2", .unfavorable),
+            (3.5, nil, "+4", .favorable), (nil, 0.25, "+0,2", .favorable),
+            (nil, -0.15, "\u{2212}0,2", .unfavorable),
+        ] as [(Double?, Double?, String, Tone)])
+    func aLaneDiffAtTheHalfShowsTheNumberItsToneReads(
+        gold: Double?, cs: Double?, value: String, tone: Tone
+    ) throws {
+        let stats = MatchupTestStats(
+            matchup: MatchupStats(
+                games: 1_000, wins: 600, timelineGames: 400, goldDiffAt15: gold, csDiffAt15: cs))
+
+        let item = try #require(report(present(stats: stats))?.laneDiffs?.items.only)
+
+        #expect(item.value == value)
+        #expect(item.tone == tone)
     }
 
     // MARK: Helpers
+
+    /// The matchup delta as a clave words it.
+    static func points(_ stats: MatchupTestStats) throws -> String {
+        let delta = try #require(
+            MatchupAnalysis(champion: ahri, role: .middle, opponent: zed, stats: stats)?.matchup?
+                .estimate?.delta)
+        return WinratePoints.text(delta, locale: locale)
+    }
 
     static func matchup(games: Int, wins: Int) -> MatchupStats {
         MatchupStats(

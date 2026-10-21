@@ -156,7 +156,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 | FX-11 | One import target (role, lane opponent, enemy profile, override, plan) shared by Import and the Build tab; the import follows the champ-select role selector in blind pick; ARAM imports only the fixed per-champion page (§20.3), never a Summoner's Rift build | import + analysis | `Mito/Features/Import/**`, `Mito/Features/Analysis/Build/**`, `Mito/Features/ChampSelect/ChampSelectModel.swift` (accessor only), their tests | §13.1, §20.2 (Build entry), §20.3 | P9-03 | merged |
 | FX-12 | ID fallback names ("Ítem 3020", "Campeón 103") render without thousands separators | design-system + champselect + champions | the fallback call sites, their tests | — | P9-03 | merged |
 | FX-13 | A blind lock in the first session the app sees (connecting mid-champ-select) imports before the selector has a role and falls back to the most played role | import-ui + champselect | `Mito/Features/Import/**`, `Mito/Features/ChampSelect/**`, their tests | §13.1 | P9-06 | merged |
-| FX-14 | Matchup: a lane diff that shows as zero carries no sign or color (format the rounded value); generated claves use conditional phrasing when the champion is only the top recommendation | analysis | `Mito/Features/Analysis/Matchup/**`, `MitoEngine/Analysis/Matchup/**`, their tests | §20.2 (Matchup entry only) | T9-audit | in progress |
+| FX-14 | Matchup: a lane diff that shows as zero carries no sign or color (format the rounded value); generated claves use conditional phrasing when the champion is only the top recommendation | analysis | `Mito/Features/Analysis/Matchup/**`, `MitoEngine/Analysis/Matchup/**`, their tests | §20.2 (Matchup entry only) | T9-audit | merged |
 
 ## P1 — Connection
 

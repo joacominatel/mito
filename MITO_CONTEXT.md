@@ -3465,7 +3465,10 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
      partidas y "sin muestra". Si el cruce no tiene número (sin fila o debajo del mínimo) se
      agrega el winrate general como referencia.
    - **Diffs @15:** oro y CS medios contra el rival, con signo (− es U+2212), flecha y color, y
-     las partidas con timeline. Solo con `tl_games` desde el mínimo de `matchup`.
+     las partidas con timeline. Solo con `tl_games` desde el mínimo de `matchup`. Cada diff se
+     redondea una sola vez a lo que se muestra (oro sin decimales, CS con uno; la mitad, al par)
+     y de ese número salen el texto, el signo y el color: lo que se ve como cero no lleva signo
+     ni color.
    - **Curva por duración** (Swift Charts): una línea por campeón (el tuyo y, si tiene filas, el
      rival en el mismo rol), distinguidas por color y por símbolo, con el winrate de cada bucket
      suavizado hacia el total de su curva con el prior de relaciones, como `PowerCurve`. Los
@@ -3491,7 +3494,11 @@ Solo campeones, roles y celdas: ningún nombre de jugador (§5).
      sin muestra. Sin tips, van las plantillas, solo con rival y en este orden: el matchup
      (|delta| ≥ 1 punto), el oro @15 (|diff| ≥ 100), el primer power spike con alguien primero
      y la curva contra el rival. Cada una lleva la muestra de su dato y la marca de muestra baja
-     si no es "confiable".
+     si no es "confiable". Con el campeón lockeado o en hover, la plantilla te habla a vos ("El
+     cruce te favorece…", "Llegás antes que Zed al nivel 6…"); si solo es la primera
+     recomendación, como en los power spikes, nombra al campeón y el consejo va en condicional
+     ("Con Ahri, el cruce te favorecería…", "Ahri llega antes que Zed al nivel 6 (6:40): sería tu
+     momento para pelear"), con el mismo ícono y tono. Los tips curados se muestran tal cual.
    - VoiceOver: el encabezado, cada bloque de números y cada línea son un solo elemento.
 2. **Composición:** perfil de daño de ambos equipos (ponderado por `dmg_per_min`), perfiles
    del rival (`heavy_ad`, `heavy_cc`…), frontline, CC, early vs late (de `duration_curves`),

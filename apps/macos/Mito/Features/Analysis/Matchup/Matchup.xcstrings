@@ -25,11 +25,26 @@
     "%@ es más fuerte que %@ hasta el minuto %lld" : {
       "comment" : "Duration curve summary: the first champion does better than the second in games up to the given minute."
     },
+    "%@ es más fuerte que %@ hasta el minuto %lld: convendría aguantar y escalar" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. The lane opponent does better than your champion in short games, up to the given minute."
+    },
+    "%@ es más fuerte que %@ hasta el minuto %lld: podrías aprovechar el arranque" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. Your champion does better than the lane opponent in short games, up to the given minute."
+    },
     "%@ escala mejor desde el minuto %lld: buscá cerrar antes" : {
       "comment" : "Generated matchup tip: the lane opponent does better in long games, from the given minute."
     },
     "%@ escala mejor que %@ desde el minuto %lld" : {
       "comment" : "Duration curve summary: the first champion does better than the second in games from the given minute."
+    },
+    "%@ escala mejor que %@ desde el minuto %lld: convendría cerrar antes" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. The lane opponent does better than your champion in long games, from the given minute."
+    },
+    "%@ escala mejor que %@ desde el minuto %lld: no haría falta forzar temprano" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. Your champion does better than the lane opponent in long games, from the given minute."
+    },
+    "%@ le suele sacar %@ de oro de ventaja a %@ al minuto 15: convendría evitar los intercambios largos temprano" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. Lane opponent, its mean gold lead at 15 minutes, then your champion."
     },
     "%@ llega a 6 a los %@" : {
       "comment" : "Power spike. Champion, then the median game time (7:10) it reaches level 6."
@@ -39,6 +54,12 @@
     },
     "%@ llega antes al %@ (%@): jugá seguro hasta entonces" : {
       "comment" : "Generated matchup tip. Lane opponent, a power spike ('nivel 6', '1.er legendario'), and its time."
+    },
+    "%@ llega antes que %@ al %@ (%@): convendría jugar seguro hasta entonces" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. Lane opponent, your champion, a power spike ('nivel 6', '1.er legendario'), and the opponent's time."
+    },
+    "%@ llega antes que %@ al %@ (%@): sería tu momento para pelear" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. Your champion, the lane opponent, a power spike ('nivel 6', '1.er legendario'), and your champion's time."
     },
     "%@ partidas" : {
       "comment" : "Games behind a winrate, with thousands separators."
@@ -51,6 +72,9 @@
     },
     "%@ rinde más en partidas de hasta %lld minutos" : {
       "comment" : "Duration curve summary for one champion: it does better in games of up to the given minutes."
+    },
+    "%@ suele llegar al minuto 15 con %@ de oro a favor: podrías hacer valer la ventaja" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. Your champion, then its mean gold lead at 15 minutes against this opponent."
     },
     "%@ suele sacar %@ de oro de ventaja al minuto 15: evitá los intercambios largos temprano" : {
       "comment" : "Generated matchup tip. Lane opponent, then the mean gold lead it has at 15 minutes."
@@ -78,6 +102,12 @@
     },
     "Claves" : {
       "comment" : "Section of the Matchup tab with tips for the lane."
+    },
+    "Con %@, el cruce sería difícil (%@ puntos de winrate): convendría farmear seguro" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. Your champion, then the signed winrate points of an unfavorable matchup."
+    },
+    "Con %@, el cruce te favorecería (%@ puntos de winrate): podrías tomar la iniciativa en la línea" : {
+      "comment" : "Generated matchup tip for a recommendation you have not picked, named and conditional. Your champion, then the signed winrate points of a favorable matchup."
     },
     "Curva por duración" : {
       "comment" : "Section of the Matchup tab with winrate by game length."

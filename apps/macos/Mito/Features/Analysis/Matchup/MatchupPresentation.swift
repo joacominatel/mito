@@ -236,14 +236,14 @@ struct MatchupWording {
 
     private func laneDiffs(_ diffs: LaneDiffs) -> LaneDiffsBlock {
         let gold = diffs.goldAt15.map {
-            LaneDiffsBlock.Item(
-                id: String(localized: "Oro @15", table: "Matchup"),
-                value: signed($0, fractionDigits: 0), tone: tone($0, fractionDigits: 0))
+            let (value, tone) = signed($0, fractionDigits: 0)
+            return LaneDiffsBlock.Item(
+                id: String(localized: "Oro @15", table: "Matchup"), value: value, tone: tone)
         }
         let cs = diffs.csAt15.map {
-            LaneDiffsBlock.Item(
-                id: String(localized: "CS @15", table: "Matchup"),
-                value: signed($0, fractionDigits: 1), tone: tone($0, fractionDigits: 1))
+            let (value, tone) = signed($0, fractionDigits: 1)
+            return LaneDiffsBlock.Item(
+                id: String(localized: "CS @15", table: "Matchup"), value: value, tone: tone)
         }
         return LaneDiffsBlock(
             items: [gold, cs].compactMap(\.self),
@@ -420,99 +420,158 @@ struct MatchupWording {
     }
 
     private func generated(_ template: ClaveTemplate) -> (String, Tone, String) {
+        let (symbol, tone) = look(template)
+        return (symbol, tone, champion.isRecommendation ? named(template) : spoken(template))
+    }
+
+    private func look(_ template: ClaveTemplate) -> (String, Tone) {
+        switch template {
+        case .matchup(let delta):
+            delta > 0 ? ("arrow.up", .favorable) : ("arrow.down", .unfavorable)
+        case .laneGold(let diff):
+            diff > 0 ? ("plus.circle", .favorable) : ("minus.circle", .unfavorable)
+        case .spike(_, .you, _): ("bolt.fill", .favorable)
+        case .spike(_, .opponent, _): ("bolt", .unfavorable)
+        case .powerCurve(.you, _): ("chart.line.uptrend.xyaxis", .favorable)
+        case .powerCurve(.opponent, _): ("chart.line.downtrend.xyaxis", .unfavorable)
+        }
+    }
+
+    /// To you, about the champion you locked or hovered.
+    private func spoken(_ template: ClaveTemplate) -> String {
         let rival = opponent.map { names.champion($0.champion) } ?? ""
         switch template {
         case .matchup(let delta):
             let points = WinratePoints.text(delta, locale: locale)
             return delta > 0
-                ? (
-                    "arrow.up", .favorable,
-                    String(
-                        localized:
-                            "El cruce te favorece (\(points) puntos de winrate): podés tomar la iniciativa en la línea",
-                        table: "Matchup")
-                )
-                : (
-                    "arrow.down", .unfavorable,
-                    String(
-                        localized:
-                            "El cruce es difícil (\(points) puntos de winrate): priorizá farmear seguro",
-                        table: "Matchup")
-                )
+                ? String(
+                    localized:
+                        "El cruce te favorece (\(points) puntos de winrate): podés tomar la iniciativa en la línea",
+                    table: "Matchup")
+                : String(
+                    localized:
+                        "El cruce es difícil (\(points) puntos de winrate): priorizá farmear seguro",
+                    table: "Matchup")
         case .laneGold(let diff):
-            let gold = abs(diff).formatted(.number.precision(.fractionLength(0)).locale(locale))
+            let gold = goldText(diff)
             return diff > 0
-                ? (
-                    "plus.circle", .favorable,
-                    String(
-                        localized:
-                            "Se suele llegar al minuto 15 con \(gold) de oro a favor: hacé valer la ventaja",
-                        table: "Matchup")
-                )
-                : (
-                    "minus.circle", .unfavorable,
-                    String(
-                        localized:
-                            "\(rival) suele sacar \(gold) de oro de ventaja al minuto 15: evitá los intercambios largos temprano",
-                        table: "Matchup")
-                )
+                ? String(
+                    localized:
+                        "Se suele llegar al minuto 15 con \(gold) de oro a favor: hacé valer la ventaja",
+                    table: "Matchup")
+                : String(
+                    localized:
+                        "\(rival) suele sacar \(gold) de oro de ventaja al minuto 15: evitá los intercambios largos temprano",
+                    table: "Matchup")
         case .spike(let milestone, .you, let seconds):
             let at = time(seconds)
             let spike = milestoneName(milestone)
-            return (
-                "bolt.fill", .favorable,
-                String(
-                    localized:
-                        "Llegás antes que \(rival) al \(spike) (\(at)): es tu momento para pelear",
-                    table: "Matchup")
-            )
+            return String(
+                localized:
+                    "Llegás antes que \(rival) al \(spike) (\(at)): es tu momento para pelear",
+                table: "Matchup")
         case .spike(let milestone, .opponent, let seconds):
             let at = time(seconds)
             let spike = milestoneName(milestone)
-            return (
-                "bolt", .unfavorable,
-                String(
-                    localized:
-                        "\(rival) llega antes al \(spike) (\(at)): jugá seguro hasta entonces",
-                    table: "Matchup")
-            )
+            return String(
+                localized: "\(rival) llega antes al \(spike) (\(at)): jugá seguro hasta entonces",
+                table: "Matchup")
         case .powerCurve(let stronger, let phase):
             let minute = phase.minute
             switch (stronger, phase) {
             case (.you, .late):
-                return (
-                    "chart.line.uptrend.xyaxis", .favorable,
-                    String(
-                        localized:
-                            "Escalás mejor que \(rival) desde el minuto \(minute): no hace falta forzar temprano",
-                        table: "Matchup")
-                )
+                return String(
+                    localized:
+                        "Escalás mejor que \(rival) desde el minuto \(minute): no hace falta forzar temprano",
+                    table: "Matchup")
             case (.opponent, .late):
-                return (
-                    "chart.line.downtrend.xyaxis", .unfavorable,
-                    String(
-                        localized:
-                            "\(rival) escala mejor desde el minuto \(minute): buscá cerrar antes",
-                        table: "Matchup")
-                )
+                return String(
+                    localized:
+                        "\(rival) escala mejor desde el minuto \(minute): buscá cerrar antes",
+                    table: "Matchup")
             case (.you, .early):
-                return (
-                    "chart.line.uptrend.xyaxis", .favorable,
-                    String(
-                        localized:
-                            "Sos más fuerte que \(rival) hasta el minuto \(minute): aprovechá el arranque",
-                        table: "Matchup")
-                )
+                return String(
+                    localized:
+                        "Sos más fuerte que \(rival) hasta el minuto \(minute): aprovechá el arranque",
+                    table: "Matchup")
             case (.opponent, .early):
-                return (
-                    "chart.line.downtrend.xyaxis", .unfavorable,
-                    String(
-                        localized:
-                            "\(rival) es más fuerte hasta el minuto \(minute): aguantá y escalá",
-                        table: "Matchup")
-                )
+                return String(
+                    localized:
+                        "\(rival) es más fuerte hasta el minuto \(minute): aguantá y escalá",
+                    table: "Matchup")
             }
         }
+    }
+
+    /// About a recommendation you have not picked: named, and the advice conditional (§20.2).
+    private func named(_ template: ClaveTemplate) -> String {
+        let rival = opponent.map { names.champion($0.champion) } ?? ""
+        switch template {
+        case .matchup(let delta):
+            let points = WinratePoints.text(delta, locale: locale)
+            return delta > 0
+                ? String(
+                    localized:
+                        "Con \(me), el cruce te favorecería (\(points) puntos de winrate): podrías tomar la iniciativa en la línea",
+                    table: "Matchup")
+                : String(
+                    localized:
+                        "Con \(me), el cruce sería difícil (\(points) puntos de winrate): convendría farmear seguro",
+                    table: "Matchup")
+        case .laneGold(let diff):
+            let gold = goldText(diff)
+            return diff > 0
+                ? String(
+                    localized:
+                        "\(me) suele llegar al minuto 15 con \(gold) de oro a favor: podrías hacer valer la ventaja",
+                    table: "Matchup")
+                : String(
+                    localized:
+                        "\(rival) le suele sacar \(gold) de oro de ventaja a \(me) al minuto 15: convendría evitar los intercambios largos temprano",
+                    table: "Matchup")
+        case .spike(let milestone, .you, let seconds):
+            let at = time(seconds)
+            let spike = milestoneName(milestone)
+            return String(
+                localized:
+                    "\(me) llega antes que \(rival) al \(spike) (\(at)): sería tu momento para pelear",
+                table: "Matchup")
+        case .spike(let milestone, .opponent, let seconds):
+            let at = time(seconds)
+            let spike = milestoneName(milestone)
+            return String(
+                localized:
+                    "\(rival) llega antes que \(me) al \(spike) (\(at)): convendría jugar seguro hasta entonces",
+                table: "Matchup")
+        case .powerCurve(let stronger, let phase):
+            let minute = phase.minute
+            switch (stronger, phase) {
+            case (.you, .late):
+                return String(
+                    localized:
+                        "\(me) escala mejor que \(rival) desde el minuto \(minute): no haría falta forzar temprano",
+                    table: "Matchup")
+            case (.opponent, .late):
+                return String(
+                    localized:
+                        "\(rival) escala mejor que \(me) desde el minuto \(minute): convendría cerrar antes",
+                    table: "Matchup")
+            case (.you, .early):
+                return String(
+                    localized:
+                        "\(me) es más fuerte que \(rival) hasta el minuto \(minute): podrías aprovechar el arranque",
+                    table: "Matchup")
+            case (.opponent, .early):
+                return String(
+                    localized:
+                        "\(rival) es más fuerte que \(me) hasta el minuto \(minute): convendría aguantar y escalar",
+                    table: "Matchup")
+            }
+        }
+    }
+
+    private func goldText(_ diff: Double) -> String {
+        abs(diff).formatted(.number.precision(.fractionLength(0)).locale(locale))
     }
 
     private func milestoneName(_ milestone: SpikeComparison.Milestone) -> String {
@@ -541,19 +600,14 @@ struct MatchupWording {
     }
 
     /// Signed at `fractionDigits`; zero after rounding has no sign. The minus is U+2212.
-    private func signed(_ value: Double, fractionDigits: Int) -> String {
-        let magnitude = abs(value).formatted(
-            .number.precision(.fractionLength(fractionDigits)).locale(locale))
-        switch tone(value, fractionDigits: fractionDigits) {
-        case .favorable: return "+" + magnitude
-        case .unfavorable: return "\u{2212}" + magnitude
-        case .neutral: return magnitude
-        }
-    }
-
-    private func tone(_ value: Double, fractionDigits: Int) -> Tone {
+    private func signed(_ value: Double, fractionDigits: Int) -> (text: String, tone: Tone) {
+        // Rounded once, half to even like the formatter, so the text and the tone read one number.
         let scale = pow(10, Double(fractionDigits))
-        let rounded = (value * scale).rounded() / scale
-        return rounded > 0 ? .favorable : rounded < 0 ? .unfavorable : .neutral
+        let shown = (value * scale).rounded(.toNearestOrEven) / scale
+        let magnitude = abs(shown).formatted(
+            .number.precision(.fractionLength(fractionDigits)).locale(locale))
+        if shown > 0 { return ("+" + magnitude, .favorable) }
+        if shown < 0 { return ("\u{2212}" + magnitude, .unfavorable) }
+        return (magnitude, .neutral)
     }
 }
