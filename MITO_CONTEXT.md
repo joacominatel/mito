@@ -2520,6 +2520,28 @@ Reglas:
 
 ### 18.6 Runas
 
+**Loadout general implementado (P6-04, `LoadoutSelection.general` en `MitoEngine/Loadout`).**
+Reglas comunes a §18.6–§18.9, solo `opp_id = 0`:
+
+- `wr_s` de cada fila es `priors.loadoutWinrate` centrado en `wr_smoothed(champ, role)`. "Buen
+  winrate" es `wr_s ≥ wr_smoothed(champ, role)`.
+- Una fila se considera solo si pasa el mínimo de su tipo (`rune_page`, `spells`,
+  `build_layer`, `skill_order`). Si ninguna cumple la regla de la parte, se elige la más
+  jugada de todas (la que §14.12 deja sola) y queda marcada.
+- Cada parte lleva su `SampleLevel` según las partidas de la fila elegida. Si el (champ, role)
+  está debajo del mínimo de `champ_role`, se elige igual pero todas las partes quedan
+  `.belowMinimum`. Sin umbral para el tipo en `meta`, la parte es `.usable`.
+- Sin `meta` o sin fila de `champ_role_stats`, el loadout va vacío. Una parte sin candidatas
+  es `nil`.
+- Desempates, en orden: el criterio secundario (partidas si se ordena por `wr_s`, `wr_s` si se
+  ordena por partidas) y después el contenido de la fila, menor primero (ids de estilos y
+  perks, de spells, de ítems; Q < W < E < R en el skill order). No depende del orden en que
+  lleguen las filas.
+
+Runas: la página con mayor `wr_s` entre las de uso ≥ 5 % de `champ_role_stats.games`
+(inclusivo). Una página sin exactamente 9 perks nunca se elige; si no queda ninguna, no hay
+runas.
+
 1. Candidatas: `rune_pages` del (champ, role) con `opp_id = 0`, con backoff. El contenido de
    cada página sale de `rune_page_defs` por `page_id`.
 2. Si el rival de lane es conocido y `rune_pages` con ese `opp_id` tiene muestra, se mezcla:
@@ -2557,6 +2579,16 @@ se reordenan. Cada página distinta es una fila de `rune_page_defs`.
   `point_click_cc`; Zhonya vs `heavy_ad`.
 - Cada bloque del item set lleva el motivo en el título.
 
+**General implementado (P6-04).** Un bloque por capa con elección, en el orden `start`, `core`,
+`boots`, `fourth`, `fifth`, `sixth`. El título del bloque es el valor de
+`item_builds.layer` (`"start"`, `"core"`, …): el motor no pone texto y la app lo reemplaza
+por su copy (Inicio, Núcleo, …) y el motivo. Los repetidos del inicio van como un ítem con
+`count`. Inicio, botas y 4.º–6.º usan la regla del inicio (mayor `wr_s` con uso ≥ 10 % de
+`tl_games`); el core, el más jugado con buen winrate. Una capa nunca repite un ítem de una
+capa anterior (se descartan esas filas). Si `tl_games` no llega al mínimo de `build_layer`,
+core y botas son de ítems finales (§14.12) y su uso se mide contra `champ_role_stats.games`.
+Los alternativos del core y la mezcla con perfil rival no están todavía (P7-06).
+
 ### 18.8 Spells
 
 - Par más ganador con uso ≥ 10 % para (champ, role, opp), con backoff. Denominador:
@@ -2565,10 +2597,17 @@ se reordenan. Cada página distinta es una fila de `rune_page_defs`.
   tenga un par alternativo dominante (≥ 60 % de uso).
 - Respetar la posición de Flash del usuario (D/F).
 
+**General implementado (P6-04).** En jungla solo cuentan los pares con Smite (11); si no hay
+ninguno, no hay spells. Si algún par tiene Flash (4), los pares sin Flash cuentan solo con
+uso ≥ 60 % (inclusivo); si ninguno tiene Flash, cuentan todos. Entre los que quedan, la regla
+del uso ≥ 10 %. El par sale en orden neutro (`spellA < spellB`); la posición de Flash la
+decide el importador (§13.3).
+
 ### 18.9 Orden de habilidades
 
 - El `max_order` de `skill_orders` más jugado con buen winrate (uso medido contra
-  `champion_profiles.tl_games`), con su `sequence`.
+  `champion_profiles.tl_games`), con su `sequence`. Al no haber un corte de uso, el
+  denominador no cambia la elección (P6-04).
 - La UI y el bloque de texto del item set muestran la prioridad de maxeo y los primeros 6
   niveles; la pestaña Build muestra la secuencia completa.
 

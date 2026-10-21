@@ -217,7 +217,7 @@ The pipeline itself is `mito-data` work (MD5); this repo only brings in its outp
 | P6-01 | Manifest fetch, sha256 check, xz decode, cache | store (+ arch, authorized) | `MitoKit/Sources/MitoStore/Download/**`, `MitoKit/Tests/ArchitectureTests/NetworkSentinelTests.swift`, `MitoKit/Tests/ArchitectureTests/ImportBoundaryTests.swift` (MitoStore allowlist only) | §25 | P0-C, P1-02 | merged |
 | P6-02 | Read-only snapshot reader and contract test | store (snapshot contract) | `MitoKit/Sources/MitoStore/Snapshot/**`, `MitoKit/Tests/ArchitectureTests/ContractPinTests.swift` | §23.3 | P6-00 | merged |
 | P6-03 | Smoothing, Wilson intervals, tiers, sample backoff (§18.1) | engine | `MitoKit/Sources/MitoEngine/Stats/**` | §18.1, §18.2 | P6-00 | merged |
-| P6-04 | General loadout selection | engine | `MitoKit/Sources/MitoEngine/Loadout/**` | §18.6–§18.9 | P6-03 | in progress |
+| P6-04 | General loadout selection | engine | `MitoKit/Sources/MitoEngine/Loadout/**` | §18.6–§18.9 | P6-03 | merged |
 | P6-05 | Champions tab: tier list by role and champion page | champions | `Mito/Features/Champions/**` | §22.2 | P6-03 | merged |
 | P6-06 | Importer on real data (general, no matchup) | import-ui + shell (serial) | `Mito/Features/Import/**`, `Mito/App/**` | — | P6-02, P6-04, P4-07 | todo |
 
