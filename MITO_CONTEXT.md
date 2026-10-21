@@ -378,15 +378,23 @@ mito/
 ```swift
 @main
 struct MitoApp: App {
-    @State private var app = AppModel()
+    @State private var app: AppModel
+
+    init() {
+        let app = AppModel(connection: DisconnectedLCUConnection())  // LCUClient desde P1-08
+        _app = State(initialValue: app)
+        Task { await app.start() }
+    }
 
     var body: some Scene {
-        MenuBarExtra("Mito", systemImage: app.menuBarSymbol) {
+        MenuBarExtra {
             MenuBarView().environment(app)
+        } label: {
+            Label { Text(verbatim: "Mito") } icon: { Image(systemName: app.menuBarSymbol) }
         }
         .menuBarExtraStyle(.window)
 
-        Window("Mito", id: "main") {
+        Window(Text(verbatim: "Mito"), id: "main") {
             MainWindowView().environment(app)
         }
         .defaultSize(width: 1100, height: 720)
@@ -398,6 +406,9 @@ struct MitoApp: App {
 }
 ```
 
+`start()` arranca en el `init` porque la app vive en la barra de menú y no hay ninguna vista
+que esté siempre abierta para colgarle un `.task`.
+
 - **MenuBarExtra:** estado de conexión, fase actual, toggles rápidos (auto-accept, auto-runas)
   y el pick recomendado durante champ select.
 - **Ventana principal:** se abre sola (configurable) al entrar en champ select. Muestra el
@@ -408,7 +419,7 @@ struct MitoApp: App {
 
 | Módulo | Responsabilidad | Depende de |
 |---|---|---|
-| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet` | nada |
+| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SummonerSpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet` | nada |
 | `LCUKit` | Descubrir el cliente, credenciales, REST tipado, WebSocket WAMP, reconexión | MitoCore |
 | `MitoStore` | Abrir el snapshot (read-only), DB personal (read-write), settings, migraciones | MitoCore, GRDB |
 | `MitoEngine` | Scoring de picks, bans, runas, ítems y spells. **Funciones puras** | MitoCore |
@@ -423,26 +434,46 @@ fijos.
 ### 9.3 AppModel (orquestador)
 
 ```swift
-@Observable @MainActor
+@Observable  // MainActor por default en el target de la app (ADR 0001)
 final class AppModel {
-    var connection: ConnectionState = .searching
-    var phase: GameflowPhase = .none
-    var champSelect: ChampSelectState?
-    var recommendations: Recommendations?
+    let connection: ConnectionModel
+    let gameflow: GameflowModel
+    let champSelect: ChampSelectModel
+    let importing: ImportModel
+    let champions: ChampionsModel
+    let analysis: AnalysisModel
+    let profile: ProfileModel
+    let onboarding: OnboardingModel
+    let overrides: OverridesModel
     var settings: MitoSettings
 
-    private let lcu: LCUClient
-    private let store: MitoStore
-    private let engine: RecommendationEngine
-    private let importer: LoadoutImporter
+    init(connection: any LCUConnection, settings: MitoSettings = MitoSettings(), ...)
+
+    var menuBarSymbol: String { gameflow.menuBarSymbol ?? connection.menuBarSymbol }
 
     func start() async {
-        for await event in lcu.events() {
-            await handle(event)
+        await withDiscardingTaskGroup { group in
+            group.addTask { await self.connection.run() }
+            group.addTask { await self.gameflow.run() }
+            // … un addTask por slot
         }
     }
 }
 ```
+
+- **Un slot por feature** (ADR 0007): cada modelo es un `@Observable` en
+  `Features/<Nombre>/`, con su `run()`. El shell se escribe una vez; una unidad de feature
+  solo toca su carpeta.
+- **Sin loop central de eventos**: cada modelo se suscribe a sus propios tópicos con
+  `connection.events(_:)` (un stream por suscriptor) y al estado con `connection.states()`.
+  No hay `switch` de eventos en `AppModel`.
+- **Conexión inyectada** como `any LCUConnection`: el `LCUClient` real en la app (desde P1-08),
+  un fake en los tests. Hasta P1-08 la app usa `DisconnectedLCUConnection` (siempre
+  `.searching`, `send` tira `.notConnected`).
+- Las vistas leen `@Environment(AppModel.self)` y toman el slot que necesitan; los call sites
+  del shell no cambian cuando una feature crece.
+- En Debug, `-MitoLCULockfilePath <ruta>` (argumento de lanzamiento o UserDefaults) apunta el
+  descubrimiento a `tools/lcu-mock`; `AppModel` solo lo guarda.
 
 ### 9.4 Principios de código
 

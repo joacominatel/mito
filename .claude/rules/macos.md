@@ -43,8 +43,10 @@ Governing sections: `MITO_CONTEXT.md` §7, §9, §10–13, §18, §22.
 
 - SwiftUI only, no webviews. It must feel like an Apple app: sidebar, toolbar, standard
   Settings, keyboard shortcuts, light/dark, VoiceOver.
-- User-facing strings go through `Localizable.xcstrings`, Spanish (es-AR) source. Numbers use
-  locale formatters.
+- User-facing strings go through the feature's own catalog, `Features/<Name>/<Name>.xcstrings`
+  (`Text("…", tableName: "<Name>")`); shell strings use `Shell.xcstrings`. Spanish (es-AR)
+  source. `Localizable.xcstrings` stays empty (a fitness test enforces it). Numbers use locale
+  formatters.
 - Semantic color never stands alone: pair it with an icon or a sign (+/−).
 
 ## Tests
