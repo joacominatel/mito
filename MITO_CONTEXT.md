@@ -1305,27 +1305,52 @@ Los `type` de los bloques se usan como texto explicativo dentro del cliente. Los
 
 ### 13.5 Importador
 
-El importador vive en el módulo `MitoImport` (depende de `MitoCore` y `LCUKit`).
+`LoadoutImporter` en `MitoImport` aplica un `Loadout` entero con los tres importadores
+(§13.2–13.4) y devuelve un `ImportReport` con un resultado por parte:
 
 ```swift
-actor LoadoutImporter {
-    func apply(_ loadout: Loadout, settings: ImportSettings, lcu: LCUClient) async -> ImportReport
+public actor LoadoutImporter {
+    public init(connection: any LCUConnection)
+    public func apply(
+        _ loadout: Loadout, settings: ImportSettings, context: LoadoutImportContext
+    ) async -> ImportReport
 }
 
-struct Loadout: Sendable {
-    let runes: RunePage?
-    let spells: SpellPair?
-    let itemSet: ItemSet?
-    let skillOrder: SkillOrder?
-    let explanation: [Reason]
+public struct LoadoutImportContext: Sendable {
+    let title: String                // "Ahri MID vs Zed": página de runas e item set
+    let champion: ChampionID
+    let map: ItemSetMap              // default .summonersRift
+    let session: ChampSelectSession  // Flash y "ya seleccionado" de los spells
+    let summonerId: Int              // de CurrentSummoner, para los item sets
+    let confirmedReplacement: Int?   // el pageID de un .needsConfirmation aceptado
 }
 
-struct ImportReport: Sendable {
-    var runes: StepResult      // .applied, .skipped(reason), .failed(error)
+public struct ImportReport: Equatable, Sendable {
+    var runes: StepResult
     var spells: StepResult
     var items: StepResult
 }
+
+public enum StepResult: Equatable, Sendable {
+    case applied
+    case skipped(StepSkipReason)   // .notInLoadout, .disabled, .alreadySelected, .noEditablePage
+    case failed(StepError)         // .lcu(LCUError), .invalidRunePage(RunePageValidationError)
+    case needsConfirmation(pageID: Int, pageName: String)
+}
 ```
+
+- Una parte `nil` del `Loadout` queda `.skipped(.notInLoadout)` sin tocar el cliente.
+- Los pasos son independientes (uno que falla no frena a los otros) y corren siempre en el
+  mismo orden, runas → spells → ítems, para que el orden de escrituras al LCU sea
+  determinista. No se paralelizan.
+- `.needsConfirmation` de runas llega tal cual: la UI ofrece reemplazar la página y, si el
+  usuario acepta, vuelve a llamar con `confirmedReplacement` = ese `pageID`. Una página
+  inválida es `.failed(.invalidRunePage(_))`; `.noEditablePage` es un skip.
+- Dos `apply` superpuestos (hover y después lock) no se intercalan: el segundo espera a que
+  termine el primero.
+- El skill order no se importa (el cliente no tiene API) y no aparece en el reporte; quien
+  arma el item set puede mostrarlo como un bloque (§13.4). No se loguea el contenido del
+  loadout ni datos de identidad.
 
 El resultado se muestra como un toast nativo en la ventana y como notificación si la
 ventana no está visible.
