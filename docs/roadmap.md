@@ -124,7 +124,7 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | MD0 | `mito-data` project with uv, empty typer CLI, basic CI | mito-data | — | — | — | done (local gate; no remote yet) |
 | MD-FX | Contract fixture snapshot (`uv run mito-data fixture`) | mito-data | — | — | MD0 | done (mito-data ef55706, `fixtures/snapshot/`) |
 | KEY | Personal API key from the Riot Developer Portal | CEO | — | — | — | development key in the Keychain (expires every 24 h); personal key pending |
-| MD5 | `mito-data` pipeline MVP: crawl, normalize, P5 aggregations, export, R2 publish | mito-data | — | — | MD0, KEY | todo |
+| MD5 | `mito-data` pipeline MVP: crawl, normalize, P5 aggregations, export, R2 publish | mito-data | — | — | MD0, KEY | in progress (publishes to a local R2-shaped directory until the R2 account exists) |
 | MD7 | `mito-data` Phase 7 aggregations, curated flags, `meta.profile_rules` | mito-data | — | — | MD5 | todo |
 | MD-tips | Curated es-AR tips file published by `mito-data` | mito-data | — | — | MD5 | todo |
 
