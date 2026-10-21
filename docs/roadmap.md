@@ -140,7 +140,7 @@ Committed directly on `dev` (ADR 0006); listed for completeness.
 | P1-06 | Connection menu section and `ConnectionModel` against the fake | connection | `Mito/Features/Connection/**` | §22.4 | P0-C | merged |
 | P1-07 | `tools/lcu-recorder` with anonymization (the CEO runs it against the real client) | tools-lcu-recorder | `tools/lcu-recorder/**` | §23.2 | P0-C | in progress |
 | P1-08 | Wire the live `LCUClient` into `AppModel` | shell (serial) | `Mito/App/**`, `Mito/MitoApp.swift` | §9.3 | P1-05, P1-06 | todo |
-| P1-09 | Typed `current-summoner` endpoint and tolerant model (session group) | lcu | `MitoKit/Sources/LCUKit/Session/**` | §10.4, lcu-endpoints: Session | P1-02 | in progress |
+| P1-09 | Typed `current-summoner` endpoint and tolerant model (session group) | lcu | `MitoKit/Sources/LCUKit/Session/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Session.swift`, `fixtures/lcu/cases/session/**` | §10.6 | P1-02 | in progress |
 | P1-10 | Riot ID on the connection line ("Conectado como X", §26 Phase 1 done criterion) | connection | `Mito/Features/Connection/**` | §22.4 | P1-09 | todo |
 
 ## P2 — Gameflow and auto-accept
