@@ -185,7 +185,7 @@ siempre del lado seguro. Estado conocido a octubre de 2026:
 6. **El nombre y el ícono no usan marcas de Riot.** "Mito" está bien. No usar "Riot",
    "League" ni logos oficiales como marca de la app. Los íconos de campeones e ítems se usan
    como datos dentro de la UI, que es lo que permite la política para fan apps.
-7. **Disclaimer legal** visible en "Acerca de":
+7. **Disclaimer legal** visible en la pestaña "Acerca de" de Settings (`AboutSettingsTab`):
    > Mito isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot
    > Games or anyone officially involved in producing or managing Riot Games properties.
    > Riot Games, and all associated properties are trademarks or registered trademarks of

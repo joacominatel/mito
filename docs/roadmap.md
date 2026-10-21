@@ -273,6 +273,6 @@ Can overlap Stage 6.
 | --- | --- | --- | --- | --- | --- | --- |
 | P10-01 | Sparkle | shell (serial) + pbxproj + xcconfig | `Mito/App/**`, `Mito.xcodeproj/**`, `Config/*.xcconfig` | §24 | P9-07 | todo |
 | P10-02 | Signing, notarization, DMG (needs the CEO's secrets) | release | `scripts/release/**` | §24 | P10-01 | todo |
-| P10-03 | About screen and legal disclaimer | about | `Mito/Features/About/**` | — | P9-07 | in progress |
+| P10-03 | About screen and legal disclaimer | about | `Mito/Features/About/**` | — | P9-07 | merged |
 | P10-04 | Register the app in the Riot Developer Portal | CEO | — | — | P10-03 | todo |
 | P10-05 | Beta with friends, then first promotion to `main` | CEO | — | — | P10-01, P10-02, P10-03, P10-04 | todo |

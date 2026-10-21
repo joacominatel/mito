@@ -20,6 +20,10 @@ struct SettingsView: View {
                         Text("Importación", tableName: "Shell"),
                         systemImage: "square.and.arrow.down")
                 }
+            AboutSettingsTab()
+                .tabItem {
+                    tabLabel(Text("Acerca de", tableName: "Shell"), systemImage: "info.circle")
+                }
         }
         .frame(width: 520, height: 360)
     }

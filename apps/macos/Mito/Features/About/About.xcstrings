@@ -1,7 +1,45 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
-
+    "Aviso legal de Riot Games" : {
+      "comment" : "Header of the About tab section that holds Riot's legal disclaimer. The disclaimer itself is English and never translated."
+    },
+    "Componentes de terceros" : {
+      "comment" : "Header of the About tab section listing third-party libraries and their licenses."
+    },
+    "Código disponible bajo PolyForm Shield 1.0.0" : {
+      "comment" : "About tab: the source-available license. Keep the license name as is."
+    },
+    "Datos y privacidad" : {
+      "comment" : "Header of the About tab section with the stats status, data sources, and privacy notes."
+    },
+    "Las estadísticas vienen del pipeline propio de Mito, sobre la API pública de Riot Games." : {
+      "comment" : "About tab: where the statistics come from."
+    },
+    "Licencia" : {
+      "comment" : "Header of the About tab section with Mito's license."
+    },
+    "Mito no tiene telemetría." : {
+      "comment" : "About tab: the app sends no usage data."
+    },
+    "Parche %@ · %@ partidas" : {
+      "comment" : "About tab: the open stats snapshot. The first argument is the patch (16.21), the second the formatted match count."
+    },
+    "Sin estadísticas" : {
+      "comment" : "About tab: no stats snapshot is open yet."
+    },
+    "Tus datos personales quedan en esta Mac." : {
+      "comment" : "About tab: personal data is stored only on this computer."
+    },
+    "Ver el código y la licencia" : {
+      "comment" : "About tab link to Mito's public repository, where the license lives."
+    },
+    "Ver el proyecto" : {
+      "comment" : "Link to a third-party library's project page in the About tab."
+    },
+    "Versión %@ (%@)" : {
+      "comment" : "About tab: the app version. The first argument is the version (0.1.0), the second the build number."
+    }
   },
   "version" : "1.0"
 }
