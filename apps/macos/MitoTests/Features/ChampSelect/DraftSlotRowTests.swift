@@ -36,4 +36,15 @@ struct DraftSlotRowTests {
     func readsTheSlotInOneLine(row: DraftSlotRow, label: String) {
         #expect(row.accessibilityLabel == label)
     }
+
+    @Test(
+        arguments: [
+            (DraftSlotRow.Pick.locked("Ahri"), ChampionIcon.State.locked),
+            (.hovering("Zed"), .hover),
+            (.empty, .normal),
+        ])
+    func theIconFollowsThePick(pick: DraftSlotRow.Pick, state: ChampionIcon.State) {
+        let row = DraftSlotRow(id: 0, pick: pick, role: .none, turn: nil, isMe: false)
+        #expect(row.iconState == state)
+    }
 }

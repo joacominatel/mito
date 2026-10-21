@@ -121,6 +121,9 @@
     "ataques básicos" : {
       "comment" : "Enemy trait: champions that rely on basic attacks."
     },
+    "baneado" : {
+      "comment" : "VoiceOver value of a banned champion's icon."
+    },
     "botas" : {
       "comment" : "Item build layer: boots."
     },
@@ -133,11 +136,17 @@
     "daño mixto" : {
       "comment" : "Enemy team profile: mixed damage."
     },
+    "en hover" : {
+      "comment" : "VoiceOver value of a champion icon the player is hovering, not yet locked."
+    },
     "engage" : {
       "comment" : "Enemy trait: engage."
     },
     "inicio" : {
       "comment" : "Item build layer: the starting items."
+    },
+    "lockeado" : {
+      "comment" : "VoiceOver value of a champion icon whose pick is locked in."
     },
     "mucha curación" : {
       "comment" : "Enemy trait: heavy healing."
@@ -153,6 +162,9 @@
     },
     "muestra baja" : {
       "comment" : "Mark on a number backed by few games."
+    },
+    "no disponible" : {
+      "comment" : "VoiceOver value of a champion icon the player cannot pick."
     },
     "poke" : {
       "comment" : "Enemy trait: poke."

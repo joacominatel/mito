@@ -14,6 +14,8 @@ final class AppModel {
 
     let connection: ConnectionModel
     let clientData: ClientDataModel
+    /// Views read it from the environment (`\.iconSource`); no feature model loads icons.
+    let icons: IconSource
     let snapshots: SnapshotModel
     let mainWindow = MainWindowModel()
     let gameflow: GameflowModel
@@ -36,12 +38,16 @@ final class AppModel {
         settings: SettingsModel = SettingsModel(),
         snapshots: SnapshotModel = SnapshotModel(),
         personal: any PersonalStore = UnavailablePersonalStore(),
+        iconLoader: (any IconLoading)? = nil,
         poster: any NotificationPosting = SystemNotificationPoster(),
         appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
     ) {
         connection = ConnectionModel(connection: lcu)
         let clientData = ClientDataModel(connection: lcu)
         self.clientData = clientData
+        icons = IconSource(
+            connection: lcu, loader: iconLoader, gameData: { clientData.gameData },
+            gameVersion: { clientData.gameVersion })
         self.snapshots = snapshots
         gameflow = GameflowModel(
             connection: lcu, settings: { settings.value.game }, poster: poster)
@@ -132,6 +138,7 @@ final class AppModel {
             group.addTask { await self.lifecycle() }
             group.addTask { await self.connection.run() }
             group.addTask { await self.clientData.run() }
+            group.addTask { await self.icons.run() }
             group.addTask { await self.snapshots.run() }
             group.addTask { await self.gameflow.run() }
             group.addTask { await self.champSelect.run() }

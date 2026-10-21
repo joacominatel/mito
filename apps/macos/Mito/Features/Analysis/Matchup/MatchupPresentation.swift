@@ -45,12 +45,15 @@ struct MatchupReport: Equatable {
     let title: String
     /// "Rival de línea: Zed (MID? 82 %)" or "Rival de línea desconocido".
     let opponent: String
-    let hasOpponent: Bool
+    let champion: ChampionID
+    let opponentChampion: ChampionID?
     let winrates: [WinrateBlock]
     let laneDiffs: LaneDiffsBlock?
     let curve: CurveChartData?
     let spikes: [Line]
     let claves: [Line]
+
+    var hasOpponent: Bool { opponentChampion != nil }
 
     /// One spike or clave: a symbol in its tone, the text, and its sample.
     struct Line: Equatable, Identifiable {
@@ -144,7 +147,8 @@ struct MatchupWording {
 
     func report(_ analysis: MatchupAnalysis) -> MatchupReport {
         MatchupReport(
-            title: title, opponent: opponentLine, hasOpponent: opponent != nil,
+            title: title, opponent: opponentLine, champion: champion.id,
+            opponentChampion: opponent?.champion,
             winrates: winrates(analysis), laneDiffs: analysis.laneDiffs.map(laneDiffs),
             curve: curve(analysis), spikes: spikes(analysis.spikes),
             claves: analysis.claves.enumerated().map { clave($1, id: $0) })

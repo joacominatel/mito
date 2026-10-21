@@ -11,14 +11,15 @@ struct MitoApp: App {
     init() {
         let client = AppModel.liveClient()
         // MitoTests run inside this app; they must never reach a live League client, the real
-        // settings file, the snapshot cache and its download, or the personal database.
+        // settings file, the snapshot cache and its download, the personal database, or icons.
         let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         let app = AppModel(
             connection: client,
             lifecycle: AppModel.lifecycle(running: client, underTest: underTest),
             settings: SettingsModel(persistence: underTest ? nil : SettingsStore()),
             snapshots: SnapshotModel(origin: .live(underTest: underTest)),
-            personal: UnavailablePersonalStore.live(underTest: underTest))
+            personal: UnavailablePersonalStore.live(underTest: underTest),
+            iconLoader: IconSource.liveLoader(connection: client, underTest: underTest))
         _app = State(initialValue: app)
         // The app lives in the menu bar with no window guaranteed open, so no view can own this.
         Task { await app.start() }
@@ -28,6 +29,7 @@ struct MitoApp: App {
         MenuBarExtra {
             MenuBarView()
                 .environment(app)
+                .environment(\.iconSource, app.icons)
         } label: {
             MenuBarLabel()
                 .environment(app)
@@ -37,6 +39,7 @@ struct MitoApp: App {
         Window(Text(verbatim: "Mito"), id: Self.mainWindowID) {
             MainWindowView()
                 .environment(app)
+                .environment(\.iconSource, app.icons)
         }
         .defaultSize(width: 1100, height: 720)
 

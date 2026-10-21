@@ -264,7 +264,21 @@ struct ChampSelectModelTests {
 
         model.show(try Fixture.session("ban-pick-in-progress"), queue: .rankedSolo, pickable: [])
 
-        #expect(model.bannedNames == ["Campeón 157", "Campeón 555"])
+        #expect(
+            model.bans == [
+                BannedChampion(id: ChampionID(rawValue: 157), name: "Campeón 157"),
+                BannedChampion(id: ChampionID(rawValue: 555), name: "Campeón 555"),
+            ])
+    }
+
+    @Test func rowsCarryTheChampionTheirIconShows() throws {
+        let model = makeModel()
+
+        model.show(try Fixture.session("ban-pick-in-progress"), queue: .rankedSolo, pickable: [])
+
+        #expect(model.allyRows.map(\.champion) == [266, 64, 103].map(ChampionID.init(rawValue:)))
+        #expect(model.allyRows.map(\.iconState) == [.locked, .hover, .hover])
+        #expect(model.enemyRows.map(\.champion) == [ChampionID(rawValue: 238), nil])
     }
 
     @Test func theTimerCountsFromWhenTheSessionArrived() throws {

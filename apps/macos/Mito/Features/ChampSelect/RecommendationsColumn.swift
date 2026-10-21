@@ -77,6 +77,8 @@ private struct RankedList: View {
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        ChampionIcon(id: row.id, size: 24)
+                            .alignmentGuide(.firstTextBaseline) { $0.height * 0.75 }
                         Text(verbatim: "\(index + 1). \(names.champion(row.id))")
                             .font(.body.weight(.semibold))
                             .lineLimit(1)

@@ -176,6 +176,13 @@ private struct TeamHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(side.title).font(.headline)
+            if !team.members.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(Array(team.members.enumerated()), id: \.offset) { _, member in
+                        ChampionIcon(id: member.champion, size: 22, label: member.name)
+                    }
+                }
+            }
             if team.isPartial {
                 Label {
                     Text(verbatim: CompositionText.coverage(team))

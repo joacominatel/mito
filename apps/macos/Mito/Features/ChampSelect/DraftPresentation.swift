@@ -25,6 +25,16 @@ struct DraftSlotRow: Identifiable, Hashable {
     let role: RoleLabel
     let turn: ChampSelectModel.Turn?
     let isMe: Bool
+    /// The locked or hovered champion.
+    var champion: ChampionID?
+
+    var iconState: ChampionIcon.State {
+        switch pick {
+        case .locked: .locked
+        case .hovering: .hover
+        case .empty: .normal
+        }
+    }
 
     var accessibilityLabel: String {
         var parts: [String] = []
@@ -72,8 +82,10 @@ extension ChampSelectModel {
         return draft?.enemies.map { row(for: $0, isMe: false, roles: roles) } ?? []
     }
 
-    var bannedNames: [String] {
-        (draft?.bans ?? []).map(championName).sorted()
+    /// By name.
+    var bans: [BannedChampion] {
+        (draft?.bans ?? []).map { BannedChampion(id: $0, name: championName($0)) }
+            .sorted { $0.name < $1.name }
     }
 
     /// The menu bar line (§22.4); `nil` outside champ select.
@@ -91,6 +103,15 @@ extension ChampSelectModel {
         let locked = slots.filter { $0.champion != nil }.count
         return LocalizedStringResource(
             "Champ select · \(locked) de \(slots.count) lockeados", table: "ChampSelect")
+    }
+
+    /// The champion of `menuRecommendation`.
+    var menuRecommendedChampion: ChampionID? {
+        switch recommendations {
+        case .picks(let picks): picks.first?.champion
+        case .bans(let bans): bans.first?.champion
+        case .unavailable, nil: nil
+        }
     }
 
     /// "Recomendado: Ahri (+3,8)" under the summary (§22.4); a ban during the ban phase.
@@ -145,8 +166,14 @@ extension ChampSelectModel {
                 .none
             }
         return DraftSlotRow(
-            id: slot.cellId, pick: pick, role: role, turn: turns[slot.cellId], isMe: isMe)
+            id: slot.cellId, pick: pick, role: role, turn: turns[slot.cellId], isMe: isMe,
+            champion: slot.champion ?? slot.hover)
     }
+}
+
+struct BannedChampion: Hashable {
+    let id: ChampionID
+    let name: String
 }
 
 extension Role {

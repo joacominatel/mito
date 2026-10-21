@@ -89,6 +89,19 @@ struct AppModelTests {
         #expect(app.champSelect.draft?.patch == Patch(rawValue: "16.21"))
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func theIconSourceReadsTheSharedClientDataAndLoadsNothingByDefault() async throws {
+        let app = AppModel(
+            connection: ServingLCUConnection(
+                script: [.connected], bodies: ClientDataFixture.bodies()))
+        await app.start()
+
+        let request = try #require(app.icons.request(for: .champion(ChampionID(rawValue: 103))))
+        #expect(request.gameVersion == "16.21.723.1234")
+        await app.icons.load(request)
+        #expect(app.icons.image(for: request) == nil)
+    }
+
     @Test(arguments: [true, false])
     func champSelectOpensTheWindowOnlyWithTheSettingOn(enabled: Bool) throws {
         let app = AppModel(connection: ScriptedLCUConnection(script: []))

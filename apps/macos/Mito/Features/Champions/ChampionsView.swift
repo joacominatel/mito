@@ -49,7 +49,10 @@ private struct TierList: View {
                 }
                 .width(44)
                 TableColumn(Text("Campeón", tableName: "Champions")) { row in
-                    Text(row.name)
+                    HStack(spacing: 6) {
+                        ChampionIcon(id: row.champion, size: 20)
+                        Text(row.name)
+                    }
                 }
                 TableColumn(Text("WR", tableName: "Champions")) { row in
                     PercentText(value: row.winrate)

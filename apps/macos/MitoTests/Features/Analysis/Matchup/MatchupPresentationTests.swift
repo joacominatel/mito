@@ -38,6 +38,8 @@ struct MatchupPresentationTests {
         #expect(report.title == "Ahri vs Zed")
         #expect(report.opponent == "Rival de línea: Zed (MID? \(Self.percent(0.82, digits: 0)))")
         #expect(report.hasOpponent)
+        #expect(report.champion == Self.ahri)
+        #expect(report.opponentChampion == Self.zed)
     }
 
     @Test func anAssignedOpponentHasNoQuestionMarkAndAGuessSaysItHasNoData() throws {
@@ -231,6 +233,7 @@ struct MatchupPresentationTests {
         #expect(report.title == "Ahri")
         #expect(report.opponent == "Rival de línea desconocido")
         #expect(!report.hasOpponent)
+        #expect(report.opponentChampion == nil)
         let block = try #require(report.winrates.only)
         #expect(block.id == .general)
         #expect(block.title == "Winrate general en MID")

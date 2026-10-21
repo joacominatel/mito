@@ -272,6 +272,14 @@ private struct OptionRow: View {
             Image(systemName: isChosen ? "checkmark.circle.fill" : "circle")
                 .foregroundStyle(isChosen ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
                 .accessibilityHidden(true)
+            if !option.icons.isEmpty {
+                HStack(spacing: 2) {
+                    ForEach(Array(option.icons.enumerated()), id: \.offset) { _, icon in
+                        GameIcon(icon, size: isChosen ? 22 : 18)
+                    }
+                }
+                .alignmentGuide(.firstTextBaseline) { $0.height * 0.75 }
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: option.title)
                     .font(isChosen ? .body.weight(.medium) : .callout)
@@ -330,7 +338,11 @@ extension Role {
                         BuildOption(
                             id: "a", title: "Electrocutar",
                             subtitle: "Dominación + Brujería · Impacto repentino · Globos oculares",
-                            level: .usable, reasons: reason(.runes, 0.3, 0.562, 300))
+                            level: .usable, reasons: reason(.runes, 0.3, 0.562, 300),
+                            icons: [
+                                .perk(PerkID(rawValue: 8112)),
+                                .perkStyle(PerkStyleID(rawValue: 8200)),
+                            ])
                     ],
                     alternatives: [
                         BuildOption(
@@ -342,7 +354,11 @@ extension Role {
                     chosen: [
                         BuildOption(
                             id: "c", title: "Destello + Prender", subtitle: nil, level: .reliable,
-                            reasons: reason(.spells, 0.9, 0.52, 18_000))
+                            reasons: reason(.spells, 0.9, 0.52, 18_000),
+                            icons: [
+                                .spell(SummonerSpellID(rawValue: 4)),
+                                .spell(SummonerSpellID(rawValue: 14)),
+                            ])
                     ], alternatives: []),
                 BuildPart(
                     id: .items(.core), title: "Núcleo", source: .adaptedToProfiles([.heavyAD]),
@@ -350,7 +366,8 @@ extension Role {
                     chosen: [
                         BuildOption(
                             id: "d", title: "Luden · Sombrero de Rabadon", subtitle: nil,
-                            level: .reliable, reasons: reason(.items(.core), 0.4, 0.53, 4_000))
+                            level: .reliable, reasons: reason(.items(.core), 0.4, 0.53, 4_000),
+                            icons: [.item(ItemID(rawValue: 6655)), .item(ItemID(rawValue: 3089))])
                     ], alternatives: []),
                 BuildPart(
                     id: .skillOrder, title: "Habilidades", source: .general, isImported: false,

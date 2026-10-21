@@ -52,17 +52,24 @@ private struct MatchupReportView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: report.title)
-                    .font(.title3.weight(.semibold))
-                    .accessibilityAddTraits(.isHeader)
-                Label {
-                    Text(verbatim: report.opponent)
-                } icon: {
-                    Image(systemName: report.hasOpponent ? "person.fill" : "questionmark.circle")
+            HStack(spacing: 10) {
+                ChampionIcon(id: report.champion, size: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: report.title)
+                        .font(.title3.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
+                    Label {
+                        Text(verbatim: report.opponent)
+                    } icon: {
+                        if let rival = report.opponentChampion {
+                            ChampionIcon(id: rival, size: 16)
+                        } else {
+                            Image(systemName: "questionmark.circle")
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
 
@@ -253,7 +260,8 @@ private struct LineRow: View {
 
 extension MatchupReport {
     fileprivate static let preview = MatchupReport(
-        title: "Ahri vs Zed", opponent: "Rival de línea: Zed (MID? 82 %)", hasOpponent: true,
+        title: "Ahri vs Zed", opponent: "Rival de línea: Zed (MID? 82 %)",
+        champion: ChampionID(rawValue: 103), opponentChampion: ChampionID(rawValue: 238),
         winrates: [
             WinrateBlock(
                 id: .matchup, title: "Winrate contra Zed", value: "52,3 %",
@@ -288,7 +296,8 @@ extension MatchupReport {
         ])
 
     fileprivate static let previewWithoutOpponent = MatchupReport(
-        title: "Si elegís Ahri", opponent: "Rival de línea desconocido", hasOpponent: false,
+        title: "Si elegís Ahri", opponent: "Rival de línea desconocido",
+        champion: ChampionID(rawValue: 103), opponentChampion: nil,
         winrates: [
             WinrateBlock(
                 id: .general, title: "Winrate general en MID", value: "51,9 %",

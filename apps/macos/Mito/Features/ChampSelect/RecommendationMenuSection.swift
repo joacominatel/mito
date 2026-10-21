@@ -24,7 +24,10 @@ struct RecommendationMenuRow: View {
         }
         if let recommendation = model.menuRecommendation {
             Label {
-                Text(recommendation)
+                HStack(spacing: 4) {
+                    ChampionIcon(id: model.menuRecommendedChampion, size: 16)
+                    Text(recommendation)
+                }
             } icon: {
                 Image(systemName: model.isBanPhase ? "nosign" : "sparkles")
                     .accessibilityHidden(true)

@@ -24,6 +24,8 @@ struct HistorySummary: Hashable {
         /// Says there are no games, above whatever rows there still are.
         let empty: String?
         let rows: [Row]
+        /// Yours in the champion block, the rival's in the opponent block.
+        var champion: ChampionID?
 
         var id: Kind { kind }
     }
@@ -66,7 +68,8 @@ struct HistorySummary: Hashable {
                 empty: read.champion.games == 0
                     ? HistoryText.neverPlayed(name, isARAM: isARAM) : nil,
                 rows: rows.record(read.champion)
-                    + (read.masteryPoints.map { [rows.mastery($0)] } ?? []))
+                    + (read.masteryPoints.map { [rows.mastery($0)] } ?? []),
+                champion: champion.id)
         ]
         if !isARAM {
             blocks.append(
@@ -112,7 +115,7 @@ struct HistorySummary: Hashable {
             kind: .opponent, title: HistoryText.opponentTitle(rival, isInferred: isInferred),
             empty: record.games == 0
                 ? HistoryText.neverAgainst(champion, opponent: rival) : nil,
-            rows: rows.record(record))
+            rows: rows.record(record), champion: opponent.champion)
     }
 }
 

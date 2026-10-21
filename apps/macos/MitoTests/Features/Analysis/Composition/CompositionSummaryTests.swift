@@ -86,6 +86,18 @@ struct CompositionSummaryTests {
                 == "Si elegís Ahri (el pick recomendado), tu equipo queda así.")
     }
 
+    @Test func membersAreTheCountedChampionsWithOrWithoutAProfile() {
+        let stats = CompositionTestStats(profiles: [Self.ahri: [.middle: .magic]])
+
+        let summary = Self.summary(
+            allies: [(Self.garen, .top, nil), (nil, .middle, nil), (nil, .jungle, Self.leeSin)],
+            me: 1, enemies: [Self.zed], topPick: Self.ahri, stats: stats)
+
+        #expect(summary.allies.members.map(\.champion) == [Self.garen, Self.ahri])
+        #expect(summary.allies.members.map(\.name) == ["Campeón 86", "Ahri"])
+        #expect(summary.enemies.members.map(\.champion) == [Self.zed])
+    }
+
     @Test func aHoveredPickCountsAndIsMarkedAsAHover() {
         let stats = CompositionTestStats(profiles: [Self.ahri: [.middle: .magic]])
 

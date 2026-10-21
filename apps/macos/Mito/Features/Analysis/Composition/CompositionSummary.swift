@@ -5,9 +5,16 @@ import MitoEngine
 /// what the read assumes.
 struct CompositionSummary {
     struct Team: Hashable {
+        struct Member: Hashable {
+            let champion: ChampionID
+            let name: String
+        }
+
         let read: TeamRead
         /// Every slot, locked or not: the "de 5" of "2 de 5 con datos".
         let size: Int
+        /// The champions counted, in cell order, with or without a profile.
+        let members: [Member]
 
         var profiled: Int { read.profile.profiledMembers }
         var isPartial: Bool { profiled < size }
@@ -57,8 +64,14 @@ struct CompositionSummary {
             allies: allyMembers, enemies: enemyMembers, stats: subject.stats,
             timing: subject.queue != .aram)
 
-        allies = Team(read: read.allies, size: subject.allies.count)
-        enemies = Team(read: read.enemies, size: subject.enemies.count)
+        func members(_ slots: [DraftSlot]) -> [Team.Member] {
+            slots.compactMap(\.champion).map {
+                Team.Member(champion: $0, name: subject.names.champion($0))
+            }
+        }
+        allies = Team(read: read.allies, size: subject.allies.count, members: members(allySlots))
+        enemies = Team(
+            read: read.enemies, size: subject.enemies.count, members: members(enemySlots))
         enemyProfile = read.enemyProfile.sorted { $0.rawValue < $1.rawValue }
         winConditions = read.winConditions
         assumedPick = me.flatMap { champion in

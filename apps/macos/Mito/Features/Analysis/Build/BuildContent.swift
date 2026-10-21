@@ -90,6 +90,8 @@ struct BuildOption: Identifiable, Equatable {
     /// `nil` for a fixed choice, which has no sample behind it.
     let level: SampleLevel?
     let reasons: [Reason]
+    /// The keystone and the secondary tree, the two spells, or the items.
+    var icons: [GameAsset] = []
 }
 
 extension BuildContent {
@@ -265,7 +267,8 @@ private struct BuildParts {
             }
             return BuildOption(
                 id: "\(item.id.rawValue)", title: names.item(item.id), subtitle: nil,
-                level: reasons.compactMap(\.sample).min(), reasons: reasons)
+                level: reasons.compactMap(\.sample).min(), reasons: reasons,
+                icons: [.item(item.id)])
         }
         return BuildPart(
             id: .situational, title: String(localized: "Situacionales", table: "Build"),
@@ -283,7 +286,7 @@ private struct BuildParts {
     private func part<Value>(
         _ id: BuildPart.ID, _ title: String, _ source: BuildPart.Source, _ isImported: Bool,
         _ options: LoadoutPartOptions<Value>, _ loadoutPart: LoadoutPart,
-        _ describe: (Value) -> (id: String, title: String, subtitle: String?)
+        _ describe: (Value) -> BuildNames.Described
     ) -> BuildPart {
         func option(_ stats: LoadoutOptionStats<Value>) -> BuildOption {
             let described = describe(stats.value)
@@ -297,7 +300,7 @@ private struct BuildParts {
                             part: loadoutPart, usage: stats.usage, winrate: stats.winrate,
                             games: stats.games),
                         sample: nil)
-                ])
+                ], icons: described.icons)
         }
         return BuildPart(
             id: id, title: title, source: source, isImported: isImported,
@@ -307,6 +310,8 @@ private struct BuildParts {
 
 /// The client's names, or numbered fallbacks while its data loads.
 struct BuildNames {
+    typealias Described = (id: String, title: String, subtitle: String?, icons: [GameAsset])
+
     let gameData: GameData?
     let reasonNames: ReasonNames
 
@@ -344,24 +349,26 @@ struct BuildNames {
     }
 
     /// The keystone, then the two trees and the other five runes; the shards are left out.
-    func option(_ page: RunePage) -> (id: String, title: String, subtitle: String?) {
+    func option(_ page: RunePage) -> BuildNames.Described {
         let runes = page.perks.dropFirst().prefix(5).map(perk).joined(separator: " · ")
         let trees = String(
             localized: "\(style(page.primaryStyle)) + \(style(page.subStyle))", table: "Build")
         return (
             page.perks.map { "\($0.rawValue)" }.joined(separator: "-"),
-            page.perks.first.map(perk) ?? trees, runes.isEmpty ? trees : "\(trees) · \(runes)"
+            page.perks.first.map(perk) ?? trees, runes.isEmpty ? trees : "\(trees) · \(runes)",
+            (page.perks.first.map { [.perk($0)] } ?? []) + [.perkStyle(page.subStyle)]
         )
     }
 
-    func option(_ pair: SpellPair) -> (id: String, title: String, subtitle: String?) {
+    func option(_ pair: SpellPair) -> BuildNames.Described {
         (
             "\(pair.first.rawValue)-\(pair.second.rawValue)",
-            String(localized: "\(spell(pair.first)) + \(spell(pair.second))", table: "Build"), nil
+            String(localized: "\(spell(pair.first)) + \(spell(pair.second))", table: "Build"), nil,
+            [.spell(pair.first), .spell(pair.second)]
         )
     }
 
-    func option(_ items: [ItemSet.Block.Item]) -> (id: String, title: String, subtitle: String?) {
+    func option(_ items: [ItemSet.Block.Item]) -> BuildNames.Described {
         let title = items.map { item in
             let name = self.item(item.id)
             return item.count > 1
@@ -369,17 +376,17 @@ struct BuildNames {
         }
         return (
             items.map { "\($0.id.rawValue)x\($0.count)" }.joined(separator: "-"),
-            title.joined(separator: " · "), nil
+            title.joined(separator: " · "), nil, items.map { .item($0.id) }
         )
     }
 
-    func option(_ order: SkillOrder) -> (id: String, title: String, subtitle: String?) {
+    func option(_ order: SkillOrder) -> BuildNames.Described {
         let maxOrder = order.maxOrder.map(\.rawValue).joined(separator: " > ")
         let opening = order.sequence.prefix(3).map(\.rawValue).joined(separator: " · ")
         return (
             order.maxOrder.map(\.rawValue).joined() + "-" + order.sequence.map(\.rawValue).joined(),
             maxOrder,
-            opening.isEmpty ? nil : String(localized: "Empieza \(opening)", table: "Build")
+            opening.isEmpty ? nil : String(localized: "Empieza \(opening)", table: "Build"), []
         )
     }
 
@@ -387,10 +394,10 @@ struct BuildNames {
     func option(fixed pair: SpellPair) -> BuildOption { fixed(option(pair)) }
     func option(fixed items: [ItemSet.Block.Item]) -> BuildOption { fixed(option(items)) }
 
-    private func fixed(_ described: (id: String, title: String, subtitle: String?)) -> BuildOption {
+    private func fixed(_ described: BuildNames.Described) -> BuildOption {
         BuildOption(
             id: described.id, title: described.title, subtitle: described.subtitle, level: nil,
-            reasons: [])
+            reasons: [], icons: described.icons)
     }
 }
 

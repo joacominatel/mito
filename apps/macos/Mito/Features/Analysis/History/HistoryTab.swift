@@ -90,8 +90,12 @@ private struct BlockView: View {
                 Text(verbatim: block.title)
                     .fixedSize(horizontal: false, vertical: true)
             } icon: {
-                Image(systemName: block.kind.symbol)
-                    .foregroundStyle(.secondary)
+                if let champion = block.champion {
+                    ChampionIcon(id: champion, size: 20)
+                } else {
+                    Image(systemName: block.kind.symbol)
+                        .foregroundStyle(.secondary)
+                }
             }
             .font(.headline)
             if let empty = block.empty {

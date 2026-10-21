@@ -41,7 +41,10 @@ enum ClientDataFixture {
 
     static let gameData: [String: Data] = [
         LCUEndpoint.gameDataChampions.path: Data(
-            #"[{"id": 103, "alias": "Ahri", "name": "Ahri"}]"#.utf8),
+            #"""
+            [{"id": 103, "alias": "Ahri", "name": "Ahri",
+              "squarePortraitPath": "/lol-game-data/assets/v1/champion-icons/103.png"}]
+            """#.utf8),
         LCUEndpoint.gameDataItems.path: Data("[]".utf8),
         LCUEndpoint.gameDataPerkStyles.path: Data(#"{"styles": []}"#.utf8),
         LCUEndpoint.gameDataPerks.path: Data("[]".utf8),

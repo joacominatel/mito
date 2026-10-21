@@ -39,6 +39,15 @@ struct HistorySummaryTests {
         #expect(summary.notes.isEmpty)
     }
 
+    @Test func theChampionAndRivalBlocksCarryTheirChampion() {
+        let summary = Self.summary(matches: [Self.game()])
+
+        #expect(Self.blocks(summary).map(\.champion) == [Self.ahri, Self.zed, nil])
+        #expect(
+            Self.block(.opponent, in: Self.summary(rival: nil, matches: [Self.game()])).champion
+                == nil)
+    }
+
     @Test func aramShowsOnlyTheChampionAndSaysWhy() {
         let summary = Self.summary(
             queue: .aram, role: nil, rival: nil,

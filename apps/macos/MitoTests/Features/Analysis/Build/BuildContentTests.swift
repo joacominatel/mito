@@ -185,6 +185,7 @@ struct BuildContentTests {
 
         #expect(situational.source == .situational)
         #expect(situational.chosen.map(\.id) == ["3033"])
+        #expect(situational.chosen.first?.icons == [.item(ItemID(rawValue: 3033))])
         #expect(
             situational.chosen.first?.reasons == [
                 Reason(
@@ -319,6 +320,22 @@ struct BuildContentTests {
         #expect(try part(.spells, in: content).chosen.first?.title == "Destello + Prender")
         #expect(
             try part(.items(.boots), in: content).chosen.first?.title == "Botas del hechicero")
+    }
+
+    @Test func optionsCarryTheIconsOfWhatTheyImport() throws {
+        let content = derive()
+
+        let runes = try #require(try part(.runes, in: content).chosen.first)
+        #expect(runes.icons.first == .perk(PerkID(rawValue: 8112)))
+        #expect(runes.icons.count == 2)
+        #expect(
+            try part(.spells, in: content).chosen.first?.icons == [
+                .spell(SummonerSpellID(rawValue: 4)), .spell(SummonerSpellID(rawValue: 14)),
+            ])
+        #expect(
+            try part(.items(.boots), in: content).chosen.first?.icons == [
+                .item(ItemID(rawValue: 3020))
+            ])
     }
 
     @Test func eachOptionCarriesItsOwnSampleLevel() throws {

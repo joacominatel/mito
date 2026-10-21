@@ -502,6 +502,7 @@ implementa con GRDB y los tests usan `InMemoryPersonalStore` (MitoTestSupport). 
 final class AppModel {
     let connection: ConnectionModel
     let clientData: ClientDataModel
+    let icons: IconSource
     let snapshots: SnapshotModel
     let mainWindow: MainWindowModel
     let gameflow: GameflowModel
@@ -522,6 +523,7 @@ final class AppModel {
         settings: SettingsModel = SettingsModel(),
         snapshots: SnapshotModel = SnapshotModel(),
         personal: any PersonalStore = UnavailablePersonalStore(),
+        iconLoader: (any IconLoading)? = nil,
         poster: any NotificationPosting = SystemNotificationPoster(),
         appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
     )
@@ -592,8 +594,24 @@ final class AppModel {
   abrir la pestaña General: `OnboardingModel.run()` la corre al arrancar, y `ProfileModel`
   recibe `personal` envuelto en `HistoryNotifyingStore` (en `App/`), que después de cada
   `record(_:)` exitoso (cada sync del historial) llama a `onboarding.detectFlash()`. Así el
-  shell se entera del sync sin tocar `ProfileModel`. Ninguna feature
-  arma hoy un `IconRequest`; cuando lo haga, `gameVersion.rawValue` es su `gameVersion`.
+  shell se entera del sync sin tocar `ProfileModel`.
+- **Íconos compartidos:** `IconSource` (en `App/`) es la única fuente de íconos de la app. Lee
+  `gameData` y `gameVersion` de `ClientDataModel` y arma el `IconRequest` de cada
+  `GameAsset` (campeón, ítem, runa, árbol de runas, spell): el `iconPath` del cliente (§16.2)
+  como `assetPath` y `gameVersion.rawValue` como `gameVersion`. Sin `gameData`, sin versión o
+  sin `iconPath` no hay request y la vista muestra el placeholder. Campeones e ítems llevan
+  además el fallback de Data Dragon (`/cdn/<parche>.1/img/champion/<alias>.png` e
+  `img/item/<id>.png`); runas y spells, solo el cliente. Carga con `IconLoader` (cliente
+  primero, después Data Dragon, caché en disco por versión), decodifica con ImageIO en una
+  función `@concurrent`, fuera del main actor, y guarda la imagen en memoria delante del disco:
+  un ícono ya cargado no vuelve a pasar por el loader y dos vistas que piden el mismo comparten
+  una carga. Un ícono que falla (o cuyos bytes no decodifican) queda en placeholder y no se
+  vuelve a pedir hasta la próxima entrada a `connected` (su `run()`), así nunca hay reintentos en
+  loop. Las vistas lo leen del environment (`\.iconSource`, que `MitoApp` pone en la ventana
+  principal y en la barra de menú); ningún modelo de feature carga íconos. `MitoApp` le pasa
+  `IconSource.liveLoader(connection:underTest:)`: bajo XCTest da `nil` y no se carga nada (sin
+  cliente, sin Data Dragon, sin caché en disco), que es también el default de `AppModel` para
+  tests y previews.
 - **Ventana principal:** `MainWindowModel` (en `App/`) tiene la selección del sidebar y decide
   cuándo champ select abre la ventana (§20.1). La etiqueta de la barra de menú
   (`MenuBarLabel`) es la única vista que vive siempre, con o sin ventana abierta: en cada cambio
@@ -2288,7 +2306,7 @@ Archivos de Data Dragon:
 Tipos en `MitoCore/GameData/` (valores puros, `Hashable` y `Sendable`, sin `Codable` ni
 decodificación; el catálogo los arma desde `/lol-game-data/assets/v1/...`). Los íconos
 quedan como el path crudo del asset del cliente (`/lol-game-data/assets/...`), el que recibe
-`IconRequest` en MitoAssets.
+`IconRequest` en MitoAssets; en la app los pide `IconSource` (§9.3).
 
 | Tipo | Campos | De dónde sale |
 |---|---|---|
@@ -3904,6 +3922,20 @@ a `connected` y se descarta al salir (§17); si el pedido falla, no hay maestrí
 - `DamageProfileBar(phys:magic:true:)`
 
 Implementados en `Mito/DesignSystem/` (textos en `DesignSystem.xcstrings`):
+
+- `GameIcon(_:size:label:)`: el ícono de un campeón, ítem, runa, árbol o spell, desde
+  `IconSource` (§9.3). Mientras carga, o sin `GameData` o sin ícono, un placeholder neutro
+  (`.quaternary`, claro y oscuro) con la misma forma: cuadrado redondeado, círculo para runas y
+  árboles. Es decorativo (VoiceOver lo saltea) salvo que reciba `label`, que es lo que lee: se
+  pasa solo cuando no hay un nombre al lado.
+- `ChampionIcon(id:size:state:)`: un `GameIcon` de campeón (`id` `nil` = placeholder) con
+  estados `normal`, `hover` (contorno punteado, 75 %), `locked` (contorno sólido), `banned`
+  (gris con una barra roja cruzada) y `unavailable` (gris al 40 %). Cada estado se distingue por
+  la forma, no solo por el color; con `label`, VoiceOver lee el nombre y el estado ("en hover",
+  "lockeado", "baneado", "no disponible"). Se usa en champ select (columnas de equipos, filas de
+  recomendaciones, bans, la sección de la barra de menú), en el análisis (encabezado de
+  Matchup, equipos de Composición, encabezados de Mi historial), en las opciones de Build (runa
+  clave y árbol secundario, spells, ítems, con `GameIcon`) y en la tier list de Campeones.
 
 - `DeltaBadge(delta:)`: el delta (fracción) en puntos de winrate con un decimal y el formato del
   locale; `+` o `−` (U+2212) y flecha arriba o abajo, en verde o rojo. Lo que redondea a 0,0 va

@@ -32,7 +32,7 @@ struct ChampSelectView: View {
                 }
                 // The draft takes what it needs first; the panel gets the rest, down to its minimum.
                 .layoutPriority(1)
-                BansRow(names: model.bannedNames)
+                BansRow(bans: model.bans)
                 AnalysisPanel(model: app.analysis)
             }
             .padding()
@@ -118,6 +118,7 @@ private struct SlotRowView: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            ChampionIcon(id: row.champion, size: 28, state: row.iconState)
             PickLabel(pick: row.pick, isMe: row.isMe)
             Spacer(minLength: 4)
             if let turn = row.turn {
@@ -211,7 +212,7 @@ private struct RoleTag: View {
 }
 
 private struct BansRow: View {
-    let names: [String]
+    let bans: [BannedChampion]
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -221,12 +222,18 @@ private struct BansRow: View {
                 Image(systemName: "nosign")
             }
             .font(.headline)
-            if names.isEmpty {
+            if bans.isEmpty {
                 Text("Ninguno todavía", tableName: "ChampSelect")
                     .foregroundStyle(.secondary)
             } else {
-                Text(names.formatted(.list(type: .and)))
-                    .foregroundStyle(.secondary)
+                ForEach(Array(bans.enumerated()), id: \.offset) { _, ban in
+                    HStack(spacing: 4) {
+                        ChampionIcon(id: ban.id, size: 20, state: .banned)
+                            .alignmentGuide(.firstTextBaseline) { $0.height * 0.75 }
+                        Text(verbatim: ban.name)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .accessibilityElement(children: .combine)
