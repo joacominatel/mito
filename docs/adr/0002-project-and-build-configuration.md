@@ -1,6 +1,6 @@
 # 0002 — Project and build configuration layout
 
-- **Status**: accepted
+- **Status**: accepted; module list extended by 0007
 - **Date**: 2026-10-20
 
 ## Context

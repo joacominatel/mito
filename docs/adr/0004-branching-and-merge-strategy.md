@@ -1,6 +1,6 @@
 # 0004 — Branching and merge strategy
 
-- **Status**: accepted
+- **Status**: accepted, amended by 0006
 - **Date**: 2026-10-20
 
 ## Context
