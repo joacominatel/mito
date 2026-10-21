@@ -265,6 +265,226 @@ struct MatchupPresentationTests {
         #expect(report.winrates.first?.sample == nil)
     }
 
+    // MARK: Missing rows
+
+    @Test func aChampionWithoutARowInTheRoleSaysItHasNoGamesThere() throws {
+        var stats = MatchupTestStats()
+        stats.championRow = nil
+
+        let report = try #require(report(present(opponent: false, stats: stats)))
+
+        let block = try #require(report.winrates.only)
+        #expect(block.id == .general)
+        #expect(block.value == nil)
+        #expect(block.sample == nil)
+        #expect(block.note == "Sin partidas de Ahri en MID este parche")
+    }
+
+    @Test func withNeitherRowBothBlocksSayTheyHaveNoGames() throws {
+        var stats = MatchupTestStats(matchup: nil)
+        stats.championRow = nil
+
+        let report = try #require(report(present(stats: stats)))
+
+        #expect(
+            report.winrates.map(\.note) == [
+                "Sin partidas de este cruce en el parche",
+                "Sin partidas de Ahri en MID este parche",
+            ])
+    }
+
+    @Test func withoutYourProfileOnlyTheOpponentsSpikeIsShown() throws {
+        var stats = MatchupTestStats()
+        stats.levelSix = [238: 430]
+
+        let report = try #require(report(present(stats: stats)))
+
+        #expect(report.spikes.map(\.text) == ["Zed llega a 6 a los 7:10"])
+        #expect(report.spikes.map(\.tone) == [.neutral])
+    }
+
+    @Test func aSpikeYouReachFirstIsFavorable() throws {
+        var stats = MatchupTestStats()
+        stats.levelSix = [103: 400, 238: 430]
+
+        let report = try #require(report(present(stats: stats)))
+
+        #expect(report.spikes.map(\.text) == ["Zed llega a 6 a los 7:10, vos a los 6:40"])
+        #expect(report.spikes.map(\.tone) == [.favorable])
+    }
+
+    @Test func everyLegendarySpikeIsWordedForBothSidesAndForOne() throws {
+        var stats = MatchupTestStats()
+        stats.levelSix = [:]
+        stats.items = [103: [600, 900, 1_200], 238: [580, 960]]
+
+        let report = try #require(report(present(stats: stats)))
+
+        #expect(
+            report.spikes.map(\.text) == [
+                "Zed completa el 1.er legendario a los 9:40, vos a los 10:00",
+                "Zed completa el 2.º legendario a los 16:00, vos a los 15:00",
+                "Ahri completa el 3.er legendario a los 20:00",
+            ])
+        #expect(report.spikes.map(\.tone) == [.unfavorable, .favorable, .neutral])
+    }
+
+    @Test func anOpponentOnlyLegendarySpikeNamesTheOpponent() throws {
+        var stats = MatchupTestStats()
+        stats.levelSix = [:]
+        stats.items = [238: [580, 960, 1_300]]
+
+        let report = try #require(report(present(stats: stats)))
+
+        #expect(
+            report.spikes.map(\.text) == [
+                "Zed completa el 1.er legendario a los 9:40",
+                "Zed completa el 2.º legendario a los 16:00",
+                "Zed completa el 3.er legendario a los 21:40",
+            ])
+    }
+
+    // MARK: Curves
+
+    @Test func aChartWithAShortCurveCarriesTheLowerSample() throws {
+        var stats = MatchupTestStats()
+        stats.opponentCurve = [
+            .under20: RelationStats(games: 300, wins: 165),
+            .over40: RelationStats(games: 200, wins: 90),
+        ]
+
+        let report = try #require(report(present(stats: stats)))
+
+        #expect(report.curve?.series.count == 2)
+        #expect(report.curve?.sample == .usable)
+    }
+
+    @Test(arguments: [
+        (
+            MatchupTestStats.strongEarlyCurve, MatchupTestStats.flatCurve,
+            "Ahri es más fuerte que Zed hasta el minuto 25",
+            "Sos más fuerte que Zed hasta el minuto 25: aprovechá el arranque",
+            "chart.line.uptrend.xyaxis", Tone.favorable
+        ),
+        (
+            MatchupTestStats.flatCurve, MatchupTestStats.strongEarlyCurve,
+            "Zed es más fuerte que Ahri hasta el minuto 25",
+            "Zed es más fuerte hasta el minuto 25: aguantá y escalá",
+            "chart.line.downtrend.xyaxis", .unfavorable
+        ),
+        (
+            MatchupTestStats.fadingCurve, MatchupTestStats.lateCurve,
+            "Zed escala mejor que Ahri desde el minuto 35",
+            "Zed escala mejor desde el minuto 35: buscá cerrar antes",
+            "chart.line.downtrend.xyaxis", .unfavorable
+        ),
+    ])
+    func theStrongerCurveIsSummarizedAndBecomesAClave(
+        mine: [DurationBucket: RelationStats], theirs: [DurationBucket: RelationStats],
+        summary: String, clave: String, symbol: String, tone: Tone
+    ) throws {
+        var stats = MatchupTestStats(matchup: nil)
+        stats.championCurve = mine
+        stats.opponentCurve = theirs
+        stats.levelSix = [:]
+
+        let report = try #require(report(present(stats: stats)))
+
+        #expect(report.curve?.summary == summary)
+        #expect(report.claves.map(\.text) == [clave])
+        #expect(report.claves.map(\.symbol) == [symbol])
+        #expect(report.claves.map(\.tone) == [tone])
+    }
+
+    @Test func aloneAnEarlyCurveIsReadUpToMinuteTwentyFive() throws {
+        var stats = MatchupTestStats()
+        stats.championCurve = MatchupTestStats.strongEarlyCurve
+
+        let report = try #require(report(present(opponent: false, stats: stats)))
+
+        #expect(report.curve?.summary == "Ahri rinde más en partidas de hasta 25 minutos")
+    }
+
+    // MARK: Generated claves
+
+    @Test func eachDataClaveHasItsIconAndToneEitherWay() throws {
+        var stats = MatchupTestStats(
+            matchup: MatchupStats(
+                games: 1_000, wins: 400, timelineGames: 400, goldDiffAt15: 250, csDiffAt15: 0))
+        stats.levelSix = [103: 400, 238: 430]
+        stats.opponentCurve = MatchupTestStats.lateCurve
+
+        let report = try #require(report(present(stats: stats)))
+
+        let delta = try #require(
+            MatchupAnalysis(
+                champion: Self.ahri, role: .middle, opponent: Self.zed, stats: stats)?.matchup?
+                .estimate?.delta)
+        let points = WinratePoints.text(delta, locale: Self.locale)
+        #expect(
+            report.claves.map(\.text) == [
+                "El cruce es difícil (\(points) puntos de winrate): priorizá farmear seguro",
+                "Se suele llegar al minuto 15 con 250 de oro a favor: hacé valer la ventaja",
+                "Llegás antes que Zed al nivel 6 (6:40): es tu momento para pelear",
+            ])
+        #expect(report.claves.map(\.symbol) == ["arrow.down", "plus.circle", "bolt.fill"])
+        #expect(report.claves.map(\.tone) == [.unfavorable, .favorable, .favorable])
+    }
+
+    @Test func goldBehindAtFifteenNamesTheOpponent() throws {
+        let stats = MatchupTestStats(
+            matchup: MatchupStats(
+                games: 1_000, wins: 519, timelineGames: 400, goldDiffAt15: -250, csDiffAt15: nil))
+
+        let report = try #require(report(present(stats: stats)))
+
+        let gold = try #require(report.claves.first { $0.symbol == "minus.circle" })
+        #expect(
+            gold.text
+                == "Zed suele sacar 250 de oro de ventaja al minuto 15: evitá los intercambios largos temprano"
+        )
+        #expect(gold.tone == .unfavorable)
+    }
+
+    // MARK: Signs
+
+    @Test(
+        arguments: [
+            (0.4, nil, "0", Tone.neutral), (-0.4, nil, "0", .neutral), (85, nil, "+85", .favorable),
+            (nil, 0.04, "0,0", .neutral), (nil, -4.2, "\u{2212}4,2", .unfavorable),
+        ] as [(Double?, Double?, String, Tone)])
+    func aLaneDiffIsSignedOnlyWhenItIsNotZero(
+        gold: Double?, cs: Double?, value: String, tone: Tone
+    ) throws {
+        let stats = MatchupTestStats(
+            matchup: MatchupStats(
+                games: 1_000, wins: 600, timelineGames: 400, goldDiffAt15: gold, csDiffAt15: cs))
+
+        let item = try #require(report(present(stats: stats))?.laneDiffs?.items.only)
+
+        #expect(item.value == value)
+        #expect(item.tone == tone)
+    }
+
+    /// Bug: the tone rounds half away from zero and the text half to even, so a diff at .5 of
+    /// its last digit shows a signed zero ("+0", "−0,0") in a colored tone.
+    @Test(
+        arguments: [
+            (0.5, nil), (-0.5, nil), (nil, -0.05),
+        ] as [(Double?, Double?)])
+    func aLaneDiffThatShowsAsZeroHasNoSignAtTheHalf(gold: Double?, cs: Double?) throws {
+        let stats = MatchupTestStats(
+            matchup: MatchupStats(
+                games: 1_000, wins: 600, timelineGames: 400, goldDiffAt15: gold, csDiffAt15: cs))
+
+        let item = try #require(report(present(stats: stats))?.laneDiffs?.items.only)
+
+        withKnownIssue("MatchupWording.signed formats the unrounded value") {
+            #expect(item.value == (gold == nil ? "0,0" : "0"))
+            #expect(item.tone == .neutral)
+        }
+    }
+
     // MARK: Helpers
 
     static func matchup(games: Int, wins: Int) -> MatchupStats {
@@ -327,23 +547,42 @@ nonisolated struct MatchupTestStats: StatsProvider {
             loadoutStrength: 500),
         tierCutoffs: [:])
 
-    var meta: SnapshotMeta? = Self.meta
-    var matchup: MatchupStats? = MatchupStats(
-        games: 1_000, wins: 600, timelineGames: 400, goldDiffAt15: -85, csDiffAt15: 4.2)
-    var opponentCurve: [DurationBucket: RelationStats] = [
+    /// Total 530/1,000: strong before minute 25, a little weak from 35.
+    static let strongEarlyCurve: [DurationBucket: RelationStats] = [
+        .under20: RelationStats(games: 300, wins: 180),
+        .from25To30: RelationStats(games: 400, wins: 200),
+        .over40: RelationStats(games: 300, wins: 150),
+    ]
+    static let flatCurve: [DurationBucket: RelationStats] = [
+        .under20: RelationStats(games: 500, wins: 250),
+        .over40: RelationStats(games: 500, wins: 250),
+    ]
+    static let lateCurve: [DurationBucket: RelationStats] = [
+        .under20: RelationStats(games: 600, wins: 270),
+        .over40: RelationStats(games: 400, wins: 230),
+    ]
+    static let fadingCurve: [DurationBucket: RelationStats] = [
         .under20: RelationStats(games: 600, wins: 330),
         .over40: RelationStats(games: 400, wins: 180),
     ]
 
+    var meta: SnapshotMeta? = Self.meta
+    var championRow: ChampionRoleStats? = ChampionRoleStats(
+        games: 3_000, wins: 1_560, timelineGames: 0)
+    var matchup: MatchupStats? = MatchupStats(
+        games: 1_000, wins: 600, timelineGames: 400, goldDiffAt15: -85, csDiffAt15: 4.2)
+    var championCurve: [DurationBucket: RelationStats] = Self.lateCurve
+    var opponentCurve: [DurationBucket: RelationStats] = Self.fadingCurve
+    /// `lvl6_s` by champion raw value; a champion left out has no profile.
+    var levelSix: [Int: Int] = [103: 460, 238: 430]
+    /// The 1st to 3rd legendary's second by champion raw value.
+    var items: [Int: [Int]] = [:]
+
     func roleGames(for champion: ChampionID) -> [Role: Int] { [:] }
 
     func championRoleStats(in role: Role) -> [ChampionID: ChampionRoleStats] {
-        role == .middle
-            ? [
-                ChampionID(rawValue: 103): ChampionRoleStats(
-                    games: 3_000, wins: 1_560, timelineGames: 0)
-            ]
-            : [:]
+        guard role == .middle, let championRow else { return [:] }
+        return [ChampionID(rawValue: 103): championRow]
     }
 
     func matchup(for champion: ChampionID, role: Role, against opponent: ChampionID)
@@ -355,22 +594,20 @@ nonisolated struct MatchupTestStats: StatsProvider {
     func durationCurves(for champion: ChampionID, role: Role) -> [DurationBucket: RelationStats] {
         guard role == .middle else { return [:] }
         return switch champion.rawValue {
-        case 103:
-            [
-                .under20: RelationStats(games: 600, wins: 270),
-                .over40: RelationStats(games: 400, wins: 230),
-            ]
+        case 103: championCurve
         case 238: opponentCurve
         default: [:]
         }
     }
 
     func championProfile(for champion: ChampionID, role: Role) -> ChampionProfile? {
-        let levelSix = [103: 460, 238: 430][champion.rawValue]
-        return levelSix.map {
-            ChampionProfile(
-                physicalShare: 0.5, magicShare: 0.5, trueShare: 0, damagePerMinute: 600,
-                tankiness: 0.3, ccScore: 0.4, timelineGames: 800, levelSixSeconds: $0)
-        }
+        let id = champion.rawValue
+        let item = items[id] ?? []
+        guard levelSix[id] != nil || !item.isEmpty else { return nil }
+        return ChampionProfile(
+            physicalShare: 0.5, magicShare: 0.5, trueShare: 0, damagePerMinute: 600,
+            tankiness: 0.3, ccScore: 0.4, timelineGames: 800, levelSixSeconds: levelSix[id],
+            firstItemSeconds: item.first, secondItemSeconds: item.dropFirst().first,
+            thirdItemSeconds: item.dropFirst(2).first)
     }
 }

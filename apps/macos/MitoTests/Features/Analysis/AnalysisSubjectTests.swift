@@ -126,6 +126,76 @@ struct AnalysisSubjectTests {
         }
     }
 
+    @Test func anAssignedEnemyBeatsAnInferredOneForTheLane() throws {
+        let subject = Self.derive(
+            enemies: [
+                DraftSlot(cellId: 5, champion: Self.zed, hover: nil, role: nil, roleConfidence: 0),
+                DraftSlot(
+                    cellId: 6, champion: Self.lux, hover: nil, role: .middle, roleConfidence: 1),
+            ],
+            inferred: [5: Self.zed])
+
+        #expect(
+            subject.laneOpponent
+                == AnalysisSubject.LaneOpponent(
+                    cellId: 6, champion: Self.lux, role: .assigned(.middle)))
+    }
+
+    @Test(arguments: [[5, 6], [6, 5]])
+    func amongInferredEnemiesTheLikeliestIsTheLaneOpponent(cells: [Int]) throws {
+        let champions = [5: Self.zed, 6: Self.ahri]
+        let subject = Self.derive(
+            enemies: cells.map {
+                DraftSlot(
+                    cellId: $0, champion: champions[$0], hover: nil, role: nil, roleConfidence: 0)
+            },
+            inferred: champions)
+
+        let opponent = try #require(subject.laneOpponent)
+        #expect(opponent.champion == Self.ahri)
+        #expect(opponent.probability == 0.9)
+    }
+
+    @Test func anEnemyHoverIsNeverTheLaneOpponent() {
+        let subject = Self.derive(enemies: [
+            DraftSlot(cellId: 5, champion: nil, hover: Self.zed, role: .middle, roleConfidence: 1)
+        ])
+
+        #expect(subject.laneOpponent == nil)
+        #expect(subject.enemies.map(\.hover) == [Self.zed])
+    }
+
+    @Test func anEnemysAssignedRoleWinsOverItsInference() {
+        let subject = Self.derive(
+            enemies: [
+                DraftSlot(cellId: 5, champion: Self.zed, hover: nil, role: .top, roleConfidence: 1)
+            ],
+            inferred: [5: Self.zed])
+
+        #expect(subject.enemies.map(\.role) == [.assigned(.top)])
+        #expect(subject.laneOpponent == nil)
+    }
+
+    /// The LCU sends names and account IDs with every member; none of them reaches a tab (§5).
+    @Test func noPlayerIdentityFromTheSessionReachesTheSubject() throws {
+        let identity =
+            #""gameName": "Jugador Prueba", "tagLine": "TEST", "puuid": "00000000-0000-0000-0000-00000000aaaa", "summonerId": 4242424242"#
+        let json = Self.session(me: identity, enemies: [238]).replacingOccurrences(
+            of: #"{"cellId": 5, "championId": 238}"#,
+            with: #"{"cellId": 5, "championId": 238, \#(identity)}"#)
+        #expect(json.components(separatedBy: "Jugador Prueba").count == 3)
+
+        let subject = try #require(try subject(of: json))
+
+        var dumped = ""
+        dump(subject, to: &dumped)
+        for secret in [
+            "Jugador Prueba", "TEST", "00000000-0000-0000-0000-00000000aaaa", "4242424242",
+        ] {
+            #expect(!dumped.contains(secret))
+        }
+    }
+
     // MARK: Data and states
 
     @Test func theSubjectCarriesTheSnapshotAndThePersonalLoad() throws {
@@ -182,6 +252,20 @@ struct AnalysisSubjectTests {
         }
     }
 
+    @Test func aSnapshotThatOpensMidDraftAppliesAtOnce() throws {
+        let snapshot = SnapshotBox()
+        let model = champSelect()
+        model.show(try Self.decode(Self.session()), queue: .rankedSolo, pickable: [])
+        let analysis = AnalysisModel(champSelect: model, stats: { snapshot.stats })
+        #expect(analysis.isMissingSnapshot)
+        #expect(analysis.subject?.meta == nil)
+
+        snapshot.stats = AnalysisTestStats()
+
+        #expect(!analysis.isMissingSnapshot)
+        #expect(analysis.subject?.meta == AnalysisTestStats.meta)
+    }
+
     @Test func outsideChampSelectThereIsNoSubject() throws {
         let model = champSelect()
         let analysis = AnalysisModel(champSelect: model, stats: { AnalysisTestStats() })
@@ -216,6 +300,25 @@ struct AnalysisSubjectTests {
         let model = champSelect(settings: settings)
         model.show(try Self.decode(json), queue: queue, pickable: [])
         return AnalysisModel(champSelect: model, stats: { AnalysisTestStats() }).subject
+    }
+
+    /// You in MID at cell 2; `inferred` enemies get the role `LaneTestStats` infers alone.
+    private static func derive(
+        enemies: [DraftSlot], inferred: [Int: ChampionID] = [:]
+    ) -> AnalysisSubject {
+        let draft = DraftContext(
+            queue: .rankedSolo, patch: Patch(rawValue: "16.21"), myRole: .middle, myCellId: 2,
+            allies: [
+                DraftSlot(cellId: 2, champion: lux, hover: nil, role: .middle, roleConfidence: 1)
+            ],
+            enemies: enemies, bans: [], pickable: [], phase: .banPick, isMyTurnToPick: true,
+            isMyTurnToBan: false)
+        let enemyRoles = inferred.compactMapValues {
+            RoleInference.infer(enemies: [$0], stats: LaneTestStats()).first
+        }
+        return AnalysisSubject.derive(
+            draft: draft, role: .middle, enemyRoles: enemyRoles, topPick: { nil },
+            stats: LaneTestStats(), personal: PersonalInputs(), names: .ids)
     }
 
     static func decode(_ json: String) throws -> ChampSelectSession {
@@ -282,4 +385,22 @@ nonisolated struct AnalysisTestStats: StatsProvider {
     func championRoleStats(in role: Role) -> [ChampionID: ChampionRoleStats] {
         role == .middle ? Self.middle : [:]
     }
+}
+
+/// Zed plays MID 75 % of his games and Ahri 90 %.
+nonisolated private struct LaneTestStats: StatsProvider {
+    var meta: SnapshotMeta? { nil }
+
+    func roleGames(for champion: ChampionID) -> [Role: Int] {
+        switch champion.rawValue {
+        case 238: [.middle: 3000, .jungle: 1000]
+        case 103: [.middle: 900, .top: 100]
+        default: [:]
+        }
+    }
+}
+
+/// The snapshot `SnapshotModel` has open, swapped as one opens mid-draft.
+private final class SnapshotBox {
+    var stats: any StatsProvider = ChampSelectModel.NoStats()
 }

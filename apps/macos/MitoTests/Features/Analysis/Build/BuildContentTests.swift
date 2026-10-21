@@ -248,6 +248,27 @@ struct BuildContentTests {
         #expect(try part(.spells, in: content).isImported)
     }
 
+    @Test func anOpponentAdaptationThatIsNotImportedIsNotAnnounced() throws {
+        let content = derive(
+            enemies: [enemy(Stats.zed, .assigned(.middle))],
+            settings: ImportSettings(importRunes: false))
+
+        #expect(try part(.runes, in: content).isImported == false)
+        #expect(content.opponent == nil)
+    }
+
+    @Test func aProfileAdaptationThatIsNotImportedIsNotAnnounced() throws {
+        let content = derive(
+            enemies: [
+                enemy(Stats.darius, .assigned(.top)), enemy(Stats.vi, .assigned(.jungle)),
+                enemy(Stats.draven, .assigned(.bottom)),
+            ],
+            settings: ImportSettings(importRunes: false))
+
+        #expect(try part(.runes, in: content).source == .adaptedToProfiles([.heavyAD]))
+        #expect(content.profiles.isEmpty)
+    }
+
     // MARK: Phrasing
 
     @Test(arguments: [

@@ -1,6 +1,7 @@
 import Foundation
 import MitoCore
 import MitoEngine
+import MitoStore
 import Testing
 
 @testable import Mito
@@ -193,6 +194,149 @@ struct CompositionSummaryTests {
                 == "Nivel 6 en 7:20 · legendarios 9:40, 16:05, —")
     }
 
+    @Test func assignedEnemyRolesAreNotFlaggedAsInferred() {
+        let stats = CompositionTestStats(profiles: [Self.zed: [.middle: .physical]])
+        let subject = Self.subject(
+            enemies: [
+                AnalysisSubject.Slot(
+                    id: 5, champion: Self.zed, hover: nil, role: .assigned(.middle), isMe: false)
+            ], stats: stats)
+
+        let summary = CompositionSummary(subject: subject)
+
+        #expect(summary.enemies.profiled == 1)
+        #expect(!summary.hasInferredEnemyRoles)
+    }
+
+    @Test(arguments: [
+        AnalysisSubject.SlotRole.inferred(.middle, probability: 0.8),
+        .guessed(.middle, probability: 0.2),
+    ])
+    func aLockedEnemyInAnInferredOrGuessedRoleIsFlagged(_ role: AnalysisSubject.SlotRole) {
+        let subject = Self.subject(
+            enemies: [
+                AnalysisSubject.Slot(id: 5, champion: Self.zed, hover: nil, role: role, isMe: false)
+            ], stats: CompositionTestStats())
+
+        #expect(CompositionSummary(subject: subject).hasInferredEnemyRoles)
+    }
+
+    @Test func anEnemyWithoutAChampionIsNeverFlagged() {
+        let subject = Self.subject(
+            enemies: [
+                AnalysisSubject.Slot(
+                    id: 5, champion: nil, hover: nil, role: .inferred(.middle, probability: 0.8),
+                    isMe: false)
+            ], stats: CompositionTestStats())
+
+        #expect(!CompositionSummary(subject: subject).hasInferredEnemyRoles)
+    }
+
+    @Test func aLockedAllyWithoutARoleCountsInItsInferredRole() {
+        let stats = CompositionTestStats(
+            profiles: [Self.garen: [.top: .physical], Self.ahri: [.middle: .magic]],
+            roleGames: [Self.garen: [.top: 3000]])
+
+        let summary = Self.summary(
+            allies: [(Self.garen, nil, nil), (Self.ahri, .middle, nil)], me: 1, enemies: [],
+            stats: stats)
+
+        #expect(summary.allies.profiled == 2)
+        #expect(summary.allies.read.profile.physicalShare == 0.5)
+    }
+
+    // MARK: Copy edges
+
+    @Test(arguments: [
+        (WinCondition.closeEarly(.allies, byMinute: 25), "Ustedes:"),
+        (.closeEarly(.enemies, byMinute: 25), "Ellos:"),
+        (.scaleLate(.allies, fromMinute: 35), "Ustedes:"),
+        (.scaleLate(.enemies, fromMinute: 35), "Ellos:"),
+        (.frontline(.allies), "Ustedes:"), (.frontline(.enemies), "Ellos:"),
+        (.crowdControl(.allies), "Ustedes:"), (.crowdControl(.enemies), "Ellos:"),
+        (.oneSidedEnemyDamage(.physical, share: 0.78), "Ellos:"),
+        (.oneSidedEnemyDamage(.magic, share: 0.78), "Ellos:"),
+    ])
+    func eachWinConditionNamesItsSide(_ condition: WinCondition, side: String) {
+        let text = CompositionText.winCondition(condition, locale: Locale(identifier: "es_AR"))
+
+        #expect(text.hasPrefix(side))
+        switch condition {
+        case .closeEarly(_, let minute), .scaleLate(_, let minute):
+            #expect(text.contains("minuto \(minute)"))
+        default:
+            break
+        }
+    }
+
+    @Test func aOneSidedMagicEnemyPointsToMagicResist() {
+        let locale = Locale(identifier: "es_AR")
+
+        #expect(
+            CompositionText.winCondition(.oneSidedEnemyDamage(.magic, share: 0.78), locale: locale)
+                == "Ellos: \(0.78.percentText(locale: locale)) AP, la resistencia mágica rinde más")
+    }
+
+    @Test(arguments: [
+        (TeamCurve?.none, "Pocos datos"),
+        (TeamCurve(early: 0.05, late: -0.05, members: 2), "Pocos datos"),
+        (TeamCurve(early: 0.001, late: 0, members: 3), "Pareja"),
+        (TeamCurve(early: 0.012, late: -0.01, members: 3), "Más fuerte early (+1,2)"),
+        (TeamCurve(early: -0.01, late: 0.02, members: 4), "Más fuerte late (+2,0)"),
+    ])
+    func theTeamCurveReadsAsItsPhaseOrFewData(curve: TeamCurve?, text: String) {
+        #expect(CompositionText.curve(curve, locale: Locale(identifier: "es_AR")) == text)
+    }
+
+    @Test func damageReadsAsADAndAPShares() {
+        let locale = Locale(identifier: "es_AR")
+        let profile = TeamProfile(
+            profiledMembers: 3, physicalShare: 0.6, magicShare: 0.35, tankiness: 0.5,
+            ccScore: 0.5, topTankiness: 0.5, hasEngage: false)
+        let ad = 0.6.percentText(locale: locale)
+        let ap = 0.35.percentText(locale: locale)
+
+        #expect(CompositionText.damage(profile, locale: locale) == "\(ad) AD · \(ap) AP")
+        #expect(
+            CompositionText.damageAccessibility(profile, locale: locale)
+                == "\(ad) físico, \(ap) mágico")
+    }
+
+    @Test(arguments: [
+        (CompositionLevel.low, "baja"), (.medium, "media"), (.high, "alta"),
+    ])
+    func levelsReadInSpanish(level: CompositionLevel, text: String) {
+        #expect(CompositionText.level(level) == text)
+    }
+
+    @Test func aHoveredPickIsPhrasedAsAHover() {
+        #expect(
+            CompositionText.assumedPick(.hovered("Ahri"))
+                == "Si elegís Ahri (en hover), tu equipo queda así.")
+    }
+
+    @Test func theEnemyProfileListsItsLabels() {
+        #expect(
+            CompositionText.enemyProfile([.heavyAD, .heavyCC], locale: Locale(identifier: "es_AR"))
+                == "Perfil del rival: mucho AD y mucho CC")
+    }
+
+    @Test func theEnemyProfileIsListedInAStableOrder() {
+        let stats = CompositionTestStats(
+            profiles: [
+                Self.zed: [.middle: .heavyCCPhysical], Self.darius: [.top: .heavyCCPhysical],
+                Self.lux: [.utility: .heavyCCPhysical],
+            ],
+            roleGames: [
+                Self.zed: [.middle: 3000], Self.darius: [.top: 3000], Self.lux: [.utility: 3000],
+            ])
+
+        let summary = Self.summary(
+            allies: [], me: 0, enemies: [Self.zed, Self.darius, Self.lux], stats: stats)
+
+        #expect(summary.enemyProfile == [.heavyAD, .heavyCC])
+    }
+
     // MARK: Helpers
 
     /// Allies are (locked, assigned role, hover) from cell 0; enemies lock cells 5 onward
@@ -221,6 +365,21 @@ struct CompositionSummaryTests {
             draft: draft, role: role, enemyRoles: enemyRoles, topPick: { topPick }, stats: stats,
             personal: PersonalInputs(), names: names)
         return CompositionSummary(subject: subject)
+    }
+
+    /// You lock Ahri MID at cell 0; `enemies` as given.
+    private static func subject(enemies: [AnalysisSubject.Slot], stats: CompositionTestStats)
+        -> AnalysisSubject
+    {
+        AnalysisSubject(
+            queue: .rankedSolo, champion: AnalysisSubject.Champion(id: ahri, source: .locked),
+            role: .middle, laneOpponent: nil,
+            allies: [
+                AnalysisSubject.Slot(
+                    id: 0, champion: ahri, hover: nil, role: .assigned(.middle), isMe: true)
+            ],
+            enemies: enemies, stats: stats, tips: .empty, personal: PersonalInputs(),
+            names: names, gameData: nil)
     }
 
     private static let names = ReasonNames(
@@ -268,4 +427,7 @@ extension ChampionProfile {
     static let magic = ChampionProfile(
         physicalShare: 0, magicShare: 1, trueShare: 0, damagePerMinute: 100, tankiness: 0.5,
         ccScore: 0.5, timelineGames: 0)
+    static let heavyCCPhysical = ChampionProfile(
+        physicalShare: 1, magicShare: 0, trueShare: 0, damagePerMinute: 100, tankiness: 0.5,
+        ccScore: 0.9, timelineGames: 0)
 }

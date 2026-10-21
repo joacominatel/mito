@@ -89,4 +89,50 @@ struct MatchupClavesTests {
         #expect(analysis.curveSummary != nil)
         #expect(analysis.claves.isEmpty)
     }
+
+    @Test func aLopsidedMatchupUnderTheMinimumMakesNoClave() throws {
+        let analysis = try #require(
+            Fixture().analysis(matchup: Fixture.matchup(games: 29, wins: 29)))
+
+        #expect(analysis.claves.isEmpty)
+    }
+
+    @Test(arguments: [(100.0, true), (-100.0, true), (99.9, false), (-99.9, false)])
+    func theGoldClaveTakesAHundredGoldEitherWay(diff: Double, isClave: Bool) throws {
+        let analysis = try #require(
+            Fixture().analysis(
+                matchup: MatchupStats(
+                    games: 1_000, wins: 519, timelineGames: 400, goldDiffAt15: diff,
+                    csDiffAt15: nil)))
+
+        #expect(
+            analysis.claves
+                == (isClave ? [.generated(.laneGold(diff: diff), sample: .reliable)] : []))
+    }
+
+    @Test func aLaneWithOnlyCSMakesNoGoldClave() throws {
+        let analysis = try #require(
+            Fixture().analysis(
+                matchup: MatchupStats(
+                    games: 1_000, wins: 519, timelineGames: 400, goldDiffAt15: nil,
+                    csDiffAt15: -12)))
+
+        #expect(analysis.laneDiffs != nil)
+        #expect(analysis.claves.isEmpty)
+    }
+
+    @Test func withoutTheOpponentsCurveThereIsNoCurveClave() throws {
+        let analysis = try #require(Fixture().analysis(curves: [Fixture.ahri: Fixture.lateCurve]))
+
+        #expect(analysis.curveSummary?.versus == nil)
+        #expect(analysis.claves.isEmpty)
+    }
+
+    @Test func curatedTipsApplyWithoutAnOpponent() throws {
+        let tip = CuratedTip(text: "Jugá el nivel 2.", reviewedPatch: Patch(rawValue: "16.21"))
+
+        let analysis = try #require(Fixture().analysis(opponent: nil, curatedTips: [tip]))
+
+        #expect(analysis.claves == [.curated(tip)])
+    }
 }

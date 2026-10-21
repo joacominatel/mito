@@ -12,6 +12,8 @@ struct HistorySummaryTests {
     static let ahri = ChampionID(rawValue: 103)
     static let syndra = ChampionID(rawValue: 134)
     static let zed = ChampionID(rawValue: 238)
+    static let yasuo = ChampionID(rawValue: 157)
+    static let lux = ChampionID(rawValue: 99)
     static let now = Date(timeIntervalSince1970: 1_800_000_000)
     static let locale = Locale(identifier: "es_AR")
 
@@ -193,6 +195,57 @@ struct HistorySummaryTests {
                 == 0.0.percentText(locale: Self.locale))
     }
 
+    @Test func withoutTheChampionsRowTheRoleIsNotCompared() {
+        let summary = Self.summary(
+            matches: Array(repeating: Self.game(), count: 5), stats: HistoryTestStats(row: false))
+
+        #expect(Self.value("KDA", in: Self.block(.role, in: summary)) == "4,0")
+    }
+
+    @Test func onlyRemakesStillShowTheBlocksWithoutGames() {
+        let summary = Self.summary(matches: [Self.game(durationSeconds: 120)])
+
+        let block = Self.block(.champion, in: summary)
+        #expect(block.empty == "Nunca jugaste Ahri")
+        #expect(Self.value("Con Ahri", in: Self.block(.role, in: summary)) == "Sin partidas")
+    }
+
+    @Test func aGameStampedAfterNowReadsAsNow() {
+        let summary = Self.summary(matches: [
+            Self.game(playedAt: Self.now.addingTimeInterval(86_400))
+        ])
+
+        #expect(
+            Self.value("Última partida", in: Self.block(.champion, in: summary))
+                == HistoryText.lastPlayed(Self.now, now: Self.now, locale: Self.locale))
+    }
+
+    // MARK: Privacy
+
+    /// Only your champion and your stored rival are named: the other players of your games,
+    /// champions and roles only, never show (§5, §20.2).
+    @Test func theOtherPlayersOfYourGamesNeverShow() {
+        let others = [
+            MyMatchParticipant(champion: Self.yasuo, isEnemy: false, role: .top),
+            MyMatchParticipant(champion: Self.lux, isEnemy: true, role: .utility),
+            MyMatchParticipant(champion: Self.zed, isEnemy: true, role: .middle),
+        ]
+        let summary = Self.summary(
+            matches: [
+                Self.game(opponent: Self.zed, participants: others),
+                Self.game(Self.syndra, participants: others),
+            ])
+
+        var texts = summary.notes
+        for block in Self.blocks(summary) {
+            texts += [block.title, block.empty].compactMap(\.self)
+            texts += block.rows.flatMap { [$0.label, $0.value] }
+        }
+        #expect(!texts.isEmpty)
+        #expect(texts.allSatisfy { !$0.contains("Yasuo") && !$0.contains("Lux") })
+        #expect(Self.value("Victorias", in: Self.block(.opponent, in: summary)) == "1 de 1")
+    }
+
     // MARK: Helpers
 
     private static func summary(
@@ -208,7 +261,10 @@ struct HistorySummaryTests {
             allies: [], enemies: [], stats: stats, tips: .empty,
             personal: PersonalInputs(matches: matches, masteryPoints: mastery),
             names: ReasonNames(
-                champion: { [103: "Ahri", 134: "Syndra", 238: "Zed"][$0.rawValue] ?? "?" },
+                champion: {
+                    [103: "Ahri", 134: "Syndra", 238: "Zed", 157: "Yasuo", 99: "Lux"][$0.rawValue]
+                        ?? "?"
+                },
                 item: { _ in "" }),
             gameData: nil)
         return HistorySummary(subject: subject, now: now, locale: locale)
@@ -216,16 +272,17 @@ struct HistorySummaryTests {
 
     private static func game(
         _ champion: ChampionID = ahri, role: Role? = .middle, queue: Int = 420,
-        win: Bool = true, opponent: ChampionID? = nil
+        win: Bool = true, opponent: ChampionID? = nil, durationSeconds: Int = 1_800,
+        playedAt: Date = now.addingTimeInterval(-86_400), participants: [MyMatchParticipant] = []
     ) -> MyMatch {
         MyMatch(
             game: GameID(rawValue: 1), queue: QueueID(rawValue: queue),
-            patch: Patch(rawValue: "16.21"), playedAt: now.addingTimeInterval(-86_400),
+            patch: Patch(rawValue: "16.21"), playedAt: playedAt,
             champion: champion, role: role, win: win, kills: 3, deaths: 1, assists: 1,
-            cs: 210, durationSeconds: 1_800, opponent: opponent,
+            cs: 210, durationSeconds: durationSeconds, opponent: opponent,
             spells: SpellPair(
                 first: SummonerSpellID(rawValue: 4), second: SummonerSpellID(rawValue: 14)),
-            perks: [], items: [], participants: [])
+            perks: [], items: [], participants: participants)
     }
 
     private static func blocks(_ summary: HistorySummary) -> [HistorySummary.Block] {

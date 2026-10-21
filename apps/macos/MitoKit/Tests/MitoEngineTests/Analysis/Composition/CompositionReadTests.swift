@@ -210,6 +210,79 @@ struct CompositionReadTests {
         #expect(read.winConditions.isEmpty)
     }
 
+    @Test func withoutASnapshotThereIsNoTeamCurve() {
+        let team = Self.members(3, from: 1)
+        var stats = Self.stats(team, profile: { _ in championProfile() }, curve: earlyCurve)
+        stats.meta = nil
+
+        let read = Composition.teamRead(of: team, stats: stats, timing: true)
+
+        #expect(read.curve == nil)
+        #expect(read.frontline != nil)
+    }
+
+    @Test(arguments: [(0.7, false), (0.71, true)])
+    func oneSidedDamageNeedsMoreThanSeventyPercent(share: Double, isOneSided: Bool) {
+        let even = TeamRead(
+            profile: team(members: 3), frontline: .low, crowdControl: .low, curve: nil,
+            spikes: TeamSpikes(levelSix: nil, firstItem: nil, secondItem: nil, thirdItem: nil))
+        let enemies = TeamRead(
+            profile: team(members: 3, physical: share, magic: 1 - share), frontline: .low,
+            crowdControl: .low, curve: nil, spikes: even.spikes)
+
+        let conditions = Composition.winConditions(allies: even, enemies: enemies)
+
+        #expect(conditions == (isOneSided ? [.oneSidedEnemyDamage(.physical, share: share)] : []))
+    }
+
+    @Test func curveConditionsNeedThreeMembersWithACurveOnTheOtherSideToo() {
+        let allies = Self.members(3, from: 1)
+        let enemies = Self.members(3, from: 101)
+        var stats = Self.merged(
+            Self.stats(
+                allies, profile: { _ in championProfile(tankiness: 0.5, cc: 0.5) },
+                curve: earlyCurve),
+            Self.stats(
+                enemies, profile: { _ in championProfile(tankiness: 0.5, cc: 0.5) },
+                curve: lateCurve))
+        stats.durationCurvesByChampion[enemies[2].champion] = nil
+
+        let read = Composition.read(allies: allies, enemies: enemies, stats: stats)
+
+        #expect(read.enemies.curve?.members == 2)
+        #expect(read.winConditions.isEmpty)
+    }
+
+    @Test func withoutTimingTheCurvesMakeNoCondition() {
+        let allies = Self.members(3, from: 1)
+        let enemies = Self.members(3, from: 101)
+        let stats = Self.merged(
+            Self.stats(
+                allies, profile: { _ in championProfile(tankiness: 0.5, cc: 0.5) },
+                curve: earlyCurve),
+            Self.stats(
+                enemies, profile: { _ in championProfile(tankiness: 0.5, cc: 0.5) },
+                curve: lateCurve))
+
+        let read = Composition.read(allies: allies, enemies: enemies, stats: stats, timing: false)
+
+        #expect(read.winConditions.isEmpty)
+        #expect(read.allies.spikes.levelSix == nil)
+    }
+
+    @Test func aMemberWithAProfileButNoCurveIsLeftOutOfTheTeamCurve() throws {
+        let team = Self.members(3, from: 1)
+        var stats = Self.stats(team, profile: { _ in championProfile() }, curve: earlyCurve)
+        stats.durationCurvesByChampion[team[0].champion] = nil
+
+        let read = Composition.teamRead(of: team, stats: stats, timing: true)
+
+        #expect(read.profile.profiledMembers == 3)
+        let curve = try #require(read.curve)
+        #expect(curve.members == 2)
+        #expect(curve.phase == nil)
+    }
+
     // MARK: - Helpers
 
     /// Even teams of three unless told otherwise, so only what a test changes fires.

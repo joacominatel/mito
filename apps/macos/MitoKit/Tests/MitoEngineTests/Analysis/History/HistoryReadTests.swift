@@ -22,7 +22,8 @@ struct HistoryReadTests {
     private func game(
         _ champion: ChampionID? = nil, role: Role? = .middle, queue: Int = 420,
         win: Bool = true, daysAgo: Double = 0, kills: Int = 2, deaths: Int = 1, assists: Int = 1,
-        cs: Int = 210, durationSeconds: Int = 1_800, opponent: ChampionID? = nil
+        cs: Int = 210, durationSeconds: Int = 1_800, opponent: ChampionID? = nil,
+        participants: [MyMatchParticipant] = []
     ) -> MyMatch {
         MyMatch(
             game: GameID(rawValue: 1), queue: QueueID(rawValue: queue),
@@ -31,7 +32,7 @@ struct HistoryReadTests {
             assists: assists, cs: cs, durationSeconds: durationSeconds, opponent: opponent,
             spells: SpellPair(
                 first: SummonerSpellID(rawValue: 4), second: SummonerSpellID(rawValue: 14)),
-            perks: [], items: [], participants: [])
+            perks: [], items: [], participants: participants)
     }
 
     private func read(
@@ -169,5 +170,61 @@ struct HistoryReadTests {
         #expect(history.versusOpponent == nil)
         #expect(history.championInRole == nil)
         #expect(history.role == nil)
+    }
+
+    @Test func theRiftCountsGamesWithARoleFromAnyQueue() {
+        let history = read([
+            game(queue: 400), game(queue: 440), game(queue: 490), game(role: nil, queue: 450),
+        ])
+
+        #expect(history.champion.games == 3)
+    }
+
+    @Test func aRemakeCountsInNoRecord() {
+        let history = read(
+            [game(durationSeconds: 299, opponent: zed), game(syndra, durationSeconds: 120)],
+            opponent: zed)
+
+        #expect(history.champion.games == 0)
+        #expect(history.versusOpponent?.games == 0)
+        #expect(history.championInRole?.games == 0)
+        #expect(history.role?.games == 0)
+    }
+
+    @Test func kdaWithoutDeathsDividesByOne() {
+        let history = read([game(kills: 3, deaths: 0, assists: 2)])
+
+        #expect(history.champion.kda == 5)
+    }
+
+    @Test func withASnapshotButWithoutTheChampionsRowTheRoleIsNotCompared() {
+        let stats = InMemoryStatsProvider(
+            meta: .example(), championRoleStatsByRole: [.middle: [syndra: ahriMiddle]])
+
+        let history = read([game(kills: 9, deaths: 1, assists: 1)], stats: stats)
+
+        #expect(history.championInRole?.hasAverage == false)
+        #expect(history.championInRole?.metrics.kdaVsAverage == 1)
+    }
+
+    // MARK: Privacy
+
+    /// The other nine players are champions and roles only, and none of them is counted: the
+    /// rival is the one your own game stored (§5, §19.1).
+    @Test func theOtherPlayersInYourGamesNeverCount() {
+        let others = [
+            MyMatchParticipant(champion: zed, isEnemy: true, role: .middle),
+            MyMatchParticipant(champion: ahri, isEnemy: true, role: .top),
+            MyMatchParticipant(champion: yasuo, isEnemy: false, role: .top),
+        ]
+        let history = read(
+            [game(syndra, participants: others), game(opponent: nil, participants: others)],
+            opponent: zed)
+
+        #expect(history.champion.games == 1)
+        #expect(history.versusOpponent?.games == 0)
+        #expect(history.championInRole?.games == 1)
+        #expect(history.role?.games == 2)
+        #expect(history == read([game(syndra), game(opponent: nil)], opponent: zed))
     }
 }

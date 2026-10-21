@@ -170,9 +170,131 @@ struct LoadoutBreakdownTests {
     }
 
     @Test func withoutAChampionRoleRowThereIsNothing() {
-        let result = breakdown(provider(row: nil, runes: [page(games: 500, wins: 250)]))
+        let stats = provider(
+            runes: [page(games: 1_500, wins: 750)],
+            items: [build(.core, [6655, 3157], games: 500, wins: 260)])
+        let loadout = LoadoutSelection.general(for: ahri, role: .middle, stats: stats)
+        var withoutRow = stats
+        withoutRow.championRoleStatsByRole = [:]
 
+        let result = LoadoutSelection.breakdown(
+            of: loadout, for: ahri, role: .middle, enemyProfile: [], stats: withoutRow)
+
+        #expect(loadout.loadout.runes != nil)
+        #expect(loadout.loadout.itemSet != nil)
         #expect(result.runes == nil)
         #expect(result.itemLayers.isEmpty)
+    }
+
+    @Test func atMostTwoAlternativesAreListedBestWinrateFirst() throws {
+        let runes = try #require(
+            breakdown(
+                provider(runes: [
+                    page(keystone: 8112, games: 1_500, wins: 900),
+                    page(keystone: 8010, games: 300, wins: 150),
+                    page(keystone: 8128, games: 300, wins: 200),
+                    page(keystone: 8021, games: 300, wins: 180),
+                    page(keystone: 8229, games: 300, wins: 165),
+                ])
+            ).runes)
+
+        // 450/800, 430/800, 415/800, 400/800.
+        #expect(
+            runes.alternatives.map(\.value) == [runePage(keystone: 8128), runePage(keystone: 8021)])
+    }
+
+    @Test func alternativesTiedOnWinrateListTheMorePlayedFirst() throws {
+        let runes = try #require(
+            breakdown(
+                provider(runes: [
+                    page(keystone: 8112, games: 1_500, wins: 900),
+                    page(keystone: 8010, games: 300, wins: 150),
+                    page(keystone: 8128, games: 500, wins: 250),
+                ])
+            ).runes)
+
+        // Both at exactly 0.5.
+        #expect(
+            runes.alternatives.map(\.value) == [runePage(keystone: 8128), runePage(keystone: 8010)])
+    }
+
+    @Test func aPageWithoutNineRunesIsNeverAnAlternative() throws {
+        let short = RunePageCandidate(
+            page: runePage(perks: [8128, 8139, 8138, 8135, 8226, 8210, 5008, 5008]), games: 400,
+            wins: 300)
+        let runes = try #require(
+            breakdown(
+                provider(runes: [page(keystone: 8112, games: 1_500, wins: 900)])
+                    .adding(runes: [short])
+            ).runes)
+
+        #expect(runes.alternatives.isEmpty)
+    }
+
+    @Test func usageNeverExceedsTheWholeContext() throws {
+        let runes = try #require(
+            breakdown(
+                provider(runes: [page(keystone: 8112, games: 1_500, wins: 750)])
+                    .versus(
+                        matchup: lane(games: 200, timelineGames: 100),
+                        runes: [page(keystone: 8128, games: 300, wins: 200)]),
+                opponent: zed
+            ).runes)
+
+        #expect(runes.chosen.value == runePage(keystone: 8128))
+        #expect(runes.chosen.usage == 1)
+    }
+
+    @Test func aProfileWithoutItsRowAddsNothingToThePool() throws {
+        let runes = try #require(
+            breakdown(
+                provider(runes: [page(keystone: 8112, games: 1_500, wins: 750)])
+                    .against(.heavyAD, runes: [page(keystone: 8010, games: 400, wins: 220)])
+                    .against(
+                        .heavyCC, games: nil, runes: [page(keystone: 8010, games: 300, wins: 300)]),
+                profiles: [.heavyAD, .heavyCC]
+            ).runes)
+
+        #expect(runes.chosen.value == runePage(keystone: 8010))
+        #expect(runes.chosen.games == 400)
+        #expect(runes.chosen.usage == 0.4)
+    }
+
+    @Test func belowTheBuildLayerMinimumCoreAndBootsShareAllTheChampionsGames() throws {
+        let layers = breakdown(
+            provider(
+                row: evenRow(games: 2_000, timelineGames: 50),
+                items: [
+                    build(.core, [6655, 3157], games: 600, wins: 320),
+                    build(.boots, [3020], games: 500, wins: 260),
+                ])
+        ).itemLayers
+
+        #expect(layers[.core]?.chosen.usage == 0.3)
+        #expect(layers[.boots]?.chosen.usage == 0.25)
+    }
+
+    @Test func withoutASnapshotThereIsNothingToBreakDown() {
+        let stats = provider(runes: [page(games: 1_500, wins: 750)])
+        let loadout = LoadoutSelection.general(for: ahri, role: .middle, stats: stats)
+        var closed = stats
+        closed.meta = nil
+
+        let result = LoadoutSelection.breakdown(
+            of: loadout, for: ahri, role: .middle, enemyProfile: [], stats: closed)
+
+        #expect(loadout.loadout.runes != nil)
+        #expect(result.runes == nil)
+        #expect(result.itemLayers.isEmpty)
+    }
+}
+
+extension InMemoryStatsProvider {
+    fileprivate func adding(
+        runes: [RunePageCandidate], champion: ChampionID = ahri, role: Role = .middle
+    ) -> InMemoryStatsProvider {
+        var stats = self
+        stats.runePagesByChampion[champion, default: [:]][role, default: []] += runes
+        return stats
     }
 }
