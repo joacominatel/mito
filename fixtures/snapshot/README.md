@@ -7,6 +7,9 @@ is the contract the app's `MitoStore` tests run against (`MITO_CONTEXT.md` §17,
 - **Generated, never hand-edited.** Regenerate it from `mito-data`; when the schema changes,
   `schema_version` is bumped there and the fixture is replaced here in the same change as
   the reader.
-- **Arrives in unit P5-01** (`docs/roadmap.md`). Until then this folder holds only this file.
+- **Source:** `mito-data` commit `ef55706`, regenerated with `uv run mito-data fixture`
+  (deterministic). Files: `emerald_plus.sqlite`, its `.xz`, `schema.sql`, `manifest.json`
+  (sha256, `bytes` and `raw_bytes` match the `.xz`), and `tips/es-AR.json`. The data is
+  synthetic with real Riot IDs; Zed (238) JUNGLE exercises the final-items fallback.
 - **Shared critical.** Any change here is part of the snapshot contract and runs as a serial
   unit coordinated with `mito-data`.

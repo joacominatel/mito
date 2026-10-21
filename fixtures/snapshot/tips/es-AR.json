@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "locale": "es-AR",
+  "tips": [
+    {
+      "champion_id": 103,
+      "role": "MIDDLE",
+      "opp_id": 238,
+      "reviewed_patch": "16.21",
+      "text": "Synthetic tip: hold E until Zed commits his R."
+    },
+    {
+      "champion_id": 103,
+      "role": "MIDDLE",
+      "opp_id": 0,
+      "reviewed_patch": "16.21",
+      "text": "Synthetic tip: push the wave before roaming."
+    },
+    {
+      "champion_id": 238,
+      "role": "MIDDLE",
+      "opp_id": 103,
+      "reviewed_patch": "16.21",
+      "text": "Synthetic tip: bait the charm before using W."
+    }
+  ]
+}

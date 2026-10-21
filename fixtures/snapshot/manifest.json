@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-10-20T12:00:00Z",
+  "current_patch": "16.21",
+  "ddragon_version": "16.21.1",
+  "snapshots": [
+    {
+      "schema_version": 1,
+      "patch": "16.21",
+      "queue": 420,
+      "bracket": "emerald_plus",
+      "url": "https://data.example/schema-1/16.21/420/emerald_plus.sqlite.xz",
+      "sha256": "b4d7dcf1fd531df8c3f19652a132a4b52cc8414d5f31c7b15e26f65545aaffc0",
+      "bytes": 10472,
+      "raw_bytes": 102400,
+      "matches": 20000,
+      "regions": [
+        "la2",
+        "la1",
+        "na1",
+        "br1"
+      ]
+    }
+  ],
+  "tips": [
+    {
+      "format_version": 1,
+      "locale": "es-AR",
+      "url": "https://data.example/tips/1/es-AR.json",
+      "sha256": "f224457ce9d2f8c21e8811545318b91fbaae379151245cca3b1654f13ecb4165",
+      "bytes": 598,
+      "updated_at": "2026-10-20T12:00:00Z"
+    }
+  ]
+}
