@@ -558,12 +558,60 @@ toda forma textual.
   proceso no da credenciales, `nil` si no hay cliente. No lanza errores: si `ps` falla se
   loguea y cuenta como "no encontrado". La cadencia y el backoff son del ciclo de vida de la
   conexión.
-- Mientras no hay cliente: buscar cada 2 segundos (con backoff hasta 5 s).
-- Al encontrarlo: conectar REST, verificar con `GET /lol-summoner/v1/current-summoner`
-  (puede dar 404 mientras el cliente termina de cargar, así que se reintenta) y abrir el
-  WebSocket.
-- Al perder la conexión (el cliente se cerró o se reinició, y el puerto cambia): volver al
-  estado de búsqueda.
+El ciclo de vida es de `LCUClient` (`LCUKit/Connection/`, actor público), que implementa
+`LCUConnection` y lo corre `run()` hasta que se cancela la tarea que lo llama:
+
+- **Searching:** el primer intento es inmediato. Mientras no hay cliente se espera entre
+  intentos 2 s, 3 s, 4 s y después 5 s fijos; la cuenta vuelve a 2 s cada vez que se pierde un
+  cliente.
+- **Connecting:** con las credenciales se crea un `LCURESTClient` nuevo y se verifica con
+  `GET /lol-summoner/v1/current-summoner`. Cualquier error (404 mientras el cliente termina de
+  cargar, conexión rechazada mientras arranca) se reintenta cada 1 s, redescubriendo antes de
+  cada reintento: si el cliente ya no está se vuelve a searching; si las credenciales
+  cambiaron, se sigue verificando contra las nuevas. Cada intento fallido se loguea en
+  `notice` con el caso del `LCUError` y, si es HTTP, el status; nunca el body ni el token.
+  Verificado, se abre el WebSocket (§10.5); si no abre, se vuelve a searching.
+- **Connected:** el estado pasa a `.connected` y el `LCUEventStream` corre hasta que el socket
+  se cierra o falla. `.connected` se publica antes de que se confirme el handshake del
+  WebSocket: un handshake fallido aparece como una pérdida.
+- **Lost:** el socket terminó (el cliente se cerró o se reinició, y el puerto cambia): se
+  suelta el cliente REST, el estado vuelve a `.searching` y se espera 2 s antes de buscar de
+  nuevo, así un socket que falla al instante no hace un loop apretado. Mientras está
+  conectado no se re-descubre; la pérdida la marca el socket.
+- **Cancelación:** cierra el socket, termina los puentes, deja `.searching` y `run()` vuelve.
+  Una llamada a `run()` mientras otra sigue corriendo (o desarmándose tras cancelarla) espera
+  a que termine y después corre: nunca hay dos ciclos a la vez y ningún arranque se pierde.
+
+Contrato hacia las features (§9.3):
+
+- `send` solo llega al cliente en `.connected`; en cualquier otro estado lanza
+  `.notConnected` sin encolar. Un request en vuelo durante el desarme puede fallar con
+  `.transport` en vez de `.notConnected`.
+- `states()` da a cada suscriptor el estado actual y después cada cambio (sin repetidos).
+- Los streams de `events(_:)` y `states()` viven lo que vive su suscriptor, a través de las
+  reconexiones: no terminan cuando se cae el cliente. `LCUClient` guarda cada suscriptor y, en
+  cada conexión, lo puentea al `LCUEventStream` de turno (un stream interno con los mismos
+  topics, reenviado al del suscriptor); un suscriptor que llega con la conexión abierta se
+  puentea en ese momento. Los puentes siguen el orden de suscripción. Cancelar el stream del
+  suscriptor lo saca del registro, así que la próxima conexión no lo suscribe; en la conexión
+  actual su suscripción WAMP se suelta recién con el próximo evento de sus topics o al caer
+  la conexión (deuda marcada en el código).
+- Logs (`os.Logger`, categoría `LCUKit`): solo las transiciones de estado y el puerto. Nunca
+  el token, el PUUID ni nombres.
+
+```swift
+public actor LCUClient: LCUConnection {
+    public init(installPath: String? = nil)
+    public func run() async
+    public func send<R: Decodable & Sendable>(_ endpoint: LCUEndpoint<R>) async throws(LCUError) -> R
+    public nonisolated func events(_ topics: Set<LCUTopic>) -> AsyncStream<LCUEvent>
+    public nonisolated func states() -> AsyncStream<ConnectionState>
+}
+```
+
+Los tests inyectan, por un init interno, el descubrimiento, el cliente REST (seam
+`LCURequestSending`), el `WAMPSocket` y el sleep, así recorren el ciclo sin esperar tiempo
+real ni tocar la red.
 
 ### 10.3 Certificado TLS
 
