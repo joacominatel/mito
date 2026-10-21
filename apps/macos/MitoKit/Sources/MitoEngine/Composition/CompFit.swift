@@ -2,15 +2,29 @@ public import MitoCore
 
 /// `comp_fit` of one (champ, role) against its allied team, with the rules that fired (§18.4).
 public struct CompFit: Hashable, Sendable {
+    /// One rule that fired and what it adds.
+    public struct Bonus: Hashable, Sendable {
+        public let reason: Reason
+        /// In winrate points as a fraction, before `w_comp`.
+        public let value: Double
+
+        public init(reason: Reason, value: Double) {
+            self.reason = reason
+            self.value = value
+        }
+    }
+
     /// The sum of the bonuses, in winrate points as fractions, before `w_comp`.
     public let value: Double
     /// Strongest first; equal bonuses keep the order of the §18.4 rules.
-    public let reasons: [Reason]
+    public let bonuses: [Bonus]
 
-    public init(value: Double, reasons: [Reason]) {
+    public init(value: Double, bonuses: [Bonus]) {
         self.value = value
-        self.reasons = reasons
+        self.bonuses = bonuses
     }
+
+    public var reasons: [Reason] { bonuses.map(\.reason) }
 }
 
 extension CompFit {
@@ -43,7 +57,7 @@ extension Composition {
     ) -> CompFit {
         let team = teamProfile(of: allies, stats: stats)
         guard team.profiledMembers >= CompFit.minimumAllies else {
-            return CompFit(value: 0, reasons: [])
+            return CompFit(value: 0, bonuses: [])
         }
         let profile = stats.championProfile(for: candidate, role: role)
         let sample = stats.championRoleStats(in: role)[candidate].flatMap {
@@ -105,7 +119,9 @@ extension Composition {
         }
         return CompFit(
             value: bonuses.reduce(0) { $0 + $1.value },
-            reasons: ranked.map(\.element.reason))
+            bonuses: ranked.map {
+                CompFit.Bonus(reason: $0.element.reason, value: $0.element.value)
+            })
     }
 
     /// The comp fit for the local player: the locked allies other than `draft.myCellId`.

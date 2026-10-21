@@ -40,6 +40,7 @@ struct PickScoringTests {
         synergies: [ChampionID: [Role: RelationStats]] = [:],
         roleGames: [ChampionID: [Role: Int]] = [:],
         profiles: [ChampionID: [Role: ChampionProfile]] = [:],
+        profileStats: [EnemyProfile: RelationStats] = [:],
         meta: SnapshotMeta? = .example()
     ) -> InMemoryStatsProvider {
         InMemoryStatsProvider(
@@ -49,7 +50,8 @@ struct PickScoringTests {
             matchupsByChampion: [ahri: [role: matchups]],
             synergiesByChampion: [ahri: [role: synergies]],
             versusTeamByChampion: [ahri: [role: versusTeam]],
-            championProfilesByChampion: profiles)
+            championProfilesByChampion: profiles,
+            profileStatsByChampion: [ahri: [role: profileStats]])
     }
 
     private func context(
@@ -233,6 +235,150 @@ struct PickScoringTests {
 
         // Damage gap +0.015 · 0.8.
         #expect(isClose(component(.composition, ranked), 0.012))
+    }
+
+    @Test func compFitReasonsRankByTheirOwnWeightedBonus() {
+        // Damage gap 0.8 · 0.015, CC 0.8 · 0.01, then mid frontline 0.8 · 0.0075; meta is 0.
+        let low = championProfile(physical: 0.9, magic: 0.1, tankiness: 0, cc: 0)
+        let stats = provider(profiles: [
+            ahri: [.middle: championProfile(physical: 0.2, magic: 0.8, tankiness: 1, cc: 1)],
+            jarvan: [.jungle: low], garen: [.top: low], jinx: [.bottom: low],
+        ])
+        let draft = context(allies: [
+            slot(1, jarvan, .jungle), slot(2, garen, .top), slot(3, jinx, .bottom),
+        ])
+
+        let reasons = ahriIn(recommend(stats, context: draft))?.reasons ?? []
+
+        #expect(
+            rounded(reasons)
+                == rounded([
+                    Reason(
+                        kind: .fillsDamageGap(adds: .magic, alliedShare: 0.9), sample: .reliable),
+                    Reason(kind: .addsCrowdControl(ccScore: 1), sample: .reliable),
+                    Reason(kind: .addsFrontline(tankiness: 1), sample: .reliable),
+                    neutralMeta,
+                ]))
+    }
+
+    // MARK: - Matchup backoff to the enemy profile
+
+    /// `.example()` with `exactRules`, so a profiled enemy team gets a profile.
+    private let profiledMeta = SnapshotMeta(
+        patch: Patch(rawValue: "16.21"), queue: QueueID(rawValue: 420), bracket: .emeraldPlus,
+        matches: 1_000_000, blendPatches: [Patch(rawValue: "16.21")],
+        thresholds: SnapshotMeta.exampleThresholds,
+        priors: SmoothingPriors(
+            championRoleStrength: 100, championRoleBaseline: 0.5, relationStrength: 200,
+            loadoutStrength: 500),
+        tierCutoffs: [.s: 0.53, .a: 0.515, .b: 0.50, .c: 0.485], profileRules: exactRules)
+
+    /// Zed mid, Lux support and Garen jungle, all physical: a `heavy_ad` team, plus `heavy_cc`
+    /// when `cc` reaches 0.5.
+    private func backoffProvider(
+        matchups: [ChampionID: MatchupStats] = [:],
+        profileStats: [EnemyProfile: RelationStats] = [
+            .heavyAD: RelationStats(
+                games: 300, wins: 200)
+        ],
+        roleGames: [ChampionID: [Role: Int]] = [:],
+        cc: Double = 0
+    ) -> InMemoryStatsProvider {
+        let physical = championProfile(physical: 0.9, magic: 0.1, cc: cc)
+        return provider(
+            matchups: matchups, roleGames: roleGames,
+            profiles: [
+                zed: [.middle: physical], lux: [.utility: physical], garen: [.jungle: physical],
+            ],
+            profileStats: profileStats, meta: profiledMeta)
+    }
+
+    private func backoffDraft(zedRole: Role? = .middle) -> DraftContext {
+        context(enemies: [slot(5, zed, zedRole), slot(6, lux, .utility), slot(7, garen, .jungle)])
+    }
+
+    @Test func aMissingMatchupBacksOffToTheEnemyProfileDelta() {
+        // (200 + 100)/(300 + 200) − 0.5 = 0.1 against heavy_ad; 1.2 · 0.1.
+        let ranked = recommend(backoffProvider(), context: backoffDraft())
+
+        #expect(isClose(component(.matchup, ranked), 0.12))
+    }
+
+    @Test func theBackoffReasonIsAMatchupWithTheProfileGamesAndSample() {
+        let ranked = recommend(backoffProvider(), context: backoffDraft())
+
+        #expect(
+            rounded(ahriIn(ranked)?.reasons ?? []) == [
+                Reason(kind: .matchup(opponent: zed, delta: 0.1, games: 300), sample: .usable),
+                neutralMeta,
+            ])
+    }
+
+    @Test func aBelowMinimumMatchupBacksOffToTheEnemyProfile() {
+        let stats = backoffProvider(matchups: [zed: lane(games: 29, wins: 29)])
+
+        #expect(isClose(component(.matchup, recommend(stats, context: backoffDraft())), 0.12))
+    }
+
+    @Test func aUsableMatchupWinsOverTheBackoff() {
+        // (50 + 100)/(300 + 200) − 0.5 = −0.2; 1.2 · −0.2.
+        let stats = backoffProvider(matchups: [zed: lane(games: 300, wins: 50)])
+
+        let ranked = recommend(stats, context: backoffDraft())
+
+        #expect(isClose(component(.matchup, ranked), -0.24))
+        #expect(
+            rounded(ahriIn(ranked)?.reasons ?? []) == [
+                Reason(kind: .matchup(opponent: zed, delta: -0.2, games: 300), sample: .reliable),
+                neutralMeta,
+            ])
+    }
+
+    @Test func theBackoffIsWeightedByTheLaneProbability() {
+        // Zed is mid 70 % and top 30 % among top, mid and bottom: 1.2 · 0.7 · 0.1.
+        let stats = backoffProvider(roleGames: [zed: [.middle: 700, .top: 300]])
+
+        let ranked = recommend(stats, context: backoffDraft(zedRole: nil))
+
+        #expect(isClose(component(.matchup, ranked), 0.084))
+    }
+
+    @Test func theBackoffMixesTheProfileLabelsByGamesWithTheWeakestSample() {
+        // heavy_ad (400 + 100)/800 − 0.5 = 0.125 over 600, heavy_cc (40 + 100)/300 − 0.5 = −1/30
+        // over 100: (600 · 0.125 − 100/30)/700 = 43/420.
+        let stats = backoffProvider(
+            profileStats: [
+                .heavyAD: relation(games: 600, wins: 400), .heavyCC: relation(games: 100, wins: 40),
+            ],
+            cc: 0.8)
+
+        let ranked = recommend(stats, context: backoffDraft())
+
+        #expect(isClose(component(.matchup, ranked), 1.2 * 43 / 420))
+        #expect(
+            rounded(ahriIn(ranked)?.reasons ?? [])
+                == rounded([
+                    Reason(
+                        kind: .matchup(opponent: zed, delta: 43.0 / 420.0, games: 700),
+                        sample: .usable),
+                    neutralMeta,
+                ]))
+    }
+
+    @Test func aBelowMinimumProfileRowGivesNoBackoff() {
+        let stats = backoffProvider(profileStats: [.heavyAD: relation(games: 99, wins: 99)])
+
+        let ranked = recommend(stats, context: backoffDraft())
+
+        #expect(component(.matchup, ranked) == 0)
+        #expect(ahriIn(ranked)?.reasons == [neutralMeta])
+    }
+
+    @Test func anEnemyTeamWithoutAProfileGivesNoBackoff() {
+        // Two locked enemies are under the three `min_champions`.
+        let draft = context(enemies: [slot(5, zed, .middle), slot(6, lux, .utility)])
+
+        #expect(component(.matchup, recommend(backoffProvider(), context: draft)) == 0)
     }
 
     // MARK: - personal

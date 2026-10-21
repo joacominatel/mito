@@ -161,7 +161,7 @@ struct CompFitTests {
                 candidate: championProfile(magic: 1, tankiness: 1, cc: 1),
                 flags: [candidate: [.engage]]))
 
-        #expect(result == CompFit(value: 0, reasons: []))
+        #expect(result == CompFit(value: 0, bonuses: []))
     }
 
     @Test func fewerThanThreeProfiledAlliesGiveNoCompFit() {
@@ -172,7 +172,7 @@ struct CompFitTests {
                 ally: championProfile(tankiness: 0, cc: 0),
                 candidate: championProfile(tankiness: 1, cc: 1)))
 
-        #expect(result == CompFit(value: 0, reasons: []))
+        #expect(result == CompFit(value: 0, bonuses: []))
     }
 
     @Test func profileReasonsCarryTheCandidateChampionRoleSampleAndEngageCarriesNone() {
@@ -204,6 +204,21 @@ struct CompFitTests {
         #expect(middle.reasons == [gap, cc, engage, frontline])
         #expect(isClose(top.value, 0.05))
         #expect(isClose(middle.value, 0.0425))
+    }
+
+    @Test func eachReasonCarriesTheBonusOfItsRule() {
+        let gapAlly = championProfile(physical: 0.875, magic: 0.125, tankiness: 0, cc: 0)
+        let allRules = championProfile(physical: 0, magic: 1, tankiness: 1, cc: 1)
+
+        let top = fit(stats(ally: gapAlly, candidate: allRules, flags: [candidate: [.engage]]))
+        let middle = fit(
+            role: .middle,
+            stats(
+                ally: gapAlly, candidate: allRules, candidateRole: .middle,
+                flags: [candidate: [.engage]]))
+
+        #expect(top.bonuses.map(\.value) == [0.015, 0.015, 0.01, 0.01])
+        #expect(middle.bonuses.map(\.value) == [0.015, 0.01, 0.01, 0.0075])
     }
 
     @Test func theDraftCompFitLeavesOutTheLocalPlayersSlot() {

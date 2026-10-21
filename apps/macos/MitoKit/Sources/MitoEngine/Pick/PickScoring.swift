@@ -46,6 +46,8 @@ public enum PickScoring {
         let allies = Composition.members(
             of: context.allies.filter { $0.cellId != context.myCellId }, stats: stats)
         let enemies = laneOdds(of: context.enemies, in: role, stats: stats)
+        let enemyProfile = Composition.enemyProfile(in: context, stats: stats)
+            .sorted { $0.rawValue < $1.rawValue }
 
         let ranked = stats.championRoleStats(in: role).compactMap {
             champion, row -> PickRecommendation? in
@@ -61,13 +63,24 @@ public enum PickScoring {
                         wins: $0.wins, games: $0.games, kind: kind, championStats: row, meta: meta)
                 }
             }
+            let profileBackoff = profileDelta(
+                of: enemyProfile.compactMap {
+                    delta(
+                        stats.profileStats(for: champion, role: role, against: $0).map {
+                            ($0.wins, $0.games)
+                        }, .profile)
+                })
 
             var reasons: [(impact: Double, reason: Reason)] = []
             var matchup = 0.0
             var counter = 0.0
             for enemy in enemies {
                 let laneRow = stats.matchup(for: champion, role: role, against: enemy.champion)
-                if enemy.lane > 0, let lane = delta(laneRow.map { ($0.wins, $0.games) }, .matchup) {
+                if enemy.lane > 0,
+                    let lane = delta(laneRow.map { ($0.wins, $0.games) }, .matchup).map({
+                        LaneTerm(delta: $0.delta, games: $0.games, sample: $0.sample)
+                    }) ?? profileBackoff
+                {
                     matchup += enemy.lane * lane.delta
                     reasons.append(
                         (
@@ -123,7 +136,7 @@ public enum PickScoring {
 
             let compFit = Composition.compFit(
                 candidate: champion, role: role, allies: allies, stats: stats)
-            reasons += compFit.reasons.map { (weights.composition * bonus(of: $0, role: role), $0) }
+            reasons += compFit.bonuses.map { (weights.composition * $0.value, $0.reason) }
 
             let components: [PickComponent: Double] = [
                 .meta: weights.meta * metaValue,
@@ -195,16 +208,20 @@ public enum PickScoring {
         }
     }
 
-    /// The §18.4 bonus behind a comp-fit reason, since `CompFit` reports only the sum.
-    private static func bonus(of reason: Reason, role: Role) -> Double {
-        switch reason.kind {
-        case .fillsDamageGap: CompFit.damageGapBonus
-        case .addsFrontline:
-            CompFit.frontlineRoles.contains(role)
-                ? CompFit.frontlineBonus : CompFit.offRoleFrontlineBonus
-        case .addsCrowdControl: CompFit.crowdControlBonus
-        case .addsEngage: CompFit.engageBonus
-        default: 0
-        }
+    /// A lane matchup term: the `matchup_stats` row or its backoff to the enemy profile.
+    private struct LaneTerm {
+        let delta: Double
+        let games: Int
+        let sample: SampleLevel
+    }
+
+    /// The §18.1 backoff to the enemy profile: the usable `champ_vs_profile` deltas of its
+    /// labels, mixed by games. The labels share matches, so the sample is the weakest one.
+    private static func profileDelta(of rows: [MatchupDelta]) -> LaneTerm? {
+        let games = rows.reduce(0) { $0 + $1.games }
+        guard games > 0, let sample = rows.map(\.sample).min() else { return nil }
+        return LaneTerm(
+            delta: rows.reduce(0) { $0 + Double($1.games) * $1.delta } / Double(games),
+            games: games, sample: sample)
     }
 }

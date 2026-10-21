@@ -2762,7 +2762,16 @@ Precisiones (`MitoEngine/Pick/PickScoring`):
 
 - Cada delta es `matchup_delta` de §18.1 contra el `wr_smoothed(c, r)` del candidato, con la
   fila de `matchup_stats`, `vs_team_stats` o `synergy_stats` desde su mínimo (§18.2); debajo
-  del mínimo o sin fila ese término vale 0. El backoff al perfil rival todavía no se aplica.
+  del mínimo o sin fila ese término vale 0, salvo el matchup, que hace backoff (abajo).
+- Backoff del matchup (§18.1): si contra un rival con `p(e) > 0` no hay fila de
+  `matchup_stats` desde su mínimo, su delta es el del perfil del equipo rival
+  (`Composition.enemyProfile`, §18.4) contra el candidato: el `matchup_delta` de cada etiqueta
+  activa con fila de `champ_vs_profile` desde el mínimo de `profile`, y con varias etiquetas su
+  media ponderada por `games`. Entra igual que un matchup, `p(e) · delta` con `w_matchup`. Sin
+  perfil rival (menos de `min_champions` perfilados o sin `profile_rules`) o sin filas usables
+  cae a `(champ, role)`, delta 0. La razón es `matchup` contra ese rival con la suma de `games`
+  de las etiquetas y el nivel de muestra más bajo entre ellas (las etiquetas comparten
+  partidas, así que la suma no se toma como muestra). `vs_team` y sinergia no hacen backoff.
 - Rival de lane: un rival lockeado con rol se toma en ese rol; los demás lockeados se infieren
   (§12.3) entre los roles que ningún slot rival tiene. `p(e)` es la probabilidad de que `e`
   juegue tu rol (1 o 0 con rol, `roleProbabilities` si no). `matchup = Σ p(e) · delta(c vs e)`
