@@ -123,7 +123,7 @@ Parked questions and actions only the CEO can take. Work continues around them.
 
 | # | Item | Blocks | Since |
 | --- | --- | --- | --- |
-| Q2 | Create the Cloudflare R2 account and the `mito-data` remote repository | MD5 publish, mito-data CI | 2026-10-21 |
+| Q6 | Apple Developer Program (Developer ID Application certificate) and `xcrun notarytool store-credentials mito-notary`; the CEO plans it for next month | signed releases and Sparkle updates (P10-07); personal testing uses the local ad-hoc install meanwhile | 2026-10-21 |
 
 ## External deliveries
 
@@ -298,6 +298,7 @@ Can overlap Stage 6.
 | LV-01 | Recorded LCU scenarios (`ready-check`, `champ-select`, `lobby-to-game`) land; every documented endpoint and decoded field is checked against them; decoding tests over the recordings; `tools/lcu-mock` replays the recorded ready-check | lcu + fixtures + tools-lcu-mock | `fixtures/lcu/<scenario>/**`, `MitoKit/Sources/LCUKit/**` (decoding fixes only), `MitoKit/Tests/LCUKitTests/**`, `tools/lcu-mock/**`, `docs/lcu-endpoints.md` | §10, §23.1 | P10-06 | in progress |
 | P10-02 | Release pipeline: archive, Developer ID signing, notarization, DMG, Sparkle archive signature and appcast; every secret read from the CEO's Keychain at run time, a dry run works without them | release | `scripts/release/**` | §24; ADR 0010 | P10-01 | merged |
 | P10-03 | About screen and legal disclaimer | about | `Mito/Features/About/**` | — | P9-07 | merged |
-| CFG-01 | Real endpoints: data base URL `https://data.jminatel.dev/` (manifest, snapshots, tips) and the Sparkle feed `https://data.jminatel.dev/appcast.xml` with the public EdDSA key `RZjee+ZzBKqCod/i4IoTCqNSqJg2MjJjwUh1xvpajPw=`, set in xcconfig and read through Info.plist; release DMGs under `releases/<version>/` | shell + config (serial) | `Config/*.xcconfig`, `Config/Info.plist`, `Mito/App/**`, `scripts/release/**`, their tests | §14.12, §24; ADR 0009, 0010 | LV-01 | todo |
+| CFG-01 | Real data endpoint: base URL `https://data.jminatel.dev/` (manifest, snapshots, tips) in xcconfig, read through Info.plist; `scripts/release/install-local.sh` builds an ad-hoc Release and installs it to /Applications for the CEO's own testing. Sparkle stays off (no Developer ID yet) | shell + config (serial) | `Config/*.xcconfig`, `Config/Info.plist`, `Mito/App/**`, `scripts/release/**`, their tests | §14.12, §24 | LV-01 | todo |
+| P10-07 | Turn updates on once a Developer ID exists: Sparkle feed `https://data.jminatel.dev/appcast.xml` and public key `RZjee+ZzBKqCod/i4IoTCqNSqJg2MjJjwUh1xvpajPw=` in Release, first signed and notarized release | config + release (serial) | `Config/Release.xcconfig`, `scripts/release/**` | §24 | CFG-01, Q6 | todo |
 | P10-04 | Register the app in the Riot Developer Portal | CEO | — | — | P10-03 | todo |
 | P10-05 | Beta with friends, then first promotion to `main` | CEO | — | — | P10-01, P10-02, P10-03, P10-04 | todo |
