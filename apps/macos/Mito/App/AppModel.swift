@@ -55,8 +55,8 @@ final class AppModel {
         analysis = AnalysisModel()
         self.personal = personal
         profile = ProfileModel(connection: lcu, store: personal)
-        onboarding = OnboardingModel(connection: lcu)
-        overrides = OverridesModel()
+        onboarding = OnboardingModel(connection: lcu, store: personal)
+        overrides = OverridesModel(store: personal)
         self.lifecycle = lifecycle
         settingsModel = settings
         #if DEBUG
