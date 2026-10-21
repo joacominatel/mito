@@ -44,7 +44,10 @@
       "comment" : "Settings queue toggle: normal draft pick (queue 400)."
     },
     "Notificar partida encontrada" : {
-      "comment" : "Settings toggle: post a system notification when Mito accepts a match."
+      "comment" : "Settings toggle: post a system notification when a ready check shows, accepted by Mito or not."
+    },
+    "Partida encontrada" : {
+      "comment" : "System notification title when a ready check shows and Mito does not answer it: auto-accept is off or the queue is not selected."
     },
     "Partida encontrada, aceptada" : {
       "comment" : "System notification title after Mito accepted the ready check."

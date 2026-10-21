@@ -173,7 +173,7 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P2-05 | `tools/lcu-mock` with synthetic test scenarios; the recorded ready-check scenario follows Q3 | tools-lcu-mock | `tools/lcu-mock/**` | §23.1 | P1-07 | merged |
 | P2-06 | Debug lockfile override (`-MitoLCULockfilePath`) on `LCUClient` and in `AppModel`, to point discovery at `tools/lcu-mock` | lcu + shell (serial) | `MitoKit/Sources/LCUKit/Connection/**`, `Mito/App/**` | §9.3, §10.2 | P1-08, P2-05 | todo |
 | P2-07 | Load and save `MitoSettings` through `SettingsStore` in `AppModel`; give feature models read access to the current settings | shell (serial) | `Mito/App/**`, `Mito/MitoApp.swift`, `MitoTests/App/**` | §9.3, §21 | P2-03 | merged |
-| P2-08 | "Solo notificar" (§11.3): when a ready check is not auto-accepted and `notifyMatchFound` is on, post "Partida encontrada" | gameflow | `Mito/Features/Gameflow/**`, `MitoTests/Features/Gameflow/**` | §11.3, §22.5 | P2-04 | in progress |
+| P2-08 | "Solo notificar" (§11.3): when a ready check is not auto-accepted and `notifyMatchFound` is on, post "Partida encontrada" | gameflow | `Mito/Features/Gameflow/**`, `MitoTests/Features/Gameflow/**` | §11.3, §22.5 | P2-04 | merged |
 
 ## P3 — Live champ select
 

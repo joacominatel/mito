@@ -960,7 +960,10 @@ dentro de una partida (§5). Con `off` no se manda nada nunca.
     terminó o desapareció, no hacer nada.
   - Volver a leer el ready check y los settings; si sigue calificando,
     `POST /lol-matchmaking/v1/ready-check/accept`. Una sola vez por ready check.
-- Notificación del sistema: "Partida encontrada, aceptada".
+- Notificación del sistema, una por ready check: "Partida encontrada, aceptada" si Mito
+  aceptó, o "Partida encontrada" si no contesta por los settings (`off`, o una cola no elegida
+  o desconocida con `selectedQueues`). Nada si el usuario ya respondió, si el ready check
+  terminó o si el accept falló.
 - Opciones (`GameSettings.autoAccept`): `always` (aceptar siempre), `selectedQueues` (solo
   las colas de `autoAcceptQueues`) u `off` (solo notificar).
 
@@ -2803,7 +2806,13 @@ propio usuario, no de otros jugadores, y no se loguea.
 ### 22.5 Notificaciones (UserNotifications)
 
 - "Partida encontrada, aceptada": cuando el auto-accept reporta `.accepted` y
-  `notifyMatchFound` está on. Un accept fallido, omitido o retirado no notifica.
+  `notifyMatchFound` está on.
+- "Partida encontrada": cuando el auto-accept reporta `.skipped` por `.disabled`,
+  `.queueNotSelected` o `.unknownQueue` y `notifyMatchFound` está on; es el "solo notificar"
+  de `off` (§11.3). Las otras razones (`.alreadyAnswered`, `.notInProgress`,
+  `.readyCheckEnded`) y un accept fallido no notifican. Las dos usan
+  `MitoNotification.matchAccepted`, y el auto-accept decide una sola vez por ready check, así
+  que sale como mucho una por ready check.
 - "Te toca elegir. Recomendado: Ahri"
 - "Runas, spells e ítems importados para Ahri vs Zed"
 - Acción en la notificación: "Abrir análisis".

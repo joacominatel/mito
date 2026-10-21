@@ -10,6 +10,10 @@ private let sessionPath = LCUEndpoint.gameflowSession.path
 private let readyCheckPath = LCUEndpoint.readyCheck.path
 private let acceptPath = LCUEndpoint.acceptReadyCheck.path
 private let showing = #"{"state":"InProgress","playerResponse":"None"}"#
+nonisolated private let answered = #"{"state":"InProgress","playerResponse":"Accepted"}"#
+private let found = RecordingPoster.Post(notification: .matchAccepted, title: "Partida encontrada")
+private let accepted = RecordingPoster.Post(
+    notification: .matchAccepted, title: "Partida encontrada, aceptada")
 
 private func session(queue: Int) -> String {
     #"{"gameData":{"queue":{"id":\#(queue),"mapId":11}}}"#
@@ -178,7 +182,6 @@ struct GameflowModelAutoAcceptTests {
 
         #expect(harness.connection.count(.post, acceptPath) == 0)
         #expect(harness.clock.sleeps.isEmpty)
-        #expect(harness.poster.posts.isEmpty)
     }
 
     @Test func aSettingsChangeAppliesAtTheNextReadyCheck() async {
@@ -254,7 +257,7 @@ struct GameflowModelAutoAcceptTests {
 
 @Suite(.timeLimit(.minutes(1)))
 struct GameflowModelNotificationTests {
-    @Test func postsMatchAcceptedWhenTheAcceptGoesThrough() async {
+    @Test func postsMatchAcceptedOnceWhenTheAcceptGoesThrough() async {
         let harness = Harness()
         let run = harness.start()
         await harness.connect()
@@ -263,13 +266,144 @@ struct GameflowModelNotificationTests {
         harness.connection.answer(acceptPath, json: "")
         harness.connection.emitReadyCheck(showing)
         await waitUntil { !harness.poster.posts.isEmpty }
+        harness.connection.emitReadyCheck(answered)
+        harness.connection.emitReadyCheck(answered)
         await harness.stop(run)
 
-        #expect(
-            harness.poster.posts == [
-                .init(notification: .matchAccepted, title: "Partida encontrada, aceptada")
-            ]
-        )
+        #expect(harness.poster.posts == [accepted])
+    }
+
+    @Test func postsMatchFoundWhenOff() async {
+        let harness = Harness(settings: GameSettings(autoAccept: .off))
+        let run = harness.start()
+        await harness.connect()
+
+        harness.connection.emitReadyCheck(showing)
+        await waitUntil { !harness.poster.posts.isEmpty }
+        await harness.stop(run)
+
+        #expect(harness.poster.posts == [found])
+        #expect(harness.connection.count(.post, acceptPath) == 0)
+    }
+
+    /// 440 is not selected; with no session the queue is unknown.
+    @Test(arguments: [440, nil] as [Int?])
+    func postsMatchFoundWhenTheQueueIsNotAccepted(queue: Int?) async {
+        let harness = Harness(
+            settings: GameSettings(
+                autoAccept: .selectedQueues, autoAcceptQueues: [QueueID(rawValue: 420)]))
+        if let queue { harness.connection.answer(sessionPath, json: session(queue: queue)) }
+        let run = harness.start()
+        await harness.connect()
+
+        harness.connection.emitReadyCheck(showing)
+        await waitUntil { !harness.poster.posts.isEmpty }
+        await harness.stop(run)
+
+        #expect(harness.poster.posts == [found])
+        #expect(harness.connection.count(.post, acceptPath) == 0)
+    }
+
+    @Test func postsMatchFoundWhenAutoAcceptIsTurnedOffDuringTheDelay() async {
+        let harness = Harness()
+        let run = harness.start()
+        await harness.connect()
+        harness.connection.hold(readyCheckPath)
+
+        harness.connection.emitReadyCheck(showing)
+        await harness.connection.requested(.get, readyCheckPath, times: 2)
+        harness.settings.value.autoAccept = .off
+        harness.connection.answer(readyCheckPath, json: showing)
+        harness.connection.release(readyCheckPath)
+        await waitUntil { !harness.poster.posts.isEmpty }
+        await harness.stop(run)
+
+        #expect(harness.poster.posts == [found])
+        #expect(harness.connection.count(.post, acceptPath) == 0)
+    }
+
+    @Test func postsMatchFoundOncePerReadyCheck() async {
+        let harness = Harness(settings: GameSettings(autoAccept: .off))
+        let run = harness.start()
+        await harness.connect()
+
+        harness.connection.emitReadyCheck(showing)
+        harness.connection.emitReadyCheck(showing)
+        harness.connection.emitReadyCheck(answered)
+        harness.connection.emitReadyCheck(showing)
+        await waitUntil { !harness.poster.posts.isEmpty }
+        harness.connection.emitReadyCheckEnded()
+        harness.connection.emitReadyCheck(showing)
+        harness.connection.emitReadyCheck(showing)
+        await waitUntil { harness.poster.posts.count == 2 }
+        await harness.stop(run)
+
+        #expect(harness.poster.posts == [found, found])
+    }
+
+    @Test func staysQuietWhenOffWithNotifyMatchFoundOff() async {
+        let harness = Harness(settings: GameSettings(autoAccept: .off, notifyMatchFound: false))
+        let run = harness.start()
+        await harness.connect()
+
+        harness.connection.emitReadyCheck(showing)
+        await harness.connection.requested(.get, sessionPath)
+        await harness.stop(run)
+
+        #expect(harness.poster.posts.isEmpty)
+    }
+
+    /// Answered from the client, or already over: nothing left to tell the user.
+    @Test(
+        arguments: [
+            answered,
+            #"{"state":"InProgress","playerResponse":"Declined"}"#,
+            #"{"state":"EveryoneReady","playerResponse":"Accepted"}"#,
+            #"{"state":"StrangerNotReady","playerResponse":"None"}"#,
+            nil,
+        ] as [String?])
+    func staysQuietWhenOffForAReadyCheckNotWaitingOnTheUser(readyCheck: String?) async {
+        let harness = Harness(settings: GameSettings(autoAccept: .off))
+        let run = harness.start()
+        await harness.connect()
+
+        if let readyCheck {
+            harness.connection.emitReadyCheck(readyCheck)
+        } else {
+            harness.connection.emitReadyCheckEnded()
+        }
+        await harness.stop(run)
+
+        #expect(harness.poster.posts.isEmpty)
+        #expect(harness.connection.count(.get, sessionPath) == 0)
+    }
+
+    /// The accepter withdraws the waiting accept and reports why; none of those reasons notify.
+    @Test(
+        arguments: [
+            answered,
+            #"{"state":"InProgress","playerResponse":"Declined"}"#,
+            #"{"state":"EveryoneReady","playerResponse":"Accepted"}"#,
+            nil,
+        ] as [String?])
+    func staysQuietWhenTheReadyCheckChangesDuringTheDelay(readyCheck: String?) async {
+        let harness = Harness()
+        let run = harness.start()
+        await harness.connect()
+        harness.connection.hold(readyCheckPath)
+
+        harness.connection.emitReadyCheck(showing)
+        await harness.connection.requested(.get, readyCheckPath, times: 2)
+        if let readyCheck {
+            harness.connection.emitReadyCheck(readyCheck)
+        } else {
+            harness.connection.emitReadyCheckEnded()
+        }
+        harness.connection.release(readyCheckPath)
+        await harness.stop(run)
+
+        #expect(harness.poster.posts.isEmpty)
+        #expect(harness.connection.count(.post, acceptPath) == 0)
     }
 
     @Test func staysQuietWithNotifyMatchFoundOff() async {

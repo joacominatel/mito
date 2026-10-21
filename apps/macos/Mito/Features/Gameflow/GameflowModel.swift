@@ -125,11 +125,20 @@ final class GameflowModel {
         return AutoAcceptContext(settings: settings, queue: queue)
     }
 
+    /// The accepter reports at most one decision per ready check, so this posts at most once.
     private func handle(_ report: AutoAcceptReport) async {
-        guard report == .accepted, settings().notifyMatchFound else { return }
-        await poster.post(
-            .matchAccepted,
-            title: LocalizedStringResource("Partida encontrada, aceptada", table: "Gameflow"))
+        let title: LocalizedStringResource
+        switch report {
+        case .accepted:
+            title = LocalizedStringResource("Partida encontrada, aceptada", table: "Gameflow")
+        case .skipped(.disabled), .skipped(.queueNotSelected), .skipped(.unknownQueue):
+            title = LocalizedStringResource("Partida encontrada", table: "Gameflow")
+        case .skipped, .failed:
+            return
+        }
+        guard settings().notifyMatchFound else { return }
+        // One identifier for both: the match-found notification of §22.5.
+        await poster.post(.matchAccepted, title: title)
     }
 }
 
