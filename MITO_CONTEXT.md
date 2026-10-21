@@ -382,7 +382,12 @@ struct MitoApp: App {
 
     init() {
         let client = LCUClient()
-        let app = AppModel(connection: client, lifecycle: { await client.run() })
+        // Bajo XCTest no hay cliente en vivo ni archivo de settings real.
+        let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let app = AppModel(
+            connection: client,
+            lifecycle: { @Sendable in if !underTest { await client.run() } },
+            settings: SettingsModel(persistence: underTest ? nil : SettingsStore()))
         _app = State(initialValue: app)
         Task { await app.start() }
     }
