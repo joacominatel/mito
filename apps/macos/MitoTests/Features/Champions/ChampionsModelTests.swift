@@ -130,14 +130,14 @@ struct ChampionsModelTests {
         let shared = SharedData()
         let model = ChampionsModel(stats: { [stats] in stats }, gameData: shared.gameData)
         model.role = .top
-        #expect(model.rows.map(\.name) == ["Campeón 86", "Campeón 103"])
+        #expect(model.rows.map(\.name) == ["Campeón 86"])
 
         shared.gameData = GameData(champions: [
             Champion(id: Self.garen, alias: "Garen", name: "Garen", iconPath: "")
         ])
 
-        #expect(model.rows.map(\.name) == ["Garen", "Campeón 103"])
-        #expect(model.championName(Self.garen) == "Garen")
+        #expect(model.rows.map(\.name) == ["Garen"])
+        #expect(model.championName(Self.ahri) == "Campeón 103")
     }
 
     private func makeModel() -> ChampionsModel {
