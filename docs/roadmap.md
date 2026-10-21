@@ -256,7 +256,7 @@ Can overlap Stage 6.
 | P8-04 | History sync: `PersonalDatabase` slot in `AppModel`, sync on connect and after `EndOfGame` (list + per-game detail), into `PersonalStore` | profile + shell (serial) | `Mito/Features/Profile/**`, `MitoTests/Features/Profile/**`, `Mito/App/**`, `Mito/MitoApp.swift`, `MitoTests/App/**` | §19.1, §9.3 | P8-01, P8-02 | merged |
 | P8-05 | Onboarding: pool by role, Flash position, Diamond+ layer | onboarding | `Mito/Features/Onboarding/**` | — | P8-01 | merged |
 | P8-06 | "Mi perfil" and insights | profile | `Mito/Features/Profile/**` | §19.4 | P8-04, P8-03 | merged |
-| P8-07 | Meta ↔ Comfort slider; decide whether the §19.3 points scaling applies to the whole personal total or only to comfort/pool/performance (the winrate edge is already in points) | engine | `MitoKit/Sources/MitoEngine/Pick/**` | §18.3 | P7-04, P8-03 | in progress |
+| P8-07 | Meta ↔ Comfort slider; decide whether the §19.3 points scaling applies to the whole personal total or only to comfort/pool/performance (the winrate edge is already in points) | engine | `MitoKit/Sources/MitoEngine/Pick/**` | §18.3 | P7-04, P8-03 | merged |
 | P8-08 | Per-champion overrides (§21.5) | overrides | `Mito/Features/Overrides/**` | §21.5 | P8-01 | merged |
 | P8-09 | Import honors per-champion overrides (fixed page, spells, set, skip) and the history-detected Flash slot; Onboarding reads the shared `GameData.allChampions` | import-ui + onboarding + shell (serial) | `Mito/Features/Import/**`, `Mito/Features/Onboarding/**`, `Mito/App/**`, their tests | §13.1, §13.3, §21.4, §21.5 | P8-05, P8-08 | merged |
 

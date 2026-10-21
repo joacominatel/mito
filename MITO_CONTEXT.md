@@ -2651,7 +2651,19 @@ Pesos iniciales:
 | `w_personal` | 1,0 | Se ajusta con el slider "Meta ↔ Comfort" |
 
 **Slider "Meta ↔ Comfort"** en Settings y en la ventana de champ select: mueve `w_personal`
-entre 0,2 y 2,5 y compensa `w_meta`.
+entre 0,2 y 2,5 y compensa `w_meta`. Con `s ∈ [0, 1]` (0 = Meta, 1 = Comfort; fuera del rango
+se recorta), guardado en `ChampSelectSettings.metaComfortBalance` con default 0,5:
+
+```
+w_personal(s) = 0,2 + 1,6 · s           si s ≤ 0,5
+              = 1,0 + 3,0 · (s − 0,5)   si s > 0,5
+w_meta(s)     = 1,5 − s
+```
+
+`w_personal` es lineal por tramos para que el default del setting (0,5) dé exactamente los
+pesos de la tabla (1,0 y 1,0); una sola recta de 0,2 a 2,5 pondría el default en `s ≈ 0,35`.
+`w_meta` baja de 1,5 a 0,5: siempre positivo, así el meta nunca deja de contar. Los demás
+pesos no se mueven. `PickWeights(metaComfortBalance:)` en `MitoEngine/Pick/PersonalPoints`.
 
 **Modos de candidatos:**
 
@@ -2690,7 +2702,7 @@ struct Reason: Sendable {          // MitoCore/Recommendation/Reason.swift
 ```
 
 Los deltas y shares van como fracción; la UI los formatea. La razón de comodidad personal
-llega con el slider Meta ↔ Comfort (Fase 8, P8-07).
+todavía no existe: necesita un caso nuevo en `Reason.Kind` (MitoCore).
 
 Precisiones (`MitoEngine/Pick/PickScoring`):
 
@@ -2707,7 +2719,8 @@ Precisiones (`MitoEngine/Pick/PickScoring`):
   Un par fuerte (bottom + utility, jungle + middle, en cualquier orden) cuenta ×1,5 dentro de
   la suma.
 - `comp_fit` es el valor de §18.4 antes de `w_comp`; `personal` llega como función
-  `(campeón, rol) → puntos de winrate` que pasa quien llama (P8-03, P8-07), y sin datos es 0.
+  `(campeón, rol) → puntos de winrate` que pasa quien llama, armada con
+  `PersonalPoints.points` (§19.3), y sin datos es 0.
 - Candidatos: los campeones con fila de `champ_role_stats` en tu rol desde el mínimo de
   `champ_role`; debajo del mínimo no se rankean (como en §18.5), así que `penalties` siempre
   vale 0 y se guarda en el desglose. "Mi pool" es pool ∩ campeones que tenés, "Campeones que
@@ -2997,9 +3010,19 @@ Decisiones del score personal (`PersonalScoring` en `MitoEngine/Personal/`):
   jugar como el promedio.
 - Sin partidas propias ni snapshot, todo componente está definido: `my_wr_smoothed = wr_s`,
   `recency = 0`, cocientes en 1, rendimiento relativo 0. Nunca hay NaN.
-- El escalado no entra en la fórmula: `personal` se devuelve crudo, con cada componente, y
-  `winratePoints(maxComfortWorth:)` lo multiplica por `maxComfortWorth / 0,3`, de modo que
-  el término de comfort al máximo (0,3 · 1) vale `maxComfortWorth`. Por defecto 0,03.
+- El escalado no entra en la fórmula: `personal` se devuelve crudo, con cada componente.
+  Para el score de pick (§18.3), `PersonalPoints.points(_:maxComfortWorth:)` en
+  `MitoEngine/Pick/` lo pasa a puntos de winrate escalando solo los términos sin unidad:
+
+  ```
+  puntos = 0,4 · (my_wr_smoothed − wr_s)
+         + (0,3 · comfort + 0,2 · in_pool + 0,1 · rendimiento relativo) · maxComfortWorth / 0,3
+  ```
+
+  El edge ya está en puntos de winrate y no se escala; el comfort al máximo (0,3 · 1) vale
+  `maxComfortWorth`, por defecto 0,03. Sin datos personales vale 0.
+  `PersonalScore.winratePoints(maxComfortWorth:)` todavía escala el total entero (el edge
+  incluido) y no debe usarse para el score.
 
 ### 19.4 Insights personales (para la UI)
 
