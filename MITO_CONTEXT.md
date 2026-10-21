@@ -2334,7 +2334,8 @@ con prior centrado en el winrate base del contexto:
 α = m · p0,  β = m · (1 − p0)
 p0 = winrate base: 0,5 para (champ, role); wr_smoothed(champ, role) para todo lo demás
 m  = fuerza del prior (en partidas): 100 para (champ, role); 200 para relaciones (matchup,
-     sinergia, vs_team, perfil rival); 500 para loadouts (runas, ítems, spells, habilidades)
+     sinergia, vs_team, perfil rival); 500 para loadouts (runas, ítems, spells, habilidades,
+     incluidos los ítems de `item_vs_profile`: es una elección de ítem, no una relación)
 ```
 
 Los valores viven en `meta.priors`. El tier (S–D) de la tier list sale de
