@@ -15,7 +15,7 @@ struct ReasonRow: View {
                 .accessibilityHidden(true)
             Text(verbatim: ReasonText.text(reason, names: names))
                 .fixedSize(horizontal: false, vertical: true)
-            if reason.sample?.isLowSample == true {
+            if ReasonText.showsLowSample(reason) {
                 LowSampleMark()
             }
         }
@@ -55,6 +55,17 @@ private struct LowSampleMark: View {
         ReasonRow(
             reason: Reason(kind: .fillsDamageGap(adds: .magic, alliedShare: 0.78), sample: nil))
         ReasonRow(reason: Reason(kind: .meta(tier: .s, games: 3564), sample: .reliable))
+        ReasonRow(
+            reason: Reason(
+                kind: .profileMatchup(
+                    opponent: ChampionID(rawValue: 238), profiles: [.heavyAD, .heavyCC],
+                    delta: 0.012, games: 797),
+                sample: .usable),
+            names: .preview)
+        ReasonRow(
+            reason: Reason(kind: .comfort(poolRank: 3, games: 41, winrate: 0.56), sample: nil))
+        ReasonRow(
+            reason: Reason(kind: .comfort(poolRank: nil, games: 12, winrate: 0.42), sample: nil))
     }
     .padding()
     .frame(width: 420)

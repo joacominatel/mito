@@ -2814,8 +2814,7 @@ matchup (abajo): `profiles` son las etiquetas activas con fila usable de `champ_
 por perfil ("vs Zed (estimado por perfil: mucho AD)") y no como un matchup directo. `comfort`
 es la comodidad personal: partidas propias con el campeón en ese rol, su winrate crudo y
 `poolRank`, el puesto (desde 1) en el orden del pool del rol, `nil` fuera de él. El motor
-todavía no emite ninguno de los dos (P7-13) y la app los dibuja con una línea neutra hasta
-P7-14.
+todavía no emite ninguno de los dos (P7-13); la app ya tiene su texto (`ReasonRow`, §22.3).
 
 Precisiones (`MitoEngine/Pick/PickScoring`):
 
@@ -3635,6 +3634,17 @@ Implementados en `Mito/DesignSystem/` (textos en `DesignSystem.xcstrings`):
   favorables y las de loadout neutras. Una razón con muestra debajo de "confiable" lleva la marca
   "muestra baja". Los nombres de campeones e ítems los pasa la feature (`ReasonNames`), con
   "Campeón 103" mientras no cargan.
+  - El matchup estimado por perfil (`profileMatchup`) dice que es un estimado y con qué perfiles:
+    "+1,2 vs Zed (estimado por perfil: mucho AD, 797 partidas)", con otro ícono que el matchup
+    directo. Varios perfiles se unen como lista del locale ("mucho AD y mucho CC") con las
+    mismas etiquetas que el import ("mucho AD", "mucho AP", "daño mixto", "mucho CC"); una
+    etiqueta desconocida va tal cual. El tono sigue al signo, como el matchup.
+  - La comodidad (`comfort`) nombra el puesto en el pool del rol con ordinales abreviados
+    delante de "campeón": el 1 es "Tu campeón principal"; los que terminan en "primer" o
+    "tercer" se apocopan ("Tu 3.er campeón", también 13, 21, 23…) y el resto lleva "º" ("Tu 2.º
+    campeón", "Tu 11.º campeón"), seguido de "(41 partidas, 56 %)". Fuera del pool: "41
+    partidas tuyas, 56 %". El winrate va en porcentaje del locale y es favorable si redondea a
+    más de 50 %; si no, neutro: la comodidad nunca es mala noticia.
 - `WinrateBar(value:baseline:confidence:)`: la distancia `value − baseline` como barra que
   crece desde una línea central, a la derecha si es favorable y a la izquierda si no, así el
   lado lleva el signo y el color solo lo acompaña. Media barra son 5 puntos de winrate; más

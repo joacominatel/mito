@@ -13,8 +13,8 @@
     "%@ para tu %@ (%@ partidas)" : {
       "comment" : "Ban reason: how much this champion hurts one of the user's picks. Arguments: signed winrate points (negative), the user's champion, game count."
     },
-    "%@ partidas propias" : {
-      "comment" : "Reason: the user's own games with the champion in this role. The argument is the game count."
+    "%@ partidas tuyas, %@" : {
+      "comment" : "Reason: the user's own games with the champion in this role, outside their pool. Arguments: game count, the user's winrate percentage."
     },
     "%@ puntos de winrate" : {
       "comment" : "VoiceOver label of a delta badge. The argument is the signed value (+2,1)."
@@ -24,6 +24,9 @@
     },
     "%@ vs %@ (%@ partidas)" : {
       "comment" : "Reason: the delta against the lane opponent. Arguments: signed winrate points, opponent champion, game count."
+    },
+    "%@ vs %@ (estimado por perfil: %@, %@ partidas)" : {
+      "comment" : "Reason: the lane matchup estimated from the enemy team profile because the direct matchup has too few games. Arguments: signed winrate points, opponent champion, the profiles joined (mucho AD y mucho CC), game count."
     },
     "%@ vs %@: se compra en el %@ (%@ en general), %@" : {
       "comment" : "Reason: a situational item. Arguments: item, enemy profile, buy rate against it, general buy rate, signed winrate points."
@@ -78,6 +81,15 @@
     },
     "Tier %@ del parche (%@ partidas)" : {
       "comment" : "Reason: the candidate's tier this patch. Arguments: tier letter (S to D), game count."
+    },
+    "Tu %lld.er campeón (%@ partidas, %@)" : {
+      "comment" : "Reason: the champion's place in the user's pool for this role, for ordinals that apocopate (3.er, 21.er). Arguments: the place, game count, the user's winrate percentage."
+    },
+    "Tu %lld.º campeón (%@ partidas, %@)" : {
+      "comment" : "Reason: the champion's place in the user's pool for this role (2.º, 4.º). Arguments: the place, game count, the user's winrate percentage."
+    },
+    "Tu campeón principal (%@ partidas, %@)" : {
+      "comment" : "Reason: the champion is first in the user's pool for this role. Arguments: game count, the user's winrate percentage."
     },
     "Tu equipo es %@ AD: aporta AP" : {
       "comment" : "Reason: the allied team is mostly physical damage and the candidate adds magic. The argument is the physical share."

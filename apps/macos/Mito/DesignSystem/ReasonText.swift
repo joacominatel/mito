@@ -20,11 +20,16 @@ enum ReasonText {
         func count(_ games: Int) -> String { games.countText(locale: locale) }
 
         switch reason.kind {
-        case .matchup(let opponent, let delta, let games),
-            .profileMatchup(let opponent, _, let delta, let games):
+        case .matchup(let opponent, let delta, let games):
             return String(
                 localized:
                     "\(points(delta)) vs \(names.champion(opponent)) (\(count(games)) partidas)",
+                table: "DesignSystem")
+        case .profileMatchup(let opponent, let profiles, let delta, let games):
+            let labels = profiles.map(profileName).formatted(.list(type: .and).locale(locale))
+            return String(
+                localized:
+                    "\(points(delta)) vs \(names.champion(opponent)) (estimado por perfil: \(labels), \(count(games)) partidas)",
                 table: "DesignSystem")
         case .versusEnemy(let enemy, let delta, let games):
             return String(
@@ -40,8 +45,8 @@ enum ReasonText {
             return String(
                 localized: "Tier \(tier.rawValue) del parche (\(count(games)) partidas)",
                 table: "DesignSystem")
-        case .comfort(_, let games, _):
-            return String(localized: "\(count(games)) partidas propias", table: "DesignSystem")
+        case .comfort(let poolRank, let games, let winrate):
+            return comfortText(poolRank: poolRank, games: count(games), winrate: percent(winrate))
         case .fillsDamageGap(.magic, let alliedShare):
             return String(
                 localized: "Tu equipo es \(percent(alliedShare)) AD: aporta AP",
@@ -99,10 +104,37 @@ enum ReasonText {
         }
     }
 
+    /// Abbreviated ordinals before a masculine noun: those ending in "primer" or "tercer" take
+    /// ".er" (3.er, 21.er), the rest ".º" (undécimo is 11.º); the first is "principal".
+    private static func comfortText(poolRank: Int?, games: String, winrate: String) -> String {
+        guard let poolRank else {
+            return String(localized: "\(games) partidas tuyas, \(winrate)", table: "DesignSystem")
+        }
+        if poolRank == 1 {
+            return String(
+                localized: "Tu campeón principal (\(games) partidas, \(winrate))",
+                table: "DesignSystem")
+        }
+        if (poolRank % 10 == 1 && poolRank % 100 != 11) || poolRank % 10 == 3 {
+            return String(
+                localized: "Tu \(poolRank).er campeón (\(games) partidas, \(winrate))",
+                table: "DesignSystem")
+        }
+        return String(
+            localized: "Tu \(poolRank).º campeón (\(games) partidas, \(winrate))",
+            table: "DesignSystem")
+    }
+
+    /// Anything short of reliable carries the "muestra baja" mark (§18.1).
+    static func showsLowSample(_ reason: Reason) -> Bool {
+        reason.sample?.isLowSample == true
+    }
+
     static func symbol(_ kind: Reason.Kind) -> String {
         switch kind {
-        case .matchup, .profileMatchup: "person.line.dotted.person"
-        case .comfort: "person.crop.circle"
+        case .matchup: "person.line.dotted.person"
+        case .profileMatchup: "person.3.sequence"
+        case .comfort: "person.crop.circle.badge.checkmark"
         case .versusEnemy: "person.3"
         case .synergy: "link"
         case .meta: "chart.bar"
@@ -120,7 +152,8 @@ enum ReasonText {
         }
     }
 
-    /// For the user's pick: a threat is bad news even when it argues for a ban.
+    /// For the user's pick: a threat is bad news even when it argues for a ban. Comfort is never
+    /// bad news: favorable above a rounded 50 %, neutral otherwise.
     static func tone(_ kind: Reason.Kind) -> Tone {
         switch kind {
         case .matchup(_, let delta, _), .profileMatchup(_, _, let delta, _),
@@ -135,8 +168,10 @@ enum ReasonText {
             case .b: .neutral
             case .c, .d: .unfavorable
             }
+        case .comfort(_, _, let winrate):
+            (winrate * 100).rounded() > 50 ? .favorable : .neutral
         case .fillsDamageGap, .addsFrontline, .addsCrowdControl, .addsEngage: .favorable
-        case .comfort, .powerCurve, .generalChoice, .adaptedToOpponent, .adaptedToProfile,
+        case .powerCurve, .generalChoice, .adaptedToOpponent, .adaptedToProfile,
             .countersFlag:
             .neutral
         }

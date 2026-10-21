@@ -25,10 +25,13 @@ struct ReasonTextTests {
             "+2,1 vs Zed (8.212 partidas)"
         ),
         (
-            .profileMatchup(opponent: zed, profiles: [.heavyAD], delta: -0.012, games: 797),
-            "\u{2212}1,2 vs Zed (797 partidas)"
+            .profileMatchup(opponent: zed, profiles: [.heavyAD], delta: 0.012, games: 797),
+            "+1,2 vs Zed (estimado por perfil: mucho AD, 797 partidas)"
         ),
-        (.comfort(poolRank: 3, games: 41, winrate: 0.56), "41 partidas propias"),
+        (
+            .comfort(poolRank: 3, games: 41, winrate: 0.56),
+            "Tu 3.er campeón (41 partidas, \(percent(0.56)))"
+        ),
         (
             .versusEnemy(enemy: zed, delta: -0.034, games: 412),
             "\u{2212}3,4 contra Zed en el equipo rival (412 partidas)"
@@ -115,7 +118,15 @@ struct ReasonTextTests {
             .profileMatchup(opponent: zed, profiles: [.heavyAD], delta: -0.021, games: 1),
             .unfavorable
         ),
-        (.comfort(poolRank: 1, games: 41, winrate: 0.56), .neutral),
+        (
+            .profileMatchup(opponent: zed, profiles: [.heavyAD], delta: 0.021, games: 1),
+            .favorable
+        ),
+        (.profileMatchup(opponent: zed, profiles: [.mixed], delta: 0.0004, games: 1), .neutral),
+        (.comfort(poolRank: 1, games: 41, winrate: 0.56), .favorable),
+        (.comfort(poolRank: nil, games: 41, winrate: 0.56), .favorable),
+        (.comfort(poolRank: 2, games: 20, winrate: 0.504), .neutral),
+        (.comfort(poolRank: 2, games: 20, winrate: 0.38), .neutral),
         (.synergy(ally: zed, allyRole: .top, delta: 0.0004, games: 1), .neutral),
         (.threatens(pick: ahri, delta: -0.042, games: 1), .unfavorable),
         (.meta(tier: .a, games: 1), .favorable),
@@ -126,6 +137,84 @@ struct ReasonTextTests {
     ])
     func toneFollowsTheSign(kind: Reason.Kind, tone: Tone) {
         #expect(ReasonText.tone(kind) == tone)
+    }
+
+    /// An estimate reads as one, with every active profile joined the es-AR way.
+    @Test(arguments: [
+        ([EnemyProfile.heavyAD], "mucho AD"),
+        ([.heavyAD, .heavyCC], "mucho AD y mucho CC"),
+        ([.heavyAP, .mixed, .heavyCC], "mucho AP, daño mixto y mucho CC"),
+        ([.unknown("heavy_poke")], "heavy_poke"),
+        ([.heavyAD, .unknown("heavy_poke")], "mucho AD y heavy_poke"),
+    ])
+    func profileMatchupJoinsItsProfiles(profiles: [EnemyProfile], labels: String) {
+        let reason = Reason(
+            kind: .profileMatchup(
+                opponent: Self.zed, profiles: profiles, delta: -0.034, games: 1240),
+            sample: .reliable)
+
+        #expect(
+            ReasonText.text(reason, names: Self.names, locale: Self.locale)
+                == "\u{2212}3,4 vs Zed (estimado por perfil: \(labels), 1.240 partidas)")
+    }
+
+    @Test func profileMatchupLooksDifferentFromADirectMatchup() {
+        let direct = Reason.Kind.matchup(opponent: Self.zed, delta: 0.012, games: 797)
+        let estimate = Reason.Kind.profileMatchup(
+            opponent: Self.zed, profiles: [.heavyAD], delta: 0.012, games: 797)
+
+        #expect(ReasonText.symbol(direct) != ReasonText.symbol(estimate))
+        #expect(
+            ReasonText.text(
+                Reason(kind: direct, sample: nil), names: Self.names, locale: Self.locale)
+                != ReasonText.text(
+                    Reason(kind: estimate, sample: nil), names: Self.names, locale: Self.locale))
+    }
+
+    /// The pool's first is "principal"; "primer" and "tercer" apocopate, the rest take "º" (§22.3).
+    @Test(arguments: [
+        (1, "Tu campeón principal"),
+        (2, "Tu 2.º campeón"),
+        (3, "Tu 3.er campeón"),
+        (4, "Tu 4.º campeón"),
+        (5, "Tu 5.º campeón"),
+        (11, "Tu 11.º campeón"),
+        (13, "Tu 13.er campeón"),
+        (21, "Tu 21.er campeón"),
+    ])
+    func comfortNamesThePoolRank(rank: Int, prefix: String) {
+        let reason = Reason(kind: .comfort(poolRank: rank, games: 1041, winrate: 0.5), sample: nil)
+
+        #expect(
+            ReasonText.text(reason, names: Self.names, locale: Self.locale)
+                == "\(prefix) (1.041 partidas, \(Self.percent(0.5)))")
+    }
+
+    @Test func comfortOutsideThePoolHasNoRank() {
+        let reason = Reason(kind: .comfort(poolRank: nil, games: 41, winrate: 0.56), sample: nil)
+
+        #expect(
+            ReasonText.text(reason, names: Self.names, locale: Self.locale)
+                == "41 partidas tuyas, \(Self.percent(0.56))")
+    }
+
+    /// Anything short of reliable keeps the "muestra baja" mark, the new kinds included.
+    @Test(arguments: [
+        (SampleLevel?.some(.reliable), false),
+        (.usable, true),
+        (.belowMinimum, true),
+        (nil, false),
+    ])
+    func lowSampleMarkFollowsTheLevel(sample: SampleLevel?, marked: Bool) {
+        let kinds: [Reason.Kind] = [
+            .profileMatchup(opponent: Self.zed, profiles: [.heavyAD], delta: 0.012, games: 797),
+            .comfort(poolRank: 3, games: 41, winrate: 0.56),
+            .matchup(opponent: Self.zed, delta: 0.021, games: 8212),
+        ]
+
+        for kind in kinds {
+            #expect(ReasonText.showsLowSample(Reason(kind: kind, sample: sample)) == marked)
+        }
     }
 
     @Test func championsWithoutDataFallBackToTheirID() {
