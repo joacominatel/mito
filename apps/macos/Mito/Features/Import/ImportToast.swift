@@ -107,6 +107,10 @@ struct ImportToastRow: View {
                 .fontWeight(.medium)
             Text(row.status)
                 .foregroundStyle(.secondary)
+            if row.isLowSample {
+                Text("· muestra baja", tableName: "Import")
+                    .foregroundStyle(.tertiary)
+            }
         }
         .font(.callout)
         .accessibilityElement(children: .combine)
@@ -142,12 +146,14 @@ extension View {
 extension ImportOutcome {
     fileprivate static func preview(
         runes: StepResult = .applied, spells: StepResult = .applied, items: StepResult = .applied,
-        itemsUnavailable: ItemsUnavailable? = nil
+        itemsUnavailable: ItemsUnavailable? = nil, lowSample: Set<Part> = [],
+        isMissingStats: Bool = false
     ) -> ImportOutcome {
         ImportOutcome(
             id: 1, champion: ChampionID(rawValue: 103), title: "Ahri MID",
             report: ImportReport(runes: runes, spells: spells, items: items),
-            itemsUnavailable: itemsUnavailable)
+            itemsUnavailable: itemsUnavailable, lowSample: lowSample,
+            isMissingStats: isMissingStats)
     }
 }
 
@@ -162,6 +168,17 @@ private struct ToastPreview: View {
 
 #Preview("Importado") {
     ToastPreview(outcome: .preview())
+}
+
+#Preview("Muestra baja") {
+    ToastPreview(outcome: .preview(lowSample: [.runes, .items]))
+}
+
+#Preview("Sin estadísticas") {
+    ToastPreview(
+        outcome: .preview(
+            runes: .skipped(.notInLoadout), spells: .skipped(.notInLoadout),
+            items: .skipped(.notInLoadout), isMissingStats: true))
 }
 
 #Preview("Con partes omitidas") {

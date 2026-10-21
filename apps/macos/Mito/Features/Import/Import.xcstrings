@@ -1,6 +1,15 @@
 {
   "sourceLanguage" : "es",
   "strings" : {
+    "4.º ítem" : {
+      "comment" : "Item set block shown in the League client: the fourth completed item."
+    },
+    "5.º ítem" : {
+      "comment" : "Item set block shown in the League client: the fifth completed item."
+    },
+    "6.º ítem" : {
+      "comment" : "Item set block shown in the League client: the sixth completed item."
+    },
     "ADC" : {
       "comment" : "Short role name in the rune page and item set title: bottom lane."
     },
@@ -19,6 +28,9 @@
     "Automática" : {
       "comment" : "Flash position option: keep Flash where the player already has it."
     },
+    "Botas" : {
+      "comment" : "Item set block shown in the League client: boots."
+    },
     "Cerrar" : {
       "comment" : "Import toast button (icon only, read by VoiceOver): dismiss the toast."
     },
@@ -34,8 +46,8 @@
     "El cliente rechazó el cambio" : {
       "comment" : "Import toast row status: the League client returned an error."
     },
-    "El modo de runas y el re-import llegan con los datos del parche; hasta entonces Mito importa builds fijas de cinco campeones." : {
-      "comment" : "Settings footer: some import options have no effect until patch data arrives."
+    "El modo de runas y el re-import llegan más adelante; por ahora Mito importa la build general del parche." : {
+      "comment" : "Settings footer: some import options have no effect yet."
     },
     "F" : {
       "comment" : "Flash position option: the F key."
@@ -136,11 +148,11 @@
     "SUP" : {
       "comment" : "Short role name in the rune page and item set title: support."
     },
+    "Sin estadísticas del parche: no se importó nada para %@" : {
+      "comment" : "Import toast heading and notification title when no stats snapshot is open; %@ is the champion and role."
+    },
     "Sin recomendación" : {
       "comment" : "Import toast row status: Mito has nothing to import for this part."
-    },
-    "Situacionales" : {
-      "comment" : "Item set block shown in the League client: situational items."
     },
     "Spells" : {
       "comment" : "Import part name: summoner spells (toast row, Settings section header)."
@@ -153,6 +165,9 @@
     },
     "Ya estaban elegidos" : {
       "comment" : "Import toast row status for spells: the recommended spells were already selected."
+    },
+    "· muestra baja" : {
+      "comment" : "Import toast row suffix: the imported recommendation rests on few games."
     },
     "¿Reemplazar tu página actual?" : {
       "comment" : "Import toast row status for runes: asks to overwrite the current rune page, which has no name."

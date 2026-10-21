@@ -459,6 +459,7 @@ Matchups, sinergias, perfiles y ban stats se agregan en la Fase 7.
 final class AppModel {
     let connection: ConnectionModel
     let clientData: ClientDataModel
+    let snapshots: SnapshotModel
     let mainWindow: MainWindowModel
     let gameflow: GameflowModel
     let champSelect: ChampSelectModel
@@ -474,7 +475,8 @@ final class AppModel {
     init(
         connection: any LCUConnection,
         lifecycle: @escaping @Sendable () async -> Void = {},
-        settings: SettingsModel = SettingsModel(), ...
+        settings: SettingsModel = SettingsModel(),
+        snapshots: SnapshotModel = SnapshotModel(), ...
     )
 
     var menuBarSymbol: String { gameflow.menuBarSymbol ?? connection.menuBarSymbol }
@@ -535,6 +537,24 @@ final class AppModel {
   de `champSelectPresence` (draft presente y fase de gameflow) pregunta
   `shouldOpenWindowForChampSelect()` y, si da `true`, llama a
   `openWindow(id: MitoApp.mainWindowID)`.
+- **Snapshot compartido:** `SnapshotModel` (en `App/`) tiene el `StatsProvider` abierto (un
+  `SnapshotReader`, §17), su `meta` y un `status`: `none`, `downloading`, `ready` o
+  `failed(.download(SnapshotDownloadError) | .unreadable(SnapshotReadError))`; el status es
+  el del último intento, el provider es el último que abrió. Su `run()` abre primero el archivo
+  ya instalado (`SnapshotDownloader.installedSnapshot`, solo disco) y después intenta
+  `installCurrent` para la cola 420 y el bracket `emerald_plus` (Diamond+ llega después); si
+  la descarga sale bien abre el archivo nuevo y lo reemplaza, si falla queda el anterior. La
+  falla es silenciosa: se loguea el tipo de error (categoría `App`), `status` queda en `failed`
+  y no hay alerta; hoy pasa siempre, porque la URL base es el placeholder `.invalid` (§14.12).
+  `SnapshotReader(fileURL:)` lee todo el archivo de forma síncrona, así que abre en una
+  función `@concurrent`, fuera del main actor. `ChampionsModel` e `ImportModel` reciben
+  `stats: { snapshots.provider }`: el closure lee estado observable, así que la pestaña
+  Campeones se actualiza sola cuando abre un snapshot. La fuente es `SnapshotModel.Origin`:
+  `MitoApp` usa `.live(underTest:)`, que bajo XCTest da `.none` (no abre nada, no descarga, no
+  toca el caché real) y en la app da el caché + la descarga.
+- En Debug, `-MitoSnapshotFile <ruta>` (argumento de lanzamiento o UserDefaults) abre ese
+  `.sqlite` directamente y no descarga nada; sirve para correr la app sobre
+  `fixtures/snapshot/emerald_plus.sqlite` o sobre la salida local de `mito-data`.
 - En Debug, `-MitoLCULockfilePath <ruta>` (argumento de lanzamiento o UserDefaults) va a
   apuntar el descubrimiento a `tools/lcu-mock`; por ahora `AppModel` solo lo guarda y
   `LCUClient` no lo recibe (P2-06).
@@ -1267,16 +1287,27 @@ no se repite al lockear, y el re-import queda para la Fase 7. Un evento `Delete`
 pendiente. Una sesión que no se puede decodificar se ignora.
 
 - **Contexto** (`LoadoutImportContext`): título `<Campeón> <ROL>` (`Ahri MID`; el rol corto es
-  TOP, JGL, MID, ADC o SUP y falta en blind/ARAM), con el nombre del campeón de
-  `GameDataCatalog` en el locale del cliente o, si no cargó, el nombre de la build. El mapa
+  TOP, JGL, MID, ADC o SUP y es el rol de la build importada), con el nombre del campeón de
+  `GameDataCatalog` en el locale del cliente o, si no cargó, su ID numérico. El mapa
   sale de `mapID` de `GET /lol-gameflow/v1/session`: `11` es Summoner's Rift; cualquier otro
   mapa (o una sesión ilegible) no tiene código conocido, así que el item set **no se envía**
   y el toast lo dice. Igual si `CurrentSummoner` no trae `summonerId`. Runas y spells siguen.
-- **Builds fijas (provisorias hasta P6-06).** `HandWrittenBuilds` trae un `Loadout` escrito a
-  mano para cinco campeones, uno por rol: Darius (TOP), Lee Sin (JUNGLE), Ahri (MIDDLE), Jinx
-  (BOTTOM) y Lux (UTILITY), con IDs verificados contra CommunityDragon `latest` (16.20). Sin
-  skill order. Cualquier otro campeón recibe un `Loadout` vacío y no se importa nada ni se
-  avisa. Se reemplazan por los datos del snapshot en la Fase 6.
+- **Loadout del snapshot (P6-06).** `ImportModel` recibe en su `init` un lector
+  `stats: @MainActor () -> any StatsProvider` (el de `SnapshotModel`, §9.3) y elige con
+  `LoadoutSelection.general(for:role:stats:)` (§18.6–§18.9) la build general (`opp_id = 0`)
+  de (campeón, rol). El rol es el `assignedPosition` del jugador local; en blind pick o sin rol
+  es el rol con más `roleGames` de ese campeón en el snapshot (empate: el primero en
+  `Role.allCases`), y si no tiene ninguno no se importa nada ni se avisa. Tampoco se avisa si
+  el campeón no tiene datos en ese rol (las tres partes vacías). Los bloques del item set
+  llegan titulados con el `BuildLayer` y la app los traduce (§13.4) antes de dárselos a
+  `LoadoutImporter`. El skill order no se importa (el cliente no tiene API).
+- **Muestra baja.** `GeneralLoadout.sampleLevels` da un `SampleLevel` por parte (para los
+  ítems, el bloque más débil); cada fila del toast cuya parte quedó por debajo de `reliable`
+  (§18.2) suma "· muestra baja", solo si la recomendación quedó en el cliente o espera
+  confirmación (aplicada, ya elegida o `needsConfirmation`), no si la parte se salteó o falló.
+- **Sin snapshot** (§20.3): no se importa nada, no se manda nada al cliente, y se avisa **una
+  vez por champ select** con el título "Sin estadísticas del parche: no se importó nada para
+  Ahri MID", sin filas. Las páginas fijas por campeón llegan con P8-08.
 - **Feedback.** El `ImportReport` se muestra como toast arriba de la ventana principal si
   está abierta y Mito está en primer plano (`NSApp.isActive`); se cierra solo a los 6 s y
   VoiceOver lo anuncia. Si no, va como notificación `.loadoutImported` (§22.5) con el mismo
@@ -1397,6 +1428,10 @@ Flash 4, Ignite 14, Teleport 12, Smite 11, Exhaust 3, Heal 7, Barrier 21, Cleans
 - El set nuevo va al final de la lista, con `uid` `mito-<championId>` y `title`
   `Mito · <texto>` (el texto lo arma quien llama). Pendiente: validar los ítems contra
   `items.json` del parche antes de enviar.
+- Bloques de la build general (P6-06), uno por `BuildLayer` elegido y en este orden: "Inicio"
+  (`start`), "Núcleo" (`core`), "Botas" (`boots`), "4.º ítem" (`fourth`), "5.º ítem" (`fifth`)
+  y "6.º ítem" (`sixth`), del catálogo `Import.xcstrings`. Sin WR ni explicación en el título
+  todavía; el ejemplo de abajo muestra hacia dónde va.
 
 Estructura:
 
@@ -2764,7 +2799,9 @@ En inicio de parche, el encabezado muestra "Datos 16.21 + 16.20" desde `meta.ble
 - **Rival de lane desconocido:** se muestran recomendaciones "seguras" (mejor promedio
   contra los rivales más probables del rol, ponderado por pick rate).
 - **Sin snapshot descargado:** modo degradado. Funcionan el auto-accept, las páginas fijas
-  por campeón y la capa personal.
+  por campeón y la capa personal. Implementado hoy (P6-06): `SnapshotModel.provider` no tiene
+  `meta`, la pestaña Campeones muestra su estado vacío y el importador no importa nada y lo
+  avisa una vez por champ select (§13.1). Las páginas fijas por campeón llegan con P8-08.
 
 ---
 

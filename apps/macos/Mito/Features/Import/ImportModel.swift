@@ -3,11 +3,13 @@ import Foundation
 import LCUKit
 import MitoAssets
 import MitoCore
+import MitoEngine
 import MitoImport
 import Observation
 
-/// Imports the local player's loadout once per champion and champ select (§13.1) and reports
-/// it as a toast in the main window or, when the window is not in front, a notification.
+/// Imports the local player's general loadout from the open snapshot once per champion and champ
+/// select (§13.1) and reports it as a toast in the main window or, when the window is not in
+/// front, a notification.
 @Observable
 final class ImportModel {
     /// The latest import while the window shows it, and any import waiting on a rune confirmation.
@@ -21,8 +23,10 @@ final class ImportModel {
     private let catalog: GameDataCatalog
     private let poster: any NotificationPosting
     private let appIsActive: @MainActor () -> Bool
+    private let readStats: @MainActor () -> any StatsProvider
 
     @ObservationIgnored private var imported: Set<ChampionID> = []
+    @ObservationIgnored private var toldMissingStats = false
     @ObservationIgnored private var pendingRunes: (page: RunePage, context: LoadoutImportContext)?
     @ObservationIgnored private var windows = 0
     @ObservationIgnored private var generation = 0
@@ -32,10 +36,12 @@ final class ImportModel {
         connection: any LCUConnection,
         catalog: GameDataCatalog,
         settings: @escaping @MainActor () -> ImportSettings = { ImportSettings() },
+        stats: @escaping @MainActor () -> any StatsProvider = { NoStats() },
         poster: any NotificationPosting = SystemNotificationPoster(),
         appIsActive: @escaping @MainActor () -> Bool = { NSApplication.shared.isActive }
     ) {
         self.connection = connection
+        readStats = stats
         self.catalog = catalog
         self.settings = settings
         self.poster = poster
@@ -118,9 +124,29 @@ final class ImportModel {
         guard let target = Self.target(in: session, onHover: settings.importOnHover),
             imported.insert(target.champion).inserted
         else { return }
-        let loadout = HandWrittenBuilds.loadout(for: target.champion)
-        guard loadout != HandWrittenBuilds.fallback else { return }
-        await importLoadout(loadout, for: target, session: session, settings: settings)
+        let stats = readStats()
+        guard stats.meta != nil else {
+            await tellMissingStats(for: target)
+            return
+        }
+        // Blind pick: the champion's most played role, or nothing without data.
+        guard let role = target.role ?? Self.mostPlayedRole(of: target.champion, in: stats)
+        else { return }
+        let general = LoadoutSelection.general(for: target.champion, role: role, stats: stats)
+        let loadout = Self.withBlockTitles(general.loadout)
+        guard loadout.runes != nil || loadout.spells != nil || loadout.itemSet != nil else {
+            return
+        }
+        await importLoadout(
+            loadout, lowSample: Self.lowSampleParts(general.sampleLevels),
+            for: (target.champion, role), session: session, settings: settings)
+    }
+
+    /// Ties go to the earlier role in `Role.allCases`.
+    static func mostPlayedRole(of champion: ChampionID, in stats: some StatsProvider) -> Role? {
+        let games = stats.roleGames(for: champion)
+        return Role.allCases.filter { games[$0, default: 0] > 0 }
+            .max { games[$0, default: 0] < games[$1, default: 0] }
     }
 
     /// The §12.2 mapping decides what is locked; the hover counts only with `importOnHover`.
@@ -137,15 +163,37 @@ final class ImportModel {
         return nil
     }
 
+    /// Once per champ select: every champion would say the same thing.
+    private func tellMissingStats(for target: (champion: ChampionID, role: Role?)) async {
+        guard !toldMissingStats else { return }
+        toldMissingStats = true
+        let generation = generation
+        let name = await championName(target.champion)
+        guard generation == self.generation else { return }
+        let outcome = ImportOutcome(
+            id: nextID(), champion: target.champion, title: Self.title(name, target.role),
+            report: ImportReport(
+                runes: .skipped(.notInLoadout), spells: .skipped(.notInLoadout),
+                items: .skipped(.notInLoadout)),
+            itemsUnavailable: nil, isMissingStats: true)
+        await present(outcome, runes: nil)
+    }
+
+    private func championName(_ champion: ChampionID) async -> String {
+        let data = try? await catalog.load()
+        return data?.champion(champion)?.name ?? String(champion.rawValue)
+    }
+
     private func importLoadout(
-        _ loadout: Loadout, for target: (champion: ChampionID, role: Role?),
-        session: ChampSelectSession, settings: ImportSettings
+        _ loadout: Loadout, lowSample: Set<ImportOutcome.Part>,
+        for target: (champion: ChampionID, role: Role), session: ChampSelectSession,
+        settings: ImportSettings
     ) async {
         let generation = generation
         async let gameflow = try? connection.send(.gameflowSession)
         async let summoner = try? connection.send(.currentSummoner)
-        async let gameData = try? catalog.load()
-        let (mapID, summonerId, data) = await (gameflow?.mapID, summoner?.summonerId, gameData)
+        async let name = championName(target.champion)
+        let (mapID, summonerId) = await (gameflow?.mapID, summoner?.summonerId)
 
         let map: ItemSetMap? = mapID == ItemSetMap.summonersRift.id ? .summonersRift : nil
         let itemsUnavailable: ImportOutcome.ItemsUnavailable? =
@@ -164,11 +212,8 @@ final class ImportModel {
             : Loadout(
                 runes: loadout.runes, spells: loadout.spells, itemSet: nil,
                 skillOrder: loadout.skillOrder)
-        let name =
-            data?.champion(target.champion)?.name ?? HandWrittenBuilds.name(of: target.champion)
-            ?? String(target.champion.rawValue)
         let context = LoadoutImportContext(
-            title: Self.title(name, target.role), champion: target.champion,
+            title: Self.title(await name, target.role), champion: target.champion,
             map: map ?? .summonersRift, session: session,
             // Unused without an item set, which is all a missing ID allows.
             summonerId: summonerId ?? 0)
@@ -177,7 +222,7 @@ final class ImportModel {
         guard generation == self.generation else { return }
         let outcome = ImportOutcome(
             id: nextID(), champion: target.champion, title: context.title, report: report,
-            itemsUnavailable: itemsUnavailable)
+            itemsUnavailable: itemsUnavailable, lowSample: lowSample)
         await present(outcome, runes: sent.runes.map { ($0, context) })
     }
 
@@ -205,6 +250,7 @@ final class ImportModel {
     private func reset() {
         generation += 1
         imported = []
+        toldMissingStats = false
         pendingRunes = nil
         outcome = nil
     }
@@ -226,13 +272,54 @@ final class ImportModel {
             }
         return "\(name) \(short)"
     }
+
+    /// The engine titles each block with its `BuildLayer` raw value; the client shows the title.
+    private static func withBlockTitles(_ loadout: Loadout) -> Loadout {
+        Loadout(
+            runes: loadout.runes, spells: loadout.spells,
+            itemSet: loadout.itemSet.map { set in
+                ItemSet(
+                    blocks: set.blocks.map { block in
+                        ItemSet.Block(
+                            title: BuildLayer(rawValue: block.title)?.blockTitle ?? block.title,
+                            items: block.items)
+                    })
+            },
+            skillOrder: loadout.skillOrder)
+    }
+
+    private static func lowSampleParts(_ levels: LoadoutSampleLevels) -> Set<ImportOutcome.Part> {
+        let parts: [(ImportOutcome.Part, SampleLevel?)] = [
+            (.runes, levels.runes), (.spells, levels.spells), (.items, levels.itemSet),
+        ]
+        return Set(parts.filter { $0.1?.isLowSample == true }.map(\.0))
+    }
+
+    private struct NoStats: StatsProvider {
+        func roleGames(for champion: ChampionID) -> [Role: Int] { [:] }
+    }
+}
+
+extension BuildLayer {
+    /// The item set block heading in the client (§13.4).
+    fileprivate var blockTitle: String {
+        switch self {
+        case .start: String(localized: "Inicio", table: "Import")
+        case .core: String(localized: "Núcleo", table: "Import")
+        case .boots: String(localized: "Botas", table: "Import")
+        case .fourth: String(localized: "4.º ítem", table: "Import")
+        case .fifth: String(localized: "5.º ítem", table: "Import")
+        case .sixth: String(localized: "6.º ítem", table: "Import")
+        }
+    }
 }
 
 extension ImportOutcome {
     fileprivate func renumbered(_ id: Int) -> ImportOutcome {
         ImportOutcome(
             id: id, champion: champion, title: title, report: report,
-            itemsUnavailable: itemsUnavailable)
+            itemsUnavailable: itemsUnavailable, lowSample: lowSample,
+            isMissingStats: isMissingStats)
     }
 }
 

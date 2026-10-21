@@ -10,6 +10,8 @@ struct ImportOutcome: Identifiable, Equatable {
         case failed
         /// Every part was skipped: nothing to tell the user.
         case unchanged
+        /// No snapshot is open, so nothing was imported (§20.3).
+        case noStats
     }
 
     /// Why the loadout's item set was left out before reaching the importer.
@@ -38,6 +40,8 @@ struct ImportOutcome: Identifiable, Equatable {
         let symbol: String
         let tone: Tone
         let status: LocalizedStringResource
+        /// The recommendation in effect is short of reliable (§17, §18.2).
+        var isLowSample = false
 
         var id: Part { part }
     }
@@ -48,8 +52,12 @@ struct ImportOutcome: Identifiable, Equatable {
     let title: String
     var report: ImportReport
     let itemsUnavailable: ItemsUnavailable?
+    /// Parts whose recommendation is "muestra baja".
+    var lowSample: Set<Part> = []
+    var isMissingStats = false
 
     var status: Status {
+        if isMissingStats { return .noStats }
         if case .needsConfirmation(let pageID, let pageName) = report.runes {
             return .needsConfirmation(pageID: pageID, pageName: pageName)
         }
@@ -74,17 +82,24 @@ struct ImportOutcome: Identifiable, Equatable {
             LocalizedStringResource("Confirmá las runas para \(title)", table: "Import")
         case .failed:
             LocalizedStringResource("No se pudo importar todo para \(title)", table: "Import")
+        case .noStats:
+            LocalizedStringResource(
+                "Sin estadísticas del parche: no se importó nada para \(title)", table: "Import")
         }
     }
 
     var rows: [Row] {
-        Part.allCases.map { part in
+        guard !isMissingStats else { return [] }
+        return Part.allCases.map { part in
             if part == .items, let itemsUnavailable {
                 return Row(
                     part: part, symbol: "minus.circle", tone: .neutral,
                     status: itemsUnavailable.status)
             }
-            return Self.row(part, result(of: part))
+            let result = result(of: part)
+            var row = Self.row(part, result)
+            row.isLowSample = lowSample.contains(part) && result.keepsTheRecommendation
+            return row
         }
     }
 
@@ -133,6 +148,16 @@ struct ImportOutcome: Identifiable, Equatable {
                 status: pageName.isEmpty
                     ? LocalizedStringResource("¿Reemplazar tu página actual?", table: "Import")
                     : LocalizedStringResource("¿Reemplazar «\(pageName)»?", table: "Import"))
+        }
+    }
+}
+
+extension StepResult {
+    /// The recommendation is what the client holds, or what the user is asked to accept.
+    fileprivate var keepsTheRecommendation: Bool {
+        switch self {
+        case .applied, .skipped(.alreadySelected), .needsConfirmation: true
+        case .skipped, .failed: false
         }
     }
 }

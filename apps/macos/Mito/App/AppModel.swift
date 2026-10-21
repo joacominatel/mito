@@ -11,6 +11,7 @@ final class AppModel {
 
     let connection: ConnectionModel
     let clientData: ClientDataModel
+    let snapshots: SnapshotModel
     let mainWindow = MainWindowModel()
     let gameflow: GameflowModel
     let champSelect: ChampSelectModel
@@ -33,18 +34,21 @@ final class AppModel {
         connection lcu: any LCUConnection,
         lifecycle: @escaping @Sendable () async -> Void = {},
         settings: SettingsModel = SettingsModel(),
+        snapshots: SnapshotModel = SnapshotModel(),
         defaults: UserDefaults = .standard
     ) {
         connection = ConnectionModel(connection: lcu)
         let clientData = ClientDataModel(connection: lcu)
         self.clientData = clientData
+        self.snapshots = snapshots
         gameflow = GameflowModel(connection: lcu, settings: { settings.value.game })
         champSelect = ChampSelectModel(
             connection: lcu, settings: { settings.value.champSelect },
             patch: { clientData.patch }, gameData: clientData.gameData)
         importing = ImportModel(
-            connection: lcu, catalog: clientData.catalog, settings: { settings.value.importing })
-        champions = ChampionsModel()
+            connection: lcu, catalog: clientData.catalog, settings: { settings.value.importing },
+            stats: { snapshots.provider })
+        champions = ChampionsModel(stats: { snapshots.provider }, gameData: clientData.gameData)
         analysis = AnalysisModel()
         profile = ProfileModel(connection: lcu)
         onboarding = OnboardingModel(connection: lcu)
@@ -91,6 +95,7 @@ final class AppModel {
             group.addTask { await self.lifecycle() }
             group.addTask { await self.connection.run() }
             group.addTask { await self.clientData.run() }
+            group.addTask { await self.snapshots.run() }
             group.addTask { await self.gameflow.run() }
             group.addTask { await self.champSelect.run() }
             group.addTask { await self.importing.run() }

@@ -87,8 +87,50 @@ enum ImportFixture {
         try Data(contentsOf: cases.appending(path: "\(folder)/\(name).json"))
     }
 
-    /// `ban-pick-in-progress` (local cell 2, MIDDLE, hovering Ahri) with its pick completed.
-    static func lockedSession(champion: Int = 103, mySpells: [Int] = [4, 14]) throws -> Data {
+    /// The recorded styles predate the snapshot fixture's pages: Inspiration (8300) and
+    /// Domination's Eyeball Collection (8138) are added so those pages pass the validator.
+    static func styles() throws -> Data {
+        var styles = try #require(
+            try JSONSerialization.jsonObject(with: data("styles", in: "runes")) as? [[String: Any]])
+        styles = try styles.map { style in
+            guard style["id"] as? Int == 8100 else { return style }
+            var domination = style
+            var slots = try #require(style["slots"] as? [[String: Any]])
+            var perks = try #require(slots[2]["perks"] as? [Int])
+            perks.append(8138)
+            slots[2]["perks"] = perks
+            domination["slots"] = slots
+            return domination
+        }
+        let rows: [(String, [Int])] = [
+            ("kKeyStone", [8351, 8360, 8369]), ("kMixedRegularSplashable", [8306, 8304, 8321]),
+            ("kMixedRegularSplashable", [8313, 8352, 8345]),
+            ("kMixedRegularSplashable", [8347, 8410, 8316]), ("kStatMod", [5008, 5005, 5007]),
+            ("kStatMod", [5008, 5010, 5001]), ("kStatMod", [5011, 5013, 5001]),
+        ]
+        styles.append([
+            "id": 8300, "name": "Inspiration",
+            "slots": rows.map { ["type": $0.0, "perks": $0.1] },
+        ])
+        return try JSONSerialization.data(withJSONObject: styles)
+    }
+
+    /// `GameDataCatalog`'s five files, naming the champions the snapshot tests import.
+    static let gameData: [String: Data] = [
+        LCUEndpoint.gameDataChampions.path: Data(
+            #"[{"id": 103, "alias": "Ahri", "name": "Ahri"}, {"id": 238, "alias": "Zed", "name": "Zed"}]"#
+                .utf8),
+        LCUEndpoint.gameDataItems.path: Data("[]".utf8),
+        LCUEndpoint.gameDataPerkStyles.path: Data(#"{"styles": []}"#.utf8),
+        LCUEndpoint.gameDataPerks.path: Data("[]".utf8),
+        LCUEndpoint.gameDataSummonerSpells.path: Data("[]".utf8),
+    ]
+
+    /// `ban-pick-in-progress` (local cell 2, hovering Ahri) with its pick completed; `position`
+    /// is the cell's `assignedPosition`, `""` in blind pick.
+    static func lockedSession(
+        champion: Int = 103, mySpells: [Int] = [4, 14], position: String = "middle"
+    ) throws -> Data {
         var session = try #require(
             try JSONSerialization.jsonObject(with: data("ban-pick-in-progress")) as? [String: Any])
         let team = try #require(session["myTeam"] as? [[String: Any]])
@@ -97,6 +139,7 @@ enum ImportFixture {
             var me = member
             me["spell1Id"] = mySpells[0]
             me["spell2Id"] = mySpells[1]
+            me["assignedPosition"] = position
             return me
         }
         let actions = try #require(session["actions"] as? [[[String: Any]]])

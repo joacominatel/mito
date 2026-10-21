@@ -3,27 +3,39 @@ import LCUKit
 import MitoAssets
 import MitoCore
 import MitoImport
+import MitoStore
 import Testing
 
 @testable import Mito
 
 private let ahri = ChampionID(rawValue: 103)
+private let zed = ChampionID(rawValue: 238)
 private let mySelectionPath = "/lol-champ-select/v1/session/my-selection"
 private let pagesPath = LCUEndpoint.perkPages.path
 private let itemSetsPath = LCUEndpoint.itemSets(summonerId: 1).path
 
-/// One model over a scripted connection that serves the recorded cases, and a recording poster.
+private nonisolated struct NoStats: StatsProvider {
+    func roleGames(for champion: ChampionID) -> [Role: Int] { [:] }
+}
+
+/// One model over the snapshot contract fixture and a scripted connection that serves the
+/// recorded cases, and a recording poster.
 private struct Harness {
     let connection = ImportTestConnection()
     let poster = RecordingPoster()
     let model: ImportModel
 
-    init(settings: ImportSettings = ImportSettings(), windowInFront: Bool = false) throws {
+    init(
+        settings: ImportSettings = ImportSettings(), windowInFront: Bool = false,
+        stats: (any StatsProvider)? = nil
+    ) throws {
+        let stats = try stats ?? SnapshotFixture.reader()
         model = ImportModel(
             connection: connection, catalog: GameDataCatalog(connection: connection),
-            settings: { settings }, poster: poster, appIsActive: { true })
+            settings: { settings }, stats: { stats }, poster: poster, appIsActive: { true })
         if windowInFront { model.windowAppeared() }
-        connection.serve(LCUEndpoint.perkStyles.path, try ImportFixture.data("styles", in: "runes"))
+        for (path, body) in ImportFixture.gameData { connection.serve(path, body) }
+        connection.serve(LCUEndpoint.perkStyles.path, try ImportFixture.styles())
         connection.serve(pagesPath, try ImportFixture.data("pages-without-mito-page", in: "runes"))
         connection.serve(
             LCUEndpoint.perkInventory.path,
@@ -52,6 +64,27 @@ private struct Harness {
 
     func runePageWrites() -> [ImportTestConnection.Request] {
         connection.requests.filter { $0.method != .get && $0.path.hasPrefix(pagesPath) }
+    }
+
+    var writes: [ImportTestConnection.Request] {
+        connection.requests.filter { $0.method != .get }
+    }
+
+    func sentSpells() throws -> [String: Int]? {
+        let body = try #require(connection.writes(.patch, mySelectionPath).first?.body)
+        return try JSONSerialization.jsonObject(with: body) as? [String: Int]
+    }
+
+    func sentRunePage() throws -> [String: Any]? {
+        let body = try #require(runePageWrites().first?.body)
+        return try JSONSerialization.jsonObject(with: body) as? [String: Any]
+    }
+
+    /// The Mito set in the item sets `PUT`.
+    func sentItemSet() throws -> [String: Any]? {
+        let put = try #require(connection.writes(.put, itemSetsPath).first?.body)
+        let sets = (try JSONSerialization.jsonObject(with: put) as? [String: Any])?["itemSets"]
+        return (sets as? [[String: Any]])?.last
     }
 }
 
@@ -83,9 +116,7 @@ struct ImportTriggerTests {
         harness.connection.emit(try ImportFixture.lockedSession(mySpells: [4, 12]))
         await harness.stop(run)
 
-        let body = try #require(harness.connection.writes(.patch, mySelectionPath).first?.body)
-        let sent = try JSONSerialization.jsonObject(with: body) as? [String: Int]
-        #expect(sent == ["spell1Id": 4, "spell2Id": 14])
+        #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
     }
 
     @Test func aHoverImportsNothingByDefault() async throws {
@@ -140,7 +171,7 @@ struct ImportTriggerTests {
         #expect(harness.runePageWrites().count == 2)
     }
 
-    @Test func aChampionWithoutABuildImportsNothing() async throws {
+    @Test func aChampionWithoutStatsImportsNothing() async throws {
         let harness = try Harness()
         let run = harness.start()
 
@@ -219,6 +250,156 @@ struct ImportContextTests {
     }
 }
 
+/// The general loadout comes from the snapshot through `LoadoutSelection` (§18.6–§18.9).
+@Suite(.timeLimit(.minutes(1)))
+struct ImportSnapshotTests {
+    @Test func ahriMiddleImportsTheEnginesChoiceWithTitledBlocks() async throws {
+        let harness = try Harness(windowInFront: true)
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession(mySpells: [4, 12]))
+        await harness.stop(run)
+
+        let page = try #require(try harness.sentRunePage())
+        #expect(page["primaryStyleId"] as? Int == 8200)
+        #expect(page["subStyleId"] as? Int == 8300)
+        #expect(
+            page["selectedPerkIds"] as? [Int]
+                == [8229, 8226, 8210, 8237, 8304, 8347, 5007, 5008, 5011])
+        #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 14])
+
+        let blocks = try #require(try harness.sentItemSet()?["blocks"] as? [[String: Any]])
+        #expect(
+            blocks.map { $0["type"] as? String }
+                == ["Inicio", "Núcleo", "Botas", "4.º ítem", "5.º ítem", "6.º ítem"])
+        let items = blocks.map { block in
+            (block["items"] as? [[String: Any]] ?? []).map {
+                "\($0["id"] as? String ?? "?")x\($0["count"] as? Int ?? 0)"
+            }
+        }
+        #expect(
+            items == [
+                ["1056x1", "2003x2"], ["6655x1", "3157x1", "3089x1"], ["3020x1"], ["3031x1"],
+                ["3033x1"], ["3046x1"],
+            ])
+        #expect(harness.model.outcome?.status == .imported)
+    }
+
+    @Test func marksTheLowSampleParts() async throws {
+        let harness = try Harness(windowInFront: true)
+        let run = harness.start()
+
+        harness.connection.emit(
+            try ImportFixture.lockedSession(champion: 238, mySpells: [4, 14], position: "jungle"))
+        await harness.stop(run)
+
+        // Zed JUNGLE: the page has 563 games (under rune_page's 800); spells and items are
+        // reliable.
+        let outcome = try #require(harness.model.outcome)
+        #expect(outcome.title == "Zed JGL")
+        #expect(outcome.status == .imported)
+        #expect(outcome.rows.map(\.isLowSample) == [true, false, false])
+    }
+
+    @Test func ahriMiddleMarksItsRunesAndItems() async throws {
+        let harness = try Harness(windowInFront: true)
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession(mySpells: [4, 12]))
+        await harness.stop(run)
+
+        let outcome = try #require(harness.model.outcome)
+        #expect(outcome.rows.map(\.isLowSample) == [true, false, true])
+    }
+
+    @Test func aSkippedPartCarriesNoLowSampleMark() async throws {
+        let harness = try Harness(
+            settings: ImportSettings(importRunes: false), windowInFront: true)
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession(mySpells: [4, 12]))
+        await harness.stop(run)
+
+        #expect(harness.model.outcome?.rows.first?.isLowSample == false)
+    }
+
+    @Test func blindPickUsesTheChampionsMostPlayedRole() async throws {
+        let harness = try Harness(windowInFront: true)
+        let run = harness.start()
+
+        // Zed: 2,249 JUNGLE games against 1,067 MIDDLE.
+        harness.connection.emit(
+            try ImportFixture.lockedSession(champion: 238, mySpells: [4, 14], position: ""))
+        await harness.stop(run)
+
+        #expect(harness.model.outcome?.title == "Zed JGL")
+        #expect(try harness.sentSpells() == ["spell1Id": 4, "spell2Id": 11])
+    }
+
+    @Test func blindPickWithoutRoleDataImportsNothing() async throws {
+        let harness = try Harness(windowInFront: true)
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession(champion: 1, position: ""))
+        await harness.stop(run)
+
+        #expect(harness.connection.requests.isEmpty)
+        #expect(harness.model.outcome == nil)
+    }
+
+    @Test func mostPlayedRoleBreaksTiesInRoleOrder() throws {
+        let stats = try SnapshotFixture.reader()
+
+        #expect(ImportModel.mostPlayedRole(of: zed, in: stats) == .jungle)
+        #expect(ImportModel.mostPlayedRole(of: ChampionID(rawValue: 1), in: stats) == nil)
+        #expect(ImportModel.mostPlayedRole(of: ahri, in: TiedStats()) == .top)
+    }
+
+    @Test func withoutASnapshotImportsNothingAndSaysSoOnce() async throws {
+        let harness = try Harness(settings: ImportSettings(importOnHover: true), stats: NoStats())
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.data("ban-pick-in-progress"))
+        harness.connection.emit(try ImportFixture.lockedSession(champion: 238))
+        await harness.stop(run)
+
+        #expect(harness.writes.isEmpty)
+        #expect(
+            harness.poster.posts.map(\.title) == [
+                "Sin estadísticas del parche: no se importó nada para Ahri MID"
+            ])
+    }
+
+    @Test func withoutASnapshotTheToastHasNoRows() async throws {
+        let harness = try Harness(windowInFront: true, stats: NoStats())
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        let outcome = try #require(harness.model.outcome)
+        #expect(outcome.status == .noStats)
+        #expect(outcome.rows.isEmpty)
+        #expect(harness.writes.isEmpty)
+    }
+
+    @Test func aNewChampSelectSaysItAgain() async throws {
+        let harness = try Harness(stats: NoStats())
+        let run = harness.start()
+
+        harness.connection.emit(try ImportFixture.lockedSession())
+        harness.connection.emitDelete()
+        harness.connection.emit(try ImportFixture.lockedSession())
+        await harness.stop(run)
+
+        #expect(harness.poster.posts.count == 2)
+    }
+
+    private struct TiedStats: StatsProvider {
+        func roleGames(for champion: ChampionID) -> [Role: Int] { [.middle: 5, .top: 5] }
+    }
+}
+
 @Suite(.timeLimit(.minutes(1)))
 struct ImportFeedbackTests {
     @Test func showsAToastWhileTheWindowIsInFront() async throws {
@@ -249,10 +430,12 @@ struct ImportFeedbackTests {
     @Test func postsANotificationWhileAnotherAppIsInFront() async throws {
         let connection = ImportTestConnection()
         let poster = RecordingPoster()
+        let stats = try SnapshotFixture.reader()
         let model = ImportModel(
             connection: connection, catalog: GameDataCatalog(connection: connection),
-            poster: poster, appIsActive: { false })
+            stats: { stats }, poster: poster, appIsActive: { false })
         model.windowAppeared()
+        for (path, body) in ImportFixture.gameData { connection.serve(path, body) }
 
         // No rune data served: the runes fail, which still reports.
         let run = Task { await model.run() }

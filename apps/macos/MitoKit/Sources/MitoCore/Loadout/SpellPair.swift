@@ -1,4 +1,4 @@
-/// Slot order as sent to the client (`spell1Id`, `spell2Id`), after the Flash position rule.
+/// Lower ID first from the engine; `SpellImporter` sets the client slots by the Flash rule.
 public struct SpellPair: Hashable, Sendable {
     public let first: SummonerSpellID
     public let second: SummonerSpellID

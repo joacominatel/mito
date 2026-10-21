@@ -10,13 +10,14 @@ struct MitoApp: App {
 
     init() {
         let client = LCUClient()
-        // MitoTests run inside this app; they must never reach a live League client or the
-        // real settings file.
+        // MitoTests run inside this app; they must never reach a live League client, the real
+        // settings file, or the snapshot cache and its download.
         let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         let app = AppModel(
             connection: client,
             lifecycle: { @Sendable in if !underTest { await client.run() } },
-            settings: SettingsModel(persistence: underTest ? nil : SettingsStore()))
+            settings: SettingsModel(persistence: underTest ? nil : SettingsStore()),
+            snapshots: SnapshotModel(origin: .live(underTest: underTest)))
         _app = State(initialValue: app)
         // The app lives in the menu bar with no window guaranteed open, so no view can own this.
         Task { await app.start() }
