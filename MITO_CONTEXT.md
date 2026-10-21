@@ -281,7 +281,7 @@ siempre del lado seguro. Estado conocido a octubre de 2026:
 | Estado | `@Observable` (Observation) | Sin Combine salvo donde haga falta |
 | Concurrencia | async/await, actors | `LCUClient` como actor |
 | Networking | URLSession (REST + `URLSessionWebSocketTask`) | Sin dependencias para la LCU |
-| Persistencia | GRDB.swift sobre SQLite | Lee el snapshot y guarda los datos personales |
+| Persistencia | GRDB.swift 7.11.1 sobre SQLite | Lee el snapshot y guarda los datos personales. Versión fija (`exact:`), solo en `MitoStore` (ADR 0008) |
 | Gráficos | Swift Charts | Winrate por duración, curvas de oro, etc. |
 | Imágenes | AsyncImage + caché en disco propia | Assets del cliente local o de Data Dragon |
 | Updates | Sparkle | La app no va al Mac App Store |
@@ -425,7 +425,7 @@ que esté siempre abierta para colgarle un `.task`.
 
 | Módulo | Responsabilidad | Depende de |
 |---|---|---|
-| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SummonerSpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet` | nada |
+| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SummonerSpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet`; el protocolo `StatsProvider` y sus filas (`SnapshotMeta`, `ChampionRoleStats`, candidatos de loadout, `Tier`) | nada |
 | `LCUKit` | Descubrir el cliente, credenciales, REST tipado, WebSocket WAMP, reconexión | MitoCore |
 | `MitoStore` | Abrir el snapshot (read-only), DB personal (read-write), settings, migraciones; `DataDragonClient`, el cliente HTTPS que solo habla con `ddragon.leagueoflegends.com` | MitoCore, GRDB |
 | `MitoEngine` | Scoring de picks, bans, runas, ítems y spells. **Funciones puras** | MitoCore |
@@ -436,6 +436,21 @@ que esté siempre abierta para colgarle un `.task`.
 `MitoEngine` no sabe nada de red ni de UI: recibe un `DraftContext` y un `StatsProvider`
 (protocolo) y devuelve recomendaciones con su explicación. Eso permite testearlo con datos
 fijos.
+
+`StatsProvider` (MitoCore) es síncrono, `Sendable` y no lanza errores: un dato que falta es
+`nil` o vacío. Devuelve **conteos crudos** del snapshot (§17), nunca tasas; las tasas, el
+suavizado y los tiers los calcula `MitoEngine` con `meta`. `MitoStore` lo implementa sobre el
+snapshot y los tests usan `InMemoryStatsProvider`. Superficie actual:
+
+- `roleGames(for:)`: `champion_roles`, para la inferencia de roles (§12.3).
+- `meta`: identidad (`patch`, `queue`, `bracket`), `matches`, `blend_patches`, `thresholds`,
+  `priors` y `tier_cutoffs`.
+- `championRoleStats(in:)`: `games` y `wins` de `champ_role_stats` por campeón en un rol, más
+  `champion_profiles.tl_games` como denominador de timeline.
+- `runePages`, `spellPairs`, `itemBuilds` y `skillOrders(for:role:)`: candidatos generales
+  (`opp_id = 0`) con `games` y `wins`. Las páginas ya vienen resueltas desde `rune_page_defs`.
+
+Matchups, sinergias, perfiles y ban stats se agregan en la Fase 7.
 
 ### 9.3 AppModel (orquestador)
 
