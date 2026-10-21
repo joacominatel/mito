@@ -425,7 +425,7 @@ que esté siempre abierta para colgarle un `.task`.
 
 | Módulo | Responsabilidad | Depende de |
 |---|---|---|
-| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SummonerSpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet`; el protocolo `StatsProvider` y sus filas (`SnapshotMeta`, `ChampionRoleStats`, candidatos de loadout, `Tier`) | nada |
+| `MitoCore` | Tipos de dominio: `ChampionID`, `Role`, `PerkID`, `ItemID`, `SummonerSpellID`, `Patch`, `Draft`, `RunePage`, `ItemSet`; el protocolo `StatsProvider` y sus filas (`SnapshotMeta`, `ChampionRoleStats`, candidatos de loadout, `Tier`); el protocolo `PersonalStore` y sus registros (`MyMatch`, `MyMatchParticipant`, `ChampionOverride`, `PoolEntry`, `ImportLogEntry`) | nada |
 | `LCUKit` | Descubrir el cliente, credenciales, REST tipado, WebSocket WAMP, reconexión | MitoCore |
 | `MitoStore` | Abrir el snapshot (read-only), DB personal (read-write), settings, migraciones; `DataDragonClient`, el cliente HTTPS que solo habla con `ddragon.leagueoflegends.com` | MitoCore, GRDB |
 | `MitoEngine` | Scoring de picks, bans, runas, ítems y spells. **Funciones puras** | MitoCore |
@@ -451,6 +451,20 @@ snapshot y los tests usan `InMemoryStatsProvider`. Superficie actual:
   (`opp_id = 0`) con `games` y `wins`. Las páginas ya vienen resueltas desde `rune_page_defs`.
 
 Matchups, sinergias, perfiles y ban stats se agregan en la Fase 7.
+
+`PersonalStore` (MitoCore) es el contrato de la base personal (§17, "Base personal"): async,
+`Sendable`, y lanza `PersonalStoreError` (`readFailed`, `writeFailed`). `MitoStore` lo
+implementa con GRDB y los tests usan `InMemoryPersonalStore` (MitoTestSupport). Superficie:
+
+- `record(_:)`: upsert de partidas por `game_id`, reemplazando sus participantes.
+- `matches(_:)`: partidas por campeón, rol y parche opcionales, de la más nueva a la más
+  vieja, con un `limit` de las más recientes (§19.2, §19.4).
+- `pool(for:)` y `setPool(_:for:)`: el pool de un rol; el orden de la lista es la prioridad.
+- `overrides()`, `save(_:)` y `deleteOverride(champion:role:)`: overrides por (campeón, rol)
+  (§21.5). Los modos guardan `adaptive`/`general`/`fixed`, `recommended`/`fixed` y
+  `recommended`/`fixed_set`/`skip`; un valor desconocido se conserva como `.unknown`.
+- `appendImportLog(_:)` e `importLog(limit:)`: el log de importación, lo más nuevo primero.
+- `deleteAll()`: "Borrar mis datos" (§25).
 
 ### 9.3 AppModel (orquestador)
 
@@ -2666,6 +2680,11 @@ decide el importador (§13.3).
 3. **Pool declarado:** el usuario marca sus campeones por rol (onboarding).
 4. **Opcional (v1.5):** historial profundo vía pipeline con la puuid del usuario (meses de
    partidas), consumido desde un endpoint propio o un archivo personal.
+
+El historial y el pool se guardan en la base personal (§17) a través de `PersonalStore`
+(§9.2). Cada partida guarda el campeón, el rol y el rival propios, y de los otros nueve solo
+campeón, lado y rol: ningún identificador de jugador, ni siquiera el de la cuenta del usuario
+(§5, §25). La posición de Flash sigue en los settings (§21.4).
 
 ### 19.2 Métricas por campeón y rol
 
