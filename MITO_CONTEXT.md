@@ -324,36 +324,48 @@ mito/
 │       ├── Config/              ← Base/Debug/Release/Version .xcconfig
 │       ├── Mito/                ← target de la app (UI, App, Scenes)
 │       │   ├── MitoApp.swift
+│       │   ├── App/             ← AppModel con un slot por feature (ADR 0007)
 │       │   ├── Scenes/
 │       │   │   ├── MenuBar/
 │       │   │   ├── MainWindow/
 │       │   │   └── Settings/
-│       │   ├── Features/
+│       │   ├── Features/        ← una carpeta y un .xcstrings por feature
 │       │   │   ├── Connection/
-│       │   │   ├── Lobby/
+│       │   │   ├── Gameflow/
 │       │   │   ├── ChampSelect/
+│       │   │   ├── Import/
+│       │   │   ├── Champions/
 │       │   │   ├── Analysis/
-│       │   │   ├── History/
-│       │   │   └── Onboarding/
+│       │   │   ├── Profile/
+│       │   │   ├── Onboarding/
+│       │   │   ├── Overrides/
+│       │   │   └── About/
 │       │   ├── DesignSystem/
 │       │   └── Resources/
-│       └── MitoKit/             ← un paquete local, un target por módulo (ADR 0002)
+│       ├── MitoTests/           ← tests de la app (Swift Testing, hosted)
+│       └── MitoKit/             ← un paquete local, un target por módulo (ADR 0002, 0007)
 │           ├── Package.swift
 │           ├── Sources/
 │           │   ├── MitoCore/    ← modelos de dominio, IDs, enums (sin dependencias)
 │           │   ├── LCUKit/      ← conexión, REST, WAMP, endpoints tipados
 │           │   ├── MitoStore/   ← GRDB, snapshot, datos personales, settings
 │           │   ├── MitoEngine/  ← recomendador (puro, testeable)
-│           │   └── MitoAssets/  ← carga y caché de íconos
-│           └── Tests/           ← <Módulo>Tests por cada módulo
-├── .github/workflows/          ← CI: tests de MitoKit en main/dev
+│           │   ├── MitoAssets/  ← carga y caché de íconos
+│           │   └── MitoImport/  ← importador de runas, spells e item sets
+│           └── Tests/
+│               ├── <Módulo>Tests/      ← uno por módulo
+│               ├── MitoTestSupport/    ← fakes y fixtures compartidos
+│               └── ArchitectureTests/  ← fitness functions (límites entre módulos)
+├── .github/workflows/          ← CI: tests de MitoKit y build + tests de la app en main/dev
 ├── fixtures/
+│   ├── lcu/                     ← grabaciones anonimizadas de la LCU, por escenario
 │   └── snapshot/                ← snapshot chico de ejemplo + schema, para el contract test
 ├── tools/
 │   ├── lcu-mock/                ← servidor fake de LCU (Python) para testear la app
 │   └── lcu-recorder/            ← graba eventos WAMP reales a fixtures
 └── docs/
     ├── adr/                     ← decisiones de arquitectura
+    ├── roadmap.md               ← backlog de unidades y su estado
     └── lcu-endpoints.md         ← endpoints descubiertos y probados
 ```
 
@@ -401,6 +413,7 @@ struct MitoApp: App {
 | `MitoStore` | Abrir el snapshot (read-only), DB personal (read-write), settings, migraciones | MitoCore, GRDB |
 | `MitoEngine` | Scoring de picks, bans, runas, ítems y spells. **Funciones puras** | MitoCore |
 | `MitoAssets` | Íconos de campeones, ítems y runas con caché | MitoCore, LCUKit |
+| `MitoImport` | Importador: aplica runas, spells e item sets en el cliente (`LoadoutImporter`) | MitoCore, LCUKit |
 | App target | Features, vistas, `AppModel`, orquestación | todos |
 
 `MitoEngine` no sabe nada de red ni de UI: recibe un `DraftContext` y un `StatsProvider`
@@ -943,6 +956,8 @@ Los `type` de los bloques se usan como texto explicativo dentro del cliente. Los
 ítem van como string. Validar contra `items.json` del parche y no incluir ítems retirados.
 
 ### 13.5 Importador
+
+El importador vive en el módulo `MitoImport` (depende de `MitoCore` y `LCUKit`).
 
 ```swift
 actor LoadoutImporter {
@@ -2284,7 +2299,8 @@ aceptada solo en builds de debug.
 ### 23.2 Recorder (`tools/lcu-recorder`)
 
 - Se conecta a la LCU real y graba todos los eventos WAMP y las respuestas de los GET
-  relevantes, con timestamps, a `fixtures/<escenario>/`.
+  relevantes, con timestamps, a `fixtures/lcu/<escenario>/` (formato en
+  `fixtures/lcu/README.md`).
 - Anonimiza puuids, nombres e IDs antes de guardar.
 - Se usa para crear escenarios del mock y para detectar cambios de la LCU entre parches.
 
@@ -2304,8 +2320,10 @@ aceptada solo en builds de debug.
   (generado por `mito-data`) con el código Swift y verifica `schema_version`, la identidad
   de `meta`, las claves JSON de `meta` y las consultas principales.
 - **Cómo se corren:** `swift test --package-path apps/macos/MitoKit --enable-code-coverage`.
-  La CI (GitHub Actions, runner `xcode-27`) corre solo esos tests, con warnings como errores,
-  en cada push a `main`/`dev` y en PRs hacia ellas. Antes de la beta se suma un test plan con
+  Los tests de la app (`MitoTests`) corren con
+  `xcodebuild -project apps/macos/Mito.xcodeproj -scheme Mito -destination 'platform=macOS' test`.
+  La CI (GitHub Actions, runner `xcode-27`) corre los dos: los de MitoKit con warnings como
+  errores y el build + tests de la app, en cada push a `main`/`dev` y en PRs hacia ellas. Antes de la beta se suma un test plan con
   configuraciones de Thread y Address Sanitizer.
 - **Agente de tests:** `.claude/agents/test-engineer.md` audita cada función contra su
   propósito, agrega solo los tests que faltan y mide coverage.
@@ -2358,100 +2376,77 @@ Backtest sobre partidas del parche que no se usaron para agregar (holdout del 10
 
 ## 26. Roadmap por fases
 
-Cada fase termina con algo usable.
+Cada fase termina con algo usable. Las unidades de cada fase, sus dependencias y su estado
+están en `docs/roadmap.md`, que es el backlog; acá queda el objetivo de cada fase. Desde la
+Fase 1 las unidades corren en paralelo según ADR 0006.
 
 ### Fase 0 — Setup (½ semana)
 
-- [ ] Repo, `README`, este documento y ADR 0005 (pipeline y snapshot).
-- [ ] Proyecto de Xcode con los paquetes locales vacíos (`MitoCore`, `LCUKit`, `MitoStore`,
-      `MitoEngine`, `MitoAssets`).
-- [ ] `mito-data`: proyecto Python con uv, CLI con typer vacío y CI básico (lint + tests).
-- [ ] Pedir la personal API key en el Riot Developer Portal.
+Repo, documentación, módulos de MitoKit con los contratos compartidos, shell de la app con un
+slot por feature, targets de tests y CI; `mito-data` inicial y la personal API key de Riot.
+
+**Hecho cuando:** `swift test` y `xcodebuild test` pasan en local y en la CI, y cada unidad de
+la Fase 1 tiene su carpeta y su lane sin tocar archivos compartidos.
 
 ### Fase 1 — Conexión (1 semana)
 
-- [ ] `LCUDiscovery` (proceso + lockfile) con tests.
-- [ ] `LCUClient` REST con TLS restringido a 127.0.0.1.
-- [ ] WebSocket WAMP con suscripción a temas y reconexión.
-- [ ] MenuBarExtra con el estado de conexión y el Riot ID.
-- [ ] `tools/lcu-recorder` grabando una sesión real.
+Descubrimiento del cliente, `LCUClient` REST con TLS restringido a 127.0.0.1, WebSocket WAMP
+con reconexión, estado de conexión en la barra de menú y `tools/lcu-recorder`.
 
 **Hecho cuando:** abrir el cliente y ver "Conectado como X" en menos de 3 s, y que se
 reconecte solo al reiniciar el cliente.
 
 ### Fase 2 — Gameflow + auto-accept (½ semana)
 
-- [ ] Máquina de estados de gameflow.
-- [ ] Auto-accept con delay y notificación.
-- [ ] `tools/lcu-mock` con el escenario de ready check.
+Máquina de estados de gameflow, auto-accept con delay y notificación, y `tools/lcu-mock` con
+el escenario de ready check.
 
 **Hecho cuando:** hacer cola, irse a otra app y que la partida se acepte sola con
 notificación.
 
 ### Fase 3 — Champ select en vivo (1 semana)
 
-- [ ] Decodificación tolerante de la sesión.
-- [ ] `DraftContext`, inferencia de roles rivales.
-- [ ] Vista de champ select (equipos, bans, timer) sin recomendaciones todavía.
+Decodificación tolerante de la sesión, `DraftContext`, inferencia de roles rivales y la vista
+de champ select (equipos, bans, timer) sin recomendaciones todavía.
 
 ### Fase 4 — Importador con datos fijos (1 semana)
 
-- [ ] Datos estáticos desde el cliente local (`/lol-game-data/...`).
-- [ ] Importador de runas, spells e item sets con un JSON de builds escrito a mano para 5
-      campeones.
-- [ ] Gestión de páginas (crear, editar, cupo) y de sets sin pisar los del usuario.
-- [ ] Settings de importación.
+Datos estáticos desde el cliente local, importador de runas, spells e item sets con builds
+escritos a mano para 5 campeones, gestión de páginas y sets sin pisar los del usuario, y
+settings de importación.
 
 **Hecho cuando:** lockear Ahri y que aparezcan runas, spells y el item set correctos.
 
 ### Fase 5 — Pipeline MVP (2 semanas, en paralelo con 3–4)
 
-- [ ] Cliente de la Riot API + rate limiter + cola de crawl en SQLite.
-- [ ] Seed de LAS alto elo. Crawl de un parche.
-- [ ] Normalización a parquet.
-- [ ] Agregaciones: `champ_role_stats`, `champion_roles`, `champ_ban_stats`, `rune_page_defs`,
-      `rune_pages`, `item_builds`, `spell_pairs`, `skill_orders`, más `champions` e
-      `item_classes`.
-- [ ] Export `.sqlite.xz` con regla de completitud y presupuesto de tamaño, manifest y
-      fixture en `fixtures/snapshot/`. Publicación en R2.
+En `mito-data`: cliente de la Riot API con rate limiter, crawl de un parche de LAS alto elo,
+normalización, agregaciones base y export `.sqlite.xz` publicado en R2. En este repo: el
+fixture en `fixtures/snapshot/`.
 
 ### Fase 6 — La app consume el snapshot (1 semana)
 
-- [ ] Descarga y verificación del snapshot (base y capa Diamante+). `MitoStore` read-only.
-- [ ] El importador usa datos reales (general, sin matchup).
-- [ ] Ficha de campeón y tier list por rol.
+Descarga y verificación del snapshot, `MitoStore` read-only, el importador con datos reales
+(general, sin matchup) y la ficha de campeón con la tier list por rol.
 
 ### Fase 7 — Motor de recomendaciones v1 (2 semanas)
 
-- [ ] Agregaciones de `matchup_stats`, `synergy_stats`, `vs_team_stats`,
-      `champion_profiles` (con power spikes), `champ_vs_profile`, `rune_page_vs_profile`,
-      `item_vs_profile` y `duration_curves`; `champion_flags` curados y `meta.profile_rules`.
-- [ ] Score de pick (meta + matchup + counter + sinergia + comp).
-- [ ] Score de ban.
-- [ ] Runas, ítems y spells adaptados al matchup y al perfil rival.
-- [ ] Razones explicables.
+Agregaciones de matchup, sinergia y perfiles en `mito-data`; score de pick y de ban; runas,
+ítems y spells adaptados al matchup y al perfil rival; razones explicables.
 
 ### Fase 8 — Capa personal (1 semana)
 
-- [ ] Sincronización del historial vía LCU a la base personal.
-- [ ] Onboarding: pool por rol, posición de Flash y capa Diamante+.
-- [ ] Score personal y slider Meta ↔ Comfort.
-- [ ] Pestaña "Mi historial" e insights.
+Historial vía LCU a la base personal, onboarding, score personal con el slider Meta ↔ Comfort,
+"Mi perfil" con insights y overrides por campeón (§21.5).
 
 ### Fase 9 — Análisis pre-partida completo (1–2 semanas)
 
-- [ ] Pestañas Matchup, Composición, Build y Mi historial con Swift Charts.
-- [ ] Tips curados es-AR: archivo de tips en `mito-data` y "Claves" en la pestaña Matchup.
-- [ ] Estados especiales (blind, Flex/Normal con el snapshot de 420, ARAM degradado, sin
-      snapshot, rival desconocido).
-- [ ] Pulido visual, animaciones y accesibilidad.
+Pestañas Matchup, Composición, Build y Mi historial con Swift Charts, tips curados es-AR,
+estados especiales (§20.3) y pulido visual y de accesibilidad.
 
 ### Fase 10 — Release beta (1 semana)
 
-- [ ] Firma, notarización, Sparkle y DMG.
-- [ ] Disclaimer legal y pantalla "Acerca de".
-- [ ] Registro de la app en el Riot Developer Portal (si se distribuye públicamente).
-- [ ] Beta con amigos.
+Firma, notarización, Sparkle y DMG; disclaimer legal y "Acerca de"; registro en el Riot
+Developer Portal si se distribuye; beta con amigos.
 
 ### Después (v1.5 / v2)
 
