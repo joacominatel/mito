@@ -39,9 +39,10 @@ concurrency cap.
 
 ## Critical path
 
-The critical path runs through `mito-data`:
+The critical path runs through `mito-data`. The contract fixture (MD-FX) unblocks P5-01 early;
+real snapshots (MD5) are needed before the beta.
 
-MD5 → P5-01 → P6-00 → P6-02 → P6-06 → MD7 → P7-00 → P7-03 → P7-04 → P7-07 → P9-01..04 →
+MD-FX → P5-01 → P6-00 → P6-02 → P6-06 → MD7 → P7-00 → P7-03 → P7-04 → P7-07 → P9-01..04 →
 P9-07 → P10
 
 ## Dependency graph
@@ -71,7 +72,7 @@ graph LR
   P405 --> P406
   P406 --> P407[P4-07]
   P302 --> P407
-  MD5((MD5)) --> P501[P5-01]
+  MDFX((MD-FX)) --> P501[P5-01]
   P501 --> P600[P6-00]
   P600 --> P602[P6-02] & P603[P6-03] & P800[P8-00]
   P603 --> P604[P6-04] & P605[P6-05]
