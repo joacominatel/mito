@@ -2739,11 +2739,14 @@ cola:
   guardan para que el test lo inspeccione.
 
 ```bash
-uv run lcu-mock --scenario ranked_mid_vs_zed --speed 4x
+uv run lcu-mock --scenario ../../fixtures/lcu/ready-check --speed 4x
 ```
 
-La app tiene un flag de debug para apuntar al mock: lockfile alternativo y CA del mock
-aceptada solo en builds de debug.
+`--scenario` es un directorio en formato v0 (`fixtures/lcu/README.md`), grabado o sintético.
+La reproducción arranca con la primera suscripción WAMP. La app lo encuentra con el flag de
+Debug `-MitoLCULockfilePath` (P2-06); no hace falta aceptar otra CA porque la app ya acepta el
+certificado solo para `127.0.0.1` (§10.3). El certificado del mock se genera en cada arranque
+y nunca se guarda.
 
 ### 23.2 Recorder (`tools/lcu-recorder`)
 

@@ -111,7 +111,8 @@ CI (`.github/workflows/tests.yml`) runs two jobs on pushes to `main`/`dev` and p
 targeting them: `mitokit` runs the MitoKit tests with warnings as errors, and `app` builds the
 app and runs `MitoTests` with `xcodebuild test`, uploading the result bundle on failure.
 
-Pending until the `tools/` projects exist: `uv run pytest`, `uv run ruff check` per tool.
+For each Python tool (`tools/lcu-recorder`, `tools/lcu-mock`), from its folder: `uv run pytest`,
+`uv run ruff check`, `uv run ruff format --check`. Not in CI yet.
 
 Not run locally: a real League client. Integration runs against `tools/lcu-mock`.
 
