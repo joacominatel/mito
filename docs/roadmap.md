@@ -183,7 +183,7 @@ Done criterion verified by the CEO against the real client on 2026-10-21.
 | P4-00 | CONTRACT: static game-data types | core (serial) | `MitoKit/Sources/MitoCore/GameData/**` | §16.2 | P0-C | merged |
 | P4-01 | Static data catalog from `/lol-game-data` | assets (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoAssets/GameData/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+GameData.swift`, `fixtures/lcu/cases/assets/**` | §16.1, §16.3, lcu-endpoints: Assets | P4-00 | merged |
 | P4-02 | Icon loading and disk cache | assets | `MitoKit/Sources/MitoAssets/Icons/**` | — | P0-C | merged |
-| P4-03 | Rune page importer | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/Runes/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `fixtures/lcu/cases/runes/**` | §13.2, lcu-endpoints: Runes | P4-00 | in progress |
+| P4-03 | Rune page importer | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/Runes/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+Runes.swift`, `fixtures/lcu/cases/runes/**` | §13.2, lcu-endpoints: Runes | P4-00 | merged |
 | P4-04 | Item set importer that keeps the user's sets | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/ItemSets/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ItemSets.swift`, `fixtures/lcu/cases/item-sets/**` | §13.4, lcu-endpoints: Item sets | P4-00 | merged |
 | P4-05 | Summoner spell importer | import (+ lcu endpoint, authorized) | `MitoKit/Sources/MitoImport/Spells/**`, `MitoKit/Sources/LCUKit/Endpoints/LCUEndpoint+ChampSelect.swift` | §13.3 | P0-C | merged |
 | P4-06 | `LoadoutImporter` and `ImportReport` | import | `MitoKit/Sources/MitoImport/*.swift` | §13.5 | P4-03, P4-04, P4-05 | todo |

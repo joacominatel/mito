@@ -1,0 +1,331 @@
+[
+  {
+    "id": 8100,
+    "name": "Domination",
+    "tooltip": "Burst damage and target access ",
+    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/7200_Domination.png",
+    "isAdvanced": false,
+    "allowedSubStyles": [
+      8300,
+      8400,
+      8200,
+      8000
+    ],
+    "subStyleBonus": [
+      {
+        "styleId": 8300,
+        "perkId": 8109
+      },
+      {
+        "styleId": 8400,
+        "perkId": 8114
+      },
+      {
+        "styleId": 8200,
+        "perkId": 8115
+      },
+      {
+        "styleId": 8000,
+        "perkId": 8127
+      }
+    ],
+    "slots": [
+      {
+        "type": "kKeyStone",
+        "slotLabel": "",
+        "perks": [
+          8112,
+          8128,
+          9923
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Malice",
+        "perks": [
+          8126,
+          8139,
+          8143
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Tracking",
+        "perks": [
+          8137,
+          8140,
+          8141
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Hunter",
+        "perks": [
+          8135,
+          8105,
+          8106
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Offense",
+        "perks": [
+          5008,
+          5005,
+          5007
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Flex",
+        "perks": [
+          5008,
+          5010,
+          5001
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Defense",
+        "perks": [
+          5011,
+          5013,
+          5001
+        ]
+      }
+    ],
+    "defaultPageName": "Domination: The Executioner",
+    "defaultSubStyle": 8000,
+    "defaultPerks": [
+      8112,
+      8139,
+      8140,
+      8135,
+      9111,
+      8014,
+      5005,
+      5008,
+      5001
+    ]
+  },
+  {
+    "id": 8000,
+    "name": "Precision",
+    "tooltip": "Improved attacks and sustained damage",
+    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/7201_Precision.png",
+    "isAdvanced": false,
+    "allowedSubStyles": [
+      8200,
+      8400,
+      8300,
+      8100
+    ],
+    "subStyleBonus": [
+      {
+        "styleId": 8200,
+        "perkId": 8004
+      },
+      {
+        "styleId": 8400,
+        "perkId": 8006
+      },
+      {
+        "styleId": 8300,
+        "perkId": 8007
+      },
+      {
+        "styleId": 8100,
+        "perkId": 8016
+      }
+    ],
+    "slots": [
+      {
+        "type": "kKeyStone",
+        "slotLabel": "",
+        "perks": [
+          8005,
+          8008,
+          8021,
+          8010
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Heroism",
+        "perks": [
+          9101,
+          9111,
+          8009
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Legend",
+        "perks": [
+          9104,
+          9105,
+          9103
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Combat",
+        "perks": [
+          8014,
+          8017,
+          8299
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Offense",
+        "perks": [
+          5008,
+          5005,
+          5007
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Flex",
+        "perks": [
+          5008,
+          5010,
+          5001
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Defense",
+        "perks": [
+          5011,
+          5013,
+          5001
+        ]
+      }
+    ],
+    "defaultPageName": "Precision: The Perfect",
+    "defaultSubStyle": 8200,
+    "defaultPerks": [
+      8005,
+      9111,
+      9104,
+      8014,
+      8233,
+      8236,
+      5005,
+      5008,
+      5001
+    ]
+  },
+  {
+    "id": 8200,
+    "name": "Sorcery",
+    "tooltip": "Empowered abilities and resource manipulation",
+    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/7202_Sorcery.png",
+    "isAdvanced": false,
+    "allowedSubStyles": [
+      8000,
+      8300,
+      8400,
+      8100
+    ],
+    "subStyleBonus": [
+      {
+        "styleId": 8000,
+        "perkId": 8205
+      },
+      {
+        "styleId": 8300,
+        "perkId": 8207
+      },
+      {
+        "styleId": 8400,
+        "perkId": 8208
+      },
+      {
+        "styleId": 8100,
+        "perkId": 8220
+      }
+    ],
+    "slots": [
+      {
+        "type": "kKeyStone",
+        "slotLabel": "",
+        "perks": [
+          8214,
+          8229,
+          8230,
+          8992
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Artifact",
+        "perks": [
+          8224,
+          8226,
+          8275
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Excellence",
+        "perks": [
+          8210,
+          8234,
+          8233
+        ]
+      },
+      {
+        "type": "kMixedRegularSplashable",
+        "slotLabel": "Power",
+        "perks": [
+          8237,
+          8232,
+          8236
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Offense",
+        "perks": [
+          5008,
+          5005,
+          5007
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Flex",
+        "perks": [
+          5008,
+          5010,
+          5001
+        ]
+      },
+      {
+        "type": "kStatMod",
+        "slotLabel": "Defense",
+        "perks": [
+          5011,
+          5013,
+          5001
+        ]
+      }
+    ],
+    "defaultPageName": "Sorcery: The Calamity",
+    "defaultSubStyle": 8100,
+    "defaultPerks": [
+      8229,
+      8226,
+      8210,
+      8236,
+      8140,
+      8105,
+      5008,
+      5008,
+      5001
+    ]
+  }
+]

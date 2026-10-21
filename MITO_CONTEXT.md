@@ -1163,36 +1163,69 @@ Casos borde, todos deterministas:
 
 ### 13.2 Runas
 
-**Estrategia de páginas:**
+Lo hace `RuneImporter` en `MitoImport`:
+`apply(_ page: RunePage, title: String, settings: ImportSettings, confirmedReplacement: Int?)`.
+El nombre de la página es `Mito · <title>`. Con `importRunes` apagado no lee ni envía nada.
+
+**Estrategia de páginas** (`runePageTarget = .mitoPage`, el default):
 
 1. Mito administra **una** página propia, identificada por prefijo en el nombre:
-   `Mito · Ahri MID vs Zed`.
-2. Si ya existe una página "Mito ·", se **edita** (`PUT`).
-3. Si no existe y hay cupo (`/lol-perks/v1/inventory`), se **crea** (`POST`).
-4. Si no hay cupo:
-   - Default: reemplazar la página **activa** solo si es una página Mito; si no, pedir
-     confirmación en la UI.
-   - Opción en Settings: "Usar siempre la página N" (el usuario reserva una).
-5. Se marca como página actual (`"current": true`).
+   `Mito · Ahri MID vs Zed`. Solo cuentan las páginas con `isEditable: true`; si hay más de
+   una, se usa la actual y si no, la primera.
+2. Si ya existe una página "Mito ·", se **edita** (`PUT /lol-perks/v1/pages/{id}`), haya cupo
+   o no.
+3. Si no existe y hay cupo, se **crea** (`POST /lol-perks/v1/pages`). Hay cupo si las páginas
+   propias (`isDeletable` distinto de `false`) son menos que `ownedPageCount` de
+   `/lol-perks/v1/inventory`; sin `ownedPageCount` se asume que no hay cupo.
+4. Si no hay cupo, la página activa nunca es de Mito (el paso 2 ya la habría editado), así
+   que no se envía nada y se pide confirmación en la UI con el id y el nombre de la página
+   activa. Si el usuario acepta, se vuelve a llamar con `confirmedReplacement` = ese id y se
+   reemplaza, siempre que siga siendo la activa. Si la activa no es editable (páginas por
+   defecto del cliente), no hay dónde escribir.
+5. Se marca como página actual (`"current": true` en el mismo `POST` o `PUT`).
 
-Payload:
+Opciones de Settings (§21.4): con `.reservedPage` se edita siempre la página
+`reservedRunePageID` sin pedir confirmación (si no está configurada, no existe o no es
+editable, no se envía nada); con `.currentPage` se reemplaza la página activa sin pedir
+confirmación, si es editable. Nunca se borra una página.
+
+Payload (igual para `POST` y `PUT`):
 
 ```json
 {
   "name": "Mito · Ahri MID vs Zed",
   "primaryStyleId": 8100,
   "subStyleId": 8200,
-  "selectedPerkIds": [8112, 8139, 8138, 8135, 8226, 8210, 5008, 5008, 5001],
+  "selectedPerkIds": [8112, 8139, 8140, 8135, 8226, 8210, 5008, 5008, 5001],
   "current": true
 }
 ```
 
 `selectedPerkIds` va en orden: 4 de la primaria (keystone + 3), 2 de la secundaria y 3
-shards (ofensa, flex, defensa). **Validar siempre** contra `/lol-perks/v1/styles` antes de
-enviar. Una página inválida devuelve error y deja al usuario sin runas.
+shards (ofensa, flex, defensa). **Validar siempre** antes de enviar, contra
+`/lol-perks/v1/styles` (`LCUEndpoint.perkStyles`, decodificado a `PerkStyle`: `kKeyStone` →
+`keystone`, `kMixedRegularSplashable` → `regular`, `kStatMod` → `statMod`). Una página
+inválida no se envía (en el cliente deja al usuario sin runas). Reglas, por tipo de fila y
+nunca por su posición en `slots`:
+
+- Exactamente 9 perks; primaria y secundaria distintas y presentes en los estilos del cliente.
+- La primaria tiene que tener 1 fila keystone, 3 `regular` y 3 `statMod`; la secundaria, al
+  menos 2 `regular`.
+- Perk 1 de la fila keystone de la primaria; perks 2–4 de sus filas `regular`, en orden.
+- Perks 5–6 de filas `regular` **distintas** de la secundaria (en cualquier orden; nunca su
+  keystone).
+- Shards 7–9 de las filas `statMod` de la primaria, en orden. Se valida fila por fila porque
+  un mismo shard aparece en más de una (§16.2).
+
+Resultado (`RuneImportResult`, sin reintentos): `.created`, `.updated(pageID:)` (página Mito
+o reservada), `.replacedCurrentPage(pageID:)` (con `.currentPage` o tras confirmar),
+`.needsConfirmation(pageID:pageName:)`, `.noEditablePage`, `.invalid(RunePageValidationError)`,
+`.disabled` o `.failed(LCUError)`.
 
 Verificar al implementar si los shards cambiaron de estructura (Riot los modificó varias
-veces). La fuente de verdad es `perkstyles.json` del parche actual.
+veces). La fuente de verdad es `perkstyles.json` del parche actual. Sin verificar contra un
+cliente real todavía: que el `PUT` con `"current": true` active la página y el límite de
+largo del nombre.
 
 ### 13.3 Summoner spells
 
